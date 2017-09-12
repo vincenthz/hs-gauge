@@ -12,9 +12,7 @@
 -- Input and output actions.
 
 module Gauge.IO
-    (
-      headerRoot
-    , critVersion
+    ( critVersion
     , ReportFileContents
     ) where
 
@@ -22,10 +20,6 @@ import Gauge.Types (Report(..))
 import Data.List (intercalate)
 import Data.Version (Version(..))
 import Paths_gauge (version)
-
--- | The magic string we expect to start off the header.
-headerRoot :: String
-headerRoot = "criterio"
 
 -- | The current version of gauge, encoded into a string that is
 -- used in files.

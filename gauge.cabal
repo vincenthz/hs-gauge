@@ -104,23 +104,6 @@ library
   else
     ghc-options: -O2
 
--- Executable gauge-report
---   Default-Language:     Haskell2010
---   GHC-Options:          -Wall -rtsopts
---   Main-Is:              Report.hs
---   Other-Modules:        Options
---                         Paths_gauge
---   Hs-Source-Dirs:       app
--- 
---   Build-Depends:
---     base,
---     gauge,
---     optparse-applicative >= 0.13
--- 
---   if impl(ghc < 7.6)
---     build-depends:
---       ghc-prim
-
 test-suite sanity
   type:                 exitcode-stdio-1.0
   hs-source-dirs:       tests
