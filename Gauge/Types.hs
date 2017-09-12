@@ -77,7 +77,6 @@ import Data.Monoid
 
 import Control.DeepSeq (NFData(rnf))
 import Control.Exception (evaluate)
-import Data.Binary (Binary(..), putWord8, getWord8)
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
 import Data.Map (Map, fromList)
@@ -286,15 +285,6 @@ fromDouble d | isInfinite d || isNaN d = Nothing
 toDouble :: Maybe Double -> Double
 toDouble Nothing  = -1/0
 toDouble (Just d) = d
-
-instance Binary Measured where
-    put Measured{..} = do
-      put measTime; put measCpuTime; put measCycles; put measIters
-      put measAllocated; put measNumGcs; put measBytesCopied
-      put measMutatorWallSeconds; put measMutatorCpuSeconds
-      put measGcWallSeconds; put measGcCpuSeconds
-    get = Measured <$> get <*> get <*> get <*> get
-                   <*> get <*> get <*> get <*> get <*> get <*> get <*> get
 
 -- | Apply an argument to a function, and evaluate the result to weak
 -- head normal form (WHNF).
@@ -594,9 +584,6 @@ data Outliers = Outliers {
     -- ^ More than 3 times the IQR above the third quartile.
     } deriving (Eq, Read, Show, Typeable, Data, Generic)
 
-instance Binary Outliers where
-    put (Outliers v w x y z) = put v >> put w >> put x >> put y >> put z
-    get = Outliers <$> get <*> get <*> get <*> get <*> get
 instance NFData Outliers
 
 -- | A description of the extent to which outliers in the sample data
@@ -608,19 +595,6 @@ data OutlierEffect = Unaffected -- ^ Less than 1% effect.
                                 -- are useless).
                      deriving (Eq, Ord, Read, Show, Typeable, Data, Generic)
 
-instance Binary OutlierEffect where
-    put Unaffected = putWord8 0
-    put Slight     = putWord8 1
-    put Moderate   = putWord8 2
-    put Severe     = putWord8 3
-    get = do
-        i <- getWord8
-        case i of
-            0 -> return Unaffected
-            1 -> return Slight
-            2 -> return Moderate
-            3 -> return Severe
-            _ -> fail $ "get for OutlierEffect: unexpected " ++ show i
 instance NFData OutlierEffect
 
 instance Monoid Outliers where
@@ -643,10 +617,6 @@ data OutlierVariance = OutlierVariance {
     -- ^ Quantitative description of effect (a fraction between 0 and 1).
     } deriving (Eq, Read, Show, Typeable, Data, Generic)
 
-instance Binary OutlierVariance where
-    put (OutlierVariance x y z) = put x >> put y >> put z
-    get = OutlierVariance <$> get <*> get <*> get
-
 instance NFData OutlierVariance where
     rnf OutlierVariance{..} = rnf ovEffect `seq` rnf ovDesc `seq` rnf ovFraction
 
@@ -659,11 +629,6 @@ data Regression = Regression {
   , regRSquare    :: St.Estimate St.ConfInt Double
     -- ^ R&#0178; goodness-of-fit estimate.
   } deriving (Eq, Read, Show, Typeable, Generic)
-
-instance Binary Regression where
-    put Regression{..} =
-      put regResponder >> put regCoeffs >> put regRSquare
-    get = Regression <$> get <*> get <*> get
 
 instance NFData Regression where
     rnf Regression{..} =
@@ -685,11 +650,6 @@ data SampleAnalysis = SampleAnalysis {
       -- variance.
     } deriving (Eq, Read, Show, Typeable, Generic)
 
-instance Binary SampleAnalysis where
-    put SampleAnalysis{..} = do
-      put anRegress; put anOverhead; put anMean; put anStdDev; put anOutlierVar
-    get = SampleAnalysis <$> get <*> get <*> get <*> get <*> get
-
 instance NFData SampleAnalysis where
     rnf SampleAnalysis{..} =
         rnf anRegress `seq` rnf anOverhead `seq` rnf anMean `seq`
@@ -701,10 +661,6 @@ data KDE = KDE {
     , kdeValues :: U.Vector Double
     , kdePDF    :: U.Vector Double
     } deriving (Eq, Read, Show, Typeable, Data, Generic)
-
-instance Binary KDE where
-    put KDE{..} = put kdeType >> put kdeValues >> put kdePDF
-    get = KDE <$> get <*> get <*> get
 
 instance NFData KDE where
     rnf KDE{..} = rnf kdeType `seq` rnf kdeValues `seq` rnf kdePDF
@@ -729,14 +685,6 @@ data Report = Report {
       -- ^ Data for a KDE of times.
     } deriving (Eq, Read, Show, Typeable, Generic)
 
-instance Binary Report where
-    put Report{..} =
-      put reportNumber >> put reportName >> put reportKeys >>
-      put reportMeasured >> put reportAnalysis >> put reportOutliers >>
-      put reportKDEs
-
-    get = Report <$> get <*> get <*> get <*> get <*> get <*> get <*> get
-
 instance NFData Report where
     rnf Report{..} =
       rnf reportNumber `seq` rnf reportName `seq` rnf reportKeys `seq`
@@ -746,17 +694,6 @@ instance NFData Report where
 data DataRecord = Measurement Int String (V.Vector Measured)
                 | Analysed Report
                 deriving (Eq, Read, Show, Typeable, Generic)
-
-instance Binary DataRecord where
-  put (Measurement i n v) = putWord8 0 >> put i >> put n >> put v
-  put (Analysed r)        = putWord8 1 >> put r
-
-  get = do
-    w <- getWord8
-    case w of
-      0 -> Measurement <$> get <*> get <*> get
-      1 -> Analysed    <$> get
-      _ -> error ("bad tag " ++ show w)
 
 instance NFData DataRecord where
   rnf (Measurement i n v) = rnf i `seq` rnf n `seq` rnf v
