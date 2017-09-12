@@ -1,4 +1,3 @@
-{-# LANGUAGE Trustworthy #-}
 -- |
 -- Module      : Gauge.IO.Printf
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
@@ -17,19 +16,15 @@ module Gauge.IO.Printf
     , note
     , printError
     , prolix
-    , writeCsv
     ) where
 
 import Control.Monad (when)
-import Control.Monad.Reader (ask, asks)
+import Control.Monad.Reader (ask)
 import Control.Monad.Trans (liftIO)
 import Gauge.Monad (Criterion)
-import Gauge.Types (Config(csvFile, verbosity), Verbosity(..))
-import Data.Foldable (forM_)
+import Gauge.Types (Config(verbosity), Verbosity(..))
 import System.IO (Handle, hFlush, stderr, stdout)
 import Text.Printf (PrintfArg)
-import qualified Data.ByteString.Lazy as B
-import qualified Data.Csv as Csv
 import qualified Text.Printf (HPrintfType, hPrintf)
 
 -- First item is the action to print now, given all the arguments
@@ -93,10 +88,3 @@ prolix = chPrintf ((== Verbose) . verbosity) stdout
 -- | Print an error message.
 printError :: (CritHPrintfType r) => String -> r
 printError = chPrintf (const True) stderr
-
--- | Write a record to a CSV file.
-writeCsv :: Csv.ToRecord a => a -> Criterion ()
-writeCsv val = do
-  csv <- asks csvFile
-  forM_ csv $ \fn ->
-    liftIO . B.appendFile fn . Csv.encode $ [val]

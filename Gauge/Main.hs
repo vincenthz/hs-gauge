@@ -55,7 +55,7 @@ module Gauge.Main
 
 import Control.Monad (unless)
 import Control.Monad.Trans (liftIO)
-import Gauge.IO.Printf (printError, writeCsv)
+import Gauge.IO.Printf (printError)
 import Gauge.Internal (runAndAnalyse, runFixedIters)
 import Gauge.Main.Options (MatchType(..), Mode(..), defaultConfig, describe,
                                versionInfo)
@@ -161,8 +161,8 @@ runMode wat bs =
     Run cfg matchType benches -> do
       shouldRun <- selectBenches matchType benches bsgroup
       withConfig cfg $ do
-        writeCsv ("Name","Mean","MeanLB","MeanUB","Stddev","StddevLB",
-                  "StddevUB")
+        --writeCsv ("Name","Mean","MeanLB","MeanUB","Stddev","StddevLB",
+        --          "StddevUB")
         liftIO initializeTime
         runAndAnalyse shouldRun bsgroup
   where bsgroup = BenchGroup "" bs

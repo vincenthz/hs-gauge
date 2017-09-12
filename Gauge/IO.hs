@@ -35,7 +35,7 @@ import Gauge.Types (Report(..))
 import Data.List (intercalate)
 import Data.Version (Version(..))
 import Paths_gauge (version)
-import System.IO (Handle, IOMode(..), withFile, hPutStrLn, stderr)
+import System.IO (Handle, IOMode(..), withFile)
 import qualified Data.ByteString.Lazy as L
 
 -- | The header identifies a gauge data file. This contains

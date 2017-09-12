@@ -20,25 +20,20 @@ module Gauge.Internal
 
 import Control.DeepSeq (rnf)
 import Control.Exception (evaluate)
-import Control.Monad (foldM, forM_, void, when, unless)
+import Control.Monad (foldM, forM_, void, when)
 import Control.Monad.Catch (MonadMask, finally)
-import Control.Monad.Reader (ask, asks)
+import Control.Monad.Reader (ask)
 import Control.Monad.Trans (MonadIO, liftIO)
 import Control.Monad.Trans.Except
-import qualified Data.Binary as Binary
 import Data.Int (Int64)
-import qualified Data.ByteString.Lazy.Char8 as L
 import Gauge.Analysis (analyseSample, noteOutliers)
-import Gauge.IO (header, headerRoot, critVersion)
-import Gauge.IO.Printf (note, printError, prolix, writeCsv)
+import Gauge.IO.Printf (note, printError, prolix)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, secs)
 import Gauge.Monad (Criterion)
 import Gauge.Types hiding (measure)
 import qualified Data.Map as Map
 import qualified Data.Vector as V
 import Statistics.Types (Estimate(..),ConfInt(..),confidenceInterval,cl95,confidenceLevel)
-import System.Directory (getTemporaryDirectory)
-import System.IO (IOMode(..), hClose, openTempFile, openFile, hPutStr, openBinaryFile)
 import Text.Printf (printf)
 
 -- | Run a single benchmark.
@@ -78,11 +73,11 @@ analyseOne i desc meas = do
         _ <- bs r2 (regResponder ++ ":") regRSquare
         forM_ (Map.toList regCoeffs) $ \(prd,val) ->
           bs (printf "%.3g") ("  " ++ prd) val
-      writeCsv
-        (desc,
-         estPoint anMean,   fst $ confidenceInterval anMean,   snd $ confidenceInterval anMean,
-         estPoint anStdDev, fst $ confidenceInterval anStdDev, snd $ confidenceInterval anStdDev
-        )
+      --writeCsv
+      --  (desc,
+      --   estPoint anMean,   fst $ confidenceInterval anMean,   snd $ confidenceInterval anMean,
+      --   estPoint anStdDev, fst $ confidenceInterval anStdDev, snd $ confidenceInterval anStdDev
+      -- )
       when (verbosity == Verbose || (ovEffect > Slight && verbosity > Quiet)) $ do
         when (verbosity == Verbose) $ noteOutliers reportOutliers
         _ <- note "variance introduced by outliers: %d%% (%s)\n"
@@ -122,7 +117,7 @@ runAndAnalyse select bs = do
 
   for select bs $ \idx desc bm -> do
     _ <- note "benchmarking %s\n" desc
-    Analysed rpt <- runAndAnalyseOne idx desc bm
+    Analysed _ <- runAndAnalyseOne idx desc bm
     return ()
     --unless (idx == 0) $
     --  liftIO $ hPutStr handle ", "
@@ -149,21 +144,6 @@ runAndAnalyse select bs = do
   json rpts
   junit rpts
   -}
-
-
--- | Write out raw binary report files.  This has some bugs, including and not
--- limited to #68, and may be slated for deprecation.
-rawReport :: [Report] -> Criterion ()
-rawReport reports = do
-  mbRawFile <- asks rawDataFile
-  case mbRawFile of
-    Nothing   -> return ()
-    Just file -> liftIO $ do
-      handle <- openBinaryFile file ReadWriteMode
-      L.hPut handle header
-      forM_ reports $ \rpt ->
-        L.hPut handle (Binary.encode rpt)
-      hClose handle
 
 
 -- | Run a benchmark without analysing its performance.
@@ -202,6 +182,7 @@ for select bs0 handle = go (0::Int) ("", bs0) >> return ()
       any (select . addPrefix pfx) . benchNames . mkbench $
       error "Gauge.env could not determine the list of your benchmarks since they force the environment (see the documentation for details)"
 
+{-
 -- | Write summary JUnit file (if applicable)
 junit :: [Report] -> Criterion ()
 junit rs
@@ -225,4 +206,4 @@ junit rs
         esc '>'  = "&gt;"
         esc '&'  = "&amp;"
         esc c    = [c]
-
+-}
