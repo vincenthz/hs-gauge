@@ -77,7 +77,6 @@ import Data.Monoid
 
 import Control.DeepSeq (NFData(rnf))
 import Control.Exception (evaluate)
-import Data.Aeson (FromJSON(..), ToJSON(..))
 import Data.Binary (Binary(..), putWord8, getWord8)
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
@@ -198,26 +197,6 @@ data Measured = Measured {
       -- ^ __(GC)__ CPU time spent doing garbage collection.  Access
       -- using 'fromDouble'.
     } deriving (Eq, Read, Show, Typeable, Data, Generic)
-
-instance FromJSON Measured where
-    parseJSON v = do
-      (a,b,c,d,e,f,g,h,i,j,k) <- parseJSON v
-      -- The first four fields are not subject to the encoding policy:
-      return $ Measured a b c d
-                       (int e) (int f) (int g)
-                       (db h) (db i) (db j) (db k)
-      where int = toInt; db = toDouble
-
--- Here we treat the numeric fields as `Maybe Int64` and `Maybe Double`
--- and we use a specific policy for deciding when they should be Nothing,
--- which becomes null in JSON.
-instance ToJSON Measured where
-    toJSON Measured{..} = toJSON
-      (measTime, measCpuTime, measCycles, measIters,
-       i measAllocated, i measNumGcs, i measBytesCopied,
-       d measMutatorWallSeconds, d measMutatorCpuSeconds,
-       d measGcWallSeconds, d measMutatorCpuSeconds)
-      where i = fromInt; d = fromDouble
 
 instance NFData Measured where
     rnf Measured{} = ()
@@ -615,9 +594,6 @@ data Outliers = Outliers {
     -- ^ More than 3 times the IQR above the third quartile.
     } deriving (Eq, Read, Show, Typeable, Data, Generic)
 
-instance FromJSON Outliers
-instance ToJSON Outliers
-
 instance Binary Outliers where
     put (Outliers v w x y z) = put v >> put w >> put x >> put y >> put z
     get = Outliers <$> get <*> get <*> get <*> get <*> get
@@ -631,9 +607,6 @@ data OutlierEffect = Unaffected -- ^ Less than 1% effect.
                    | Severe     -- ^ Above 50% (i.e. measurements
                                 -- are useless).
                      deriving (Eq, Ord, Read, Show, Typeable, Data, Generic)
-
-instance FromJSON OutlierEffect
-instance ToJSON OutlierEffect
 
 instance Binary OutlierEffect where
     put Unaffected = putWord8 0
@@ -670,9 +643,6 @@ data OutlierVariance = OutlierVariance {
     -- ^ Quantitative description of effect (a fraction between 0 and 1).
     } deriving (Eq, Read, Show, Typeable, Data, Generic)
 
-instance FromJSON OutlierVariance
-instance ToJSON OutlierVariance
-
 instance Binary OutlierVariance where
     put (OutlierVariance x y z) = put x >> put y >> put z
     get = OutlierVariance <$> get <*> get <*> get
@@ -689,9 +659,6 @@ data Regression = Regression {
   , regRSquare    :: St.Estimate St.ConfInt Double
     -- ^ R&#0178; goodness-of-fit estimate.
   } deriving (Eq, Read, Show, Typeable, Generic)
-
-instance FromJSON Regression
-instance ToJSON Regression
 
 instance Binary Regression where
     put Regression{..} =
@@ -718,9 +685,6 @@ data SampleAnalysis = SampleAnalysis {
       -- variance.
     } deriving (Eq, Read, Show, Typeable, Generic)
 
-instance FromJSON SampleAnalysis
-instance ToJSON SampleAnalysis
-
 instance Binary SampleAnalysis where
     put SampleAnalysis{..} = do
       put anRegress; put anOverhead; put anMean; put anStdDev; put anOutlierVar
@@ -737,9 +701,6 @@ data KDE = KDE {
     , kdeValues :: U.Vector Double
     , kdePDF    :: U.Vector Double
     } deriving (Eq, Read, Show, Typeable, Data, Generic)
-
-instance FromJSON KDE
-instance ToJSON KDE
 
 instance Binary KDE where
     put KDE{..} = put kdeType >> put kdeValues >> put kdePDF
@@ -767,9 +728,6 @@ data Report = Report {
     , reportKDEs     :: [KDE]
       -- ^ Data for a KDE of times.
     } deriving (Eq, Read, Show, Typeable, Generic)
-
-instance FromJSON Report
-instance ToJSON Report
 
 instance Binary Report where
     put Report{..} =
@@ -803,6 +761,3 @@ instance Binary DataRecord where
 instance NFData DataRecord where
   rnf (Measurement i n v) = rnf i `seq` rnf n `seq` rnf v
   rnf (Analysed r)        = rnf r
-
-instance FromJSON DataRecord
-instance ToJSON DataRecord

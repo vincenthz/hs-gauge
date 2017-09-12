@@ -1,4 +1,3 @@
-{-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE CPP, OverloadedStrings #-}
 
 -- |
@@ -22,11 +21,8 @@ module Gauge.IO
     , readRecords
     , writeRecords
     , ReportFileContents
-    , readJSONReports
-    , writeJSONReports
     ) where
 
-import qualified Data.Aeson as Aeson
 import Data.Binary (Binary(..), encode)
 #if MIN_VERSION_binary(0, 6, 3)
 import Data.Binary.Get (runGetOrFail)
@@ -104,31 +100,3 @@ readAll handle = do
 -- | On disk we store (name,version,reports), where
 --   'version' is the version of Criterion used to generate the file.
 type ReportFileContents = (String,String,[Report])
-
--- | Alternative file IO with JSON instances.  Read a list of reports
--- from a .json file produced by gauge.
---
--- If the version does not match exactly, this issues a warning.
-readJSONReports :: FilePath -> IO (Either String ReportFileContents)
-readJSONReports path =
-  do bstr <- L.readFile path
-     let res = Aeson.eitherDecode bstr
-     case res of
-       Left _ -> return res
-       Right (tg,vers,_)
-         | tg == headerRoot && vers == critVersion -> return res
-         | otherwise ->
-            do hPutStrLn stderr $ "Warning, readJSONReports: mismatched header, expected " 
-                                  ++ show (headerRoot,critVersion) ++ " received " ++ show (tg,vers)
-               return res         
-
--- | Write a list of reports to a JSON file.  Includes a header, which
--- includes the current Criterion version number.  This should be 
--- the inverse of `readJSONReports`.
-writeJSONReports :: FilePath -> [Report] -> IO ()
-writeJSONReports fn rs =
-  let payload :: ReportFileContents
-      payload = (headerRoot, critVersion, rs)
-  in L.writeFile fn $ Aeson.encode payload
-
-

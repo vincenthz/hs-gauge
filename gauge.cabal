@@ -58,7 +58,6 @@ library
     Gauge.Main.Options
     Gauge.Measurement
     Gauge.Monad
-    Gauge.Report
     Gauge.Types
 
   other-modules:
@@ -78,7 +77,6 @@ library
     Paths_gauge
 
   build-depends:
-    aeson >= 0.8,
     ansi-wl-pprint >= 0.6.7.2,
     base >= 4.5 && < 5,
     base-compat >= 0.9,
@@ -98,10 +96,10 @@ library
     mtl >= 2,
     mwc-random >= 0.8.0.3,
     optparse-applicative >= 0.13,
-    parsec >= 3.1.0,
+    -- parsec >= 3.1.0,
     statistics >= 0.14 && < 0.15,
     text >= 0.11,
-    time,
+    -- time,
     transformers,
     transformers-compat >= 0.4,
     vector >= 0.7.1,
@@ -119,22 +117,22 @@ library
   else
     ghc-options: -O2
 
-Executable gauge-report
-  Default-Language:     Haskell2010
-  GHC-Options:          -Wall -rtsopts
-  Main-Is:              Report.hs
-  Other-Modules:        Options
-                        Paths_gauge
-  Hs-Source-Dirs:       app
-
-  Build-Depends:
-    base,
-    gauge,
-    optparse-applicative >= 0.13
-
-  if impl(ghc < 7.6)
-    build-depends:
-      ghc-prim
+-- Executable gauge-report
+--   Default-Language:     Haskell2010
+--   GHC-Options:          -Wall -rtsopts
+--   Main-Is:              Report.hs
+--   Other-Modules:        Options
+--                         Paths_gauge
+--   Hs-Source-Dirs:       app
+-- 
+--   Build-Depends:
+--     base,
+--     gauge,
+--     optparse-applicative >= 0.13
+-- 
+--   if impl(ghc < 7.6)
+--     build-depends:
+--       ghc-prim
 
 test-suite sanity
   type:                 exitcode-stdio-1.0

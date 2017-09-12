@@ -1,7 +1,6 @@
 module Main (main) where
 
 import Gauge.Types
-import qualified Data.Aeson as Aeson
 import qualified Data.Vector as V
 import Properties
 import Statistics.Types (estimateFromErr, mkCL)
@@ -35,10 +34,4 @@ m2 = Measured {measTime = 1.1438998626545072e-5
 main :: IO ()
 main = defaultMain $ testGroup "Tests"
        [ Properties.tests
-       , testCase "json-roundtrip1"
-           (assertEqual "round trip simple Measured"
-              (Right m2) (Aeson.eitherDecode (Aeson.encode m2)))
-       , testCase "json-roundtrip2"
-           (assertEqual "round trip simple Report"
-              (Right r1) (Aeson.eitherDecode (Aeson.encode r1)))
        ]

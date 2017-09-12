@@ -18,7 +18,6 @@ module Gauge.Internal
     , runFixedIters
     ) where
 
-import qualified Data.Aeson as Aeson
 import Control.DeepSeq (rnf)
 import Control.Exception (evaluate)
 import Control.Monad (foldM, forM_, void, when, unless)
@@ -30,16 +29,15 @@ import qualified Data.Binary as Binary
 import Data.Int (Int64)
 import qualified Data.ByteString.Lazy.Char8 as L
 import Gauge.Analysis (analyseSample, noteOutliers)
-import Gauge.IO (header, headerRoot, critVersion, readJSONReports, writeJSONReports)
+import Gauge.IO (header, headerRoot, critVersion)
 import Gauge.IO.Printf (note, printError, prolix, writeCsv)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, secs)
 import Gauge.Monad (Criterion)
-import Gauge.Report (report)
 import Gauge.Types hiding (measure)
 import qualified Data.Map as Map
 import qualified Data.Vector as V
 import Statistics.Types (Estimate(..),ConfInt(..),confidenceInterval,cl95,confidenceLevel)
-import System.Directory (getTemporaryDirectory, removeFile)
+import System.Directory (getTemporaryDirectory)
 import System.IO (IOMode(..), hClose, openTempFile, openFile, hPutStr, openBinaryFile)
 import Text.Printf (printf)
 
@@ -116,31 +114,27 @@ runAndAnalyse :: (String -> Bool) -- ^ A predicate that chooses
               -> Benchmark
               -> Criterion ()
 runAndAnalyse select bs = do
-  mbJsonFile <- asks jsonFile
-  (jsonFile, handle) <- liftIO $
-    case mbJsonFile of
-      Nothing -> do
-        tmpDir <- getTemporaryDirectory
-        openTempFile tmpDir "criterion.json"
-      Just file -> do
-        handle <- openFile file WriteMode
-        return (file, handle)
   -- The type we write to the file is ReportFileContents, a triple.
   -- But here we ASSUME that the tuple will become a JSON array.
   -- This assumption lets us stream the reports to the file incrementally:
-  liftIO $ hPutStr handle $ "[ \"" ++ headerRoot ++ "\", " ++
-                             "\"" ++ critVersion ++ "\", [ "
+  --liftIO $ hPutStr handle $ "[ \"" ++ headerRoot ++ "\", " ++
+  --                           "\"" ++ critVersion ++ "\", [ "
 
   for select bs $ \idx desc bm -> do
     _ <- note "benchmarking %s\n" desc
     Analysed rpt <- runAndAnalyseOne idx desc bm
-    unless (idx == 0) $
-      liftIO $ hPutStr handle ", "
+    return ()
+    --unless (idx == 0) $
+    --  liftIO $ hPutStr handle ", "
+      {-
     liftIO $ L.hPut handle (Aeson.encode (rpt::Report))
+    -}
 
-  liftIO $ hPutStr handle " ] ]\n"
-  liftIO $ hClose handle
+  --liftIO $ hPutStr handle " ] ]\n"
+  --liftIO $ hClose handle
 
+  return ()
+{-
   rpts <- liftIO $ do
     res <- readJSONReports jsonFile
     case res of
@@ -154,6 +148,7 @@ runAndAnalyse select bs = do
   report rpts
   json rpts
   junit rpts
+  -}
 
 
 -- | Write out raw binary report files.  This has some bugs, including and not
@@ -206,14 +201,6 @@ for select bs0 handle = go (0::Int) ("", bs0) >> return ()
     shouldRun pfx mkbench =
       any (select . addPrefix pfx) . benchNames . mkbench $
       error "Gauge.env could not determine the list of your benchmarks since they force the environment (see the documentation for details)"
-
--- | Write summary JSON file (if applicable)
-json :: [Report] -> Criterion ()
-json rs
-  = do jsonOpt <- asks jsonFile
-       case jsonOpt of
-         Just fn -> liftIO $ writeJSONReports fn rs
-         Nothing -> return ()
 
 -- | Write summary JUnit file (if applicable)
 junit :: [Report] -> Criterion ()
