@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable, DeriveGeneric, RecordWildCards #-}
 
 -- |
--- Module      : Criterion.Main.Options
+-- Module      : Gauge.Main.Options
 -- Copyright   : (c) 2014 Bryan O'Sullivan
 --
 -- License     : BSD-style
@@ -11,7 +11,7 @@
 --
 -- Benchmarking command-line configuration.
 
-module Criterion.Main.Options
+module Gauge.Main.Options
     (
       Mode(..)
     , MatchType(..)
@@ -26,8 +26,8 @@ module Criterion.Main.Options
 import Data.Monoid
 
 import Control.Monad (when)
-import Criterion.Analysis (validateAccessors)
-import Criterion.Types (Config(..), Verbosity(..), measureAccessors,
+import Gauge.Analysis (validateAccessors)
+import Gauge.Types (Config(..), Verbosity(..), measureAccessors,
                         measureKeys)
 import Data.Char (isSpace, toLower)
 import Data.Data (Data, Typeable)
@@ -39,7 +39,7 @@ import Options.Applicative
 import Options.Applicative.Help (Chunk(..), tabulate)
 import Options.Applicative.Help.Pretty ((.$.))
 import Options.Applicative.Types
-import Paths_criterion (version)
+import Paths_gauge (version)
 import Statistics.Types (mkCL,cl95)
 import Text.PrettyPrint.ANSI.Leijen (Doc, text)
 import qualified Data.Map as M
@@ -193,9 +193,9 @@ describe cfg = info (helper <*> parseWith cfg) $
     footerDoc (unChunk regressionHelp)
 
 -- | A string describing the version of this benchmark (really, the
--- version of criterion that was used to build it).
+-- version of gauge that was used to build it).
 versionInfo :: String
-versionInfo = "built with criterion " <> showVersion version
+versionInfo = "built with gauge " <> showVersion version
 
 -- We sort not by name, but by likely frequency of use.
 regressionHelp :: Chunk Doc

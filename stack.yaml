@@ -1,11 +1,11 @@
-resolver: lts-6.31
+resolver: lts-9.4
 
 packages:
 - '.'
 
 extra-deps:
-- microstache-1
-- optparse-applicative-0.13.2.0
-- statistics-0.14.0.0
+#- microstache-1
+#- optparse-applicative-0.13.2.0
+- statistics-0.14.0.2
 
 flags: {}

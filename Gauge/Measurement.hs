@@ -12,7 +12,7 @@
 #endif
 
 -- |
--- Module      : Criterion.Measurement
+-- Module      : Gauge.Measurement
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
 --
 -- License     : BSD-style
@@ -22,7 +22,7 @@
 --
 -- Benchmark measurement code.
 
-module Criterion.Measurement
+module Gauge.Measurement
     (
       initializeTime
     , getTime
@@ -43,7 +43,7 @@ module Criterion.Measurement
     , applyGCStats
     ) where
 
-import Criterion.Types (Benchmarkable(..), Measured(..))
+import Gauge.Types (Benchmarkable(..), Measured(..))
 import Control.Applicative ((<*))
 import Control.DeepSeq (NFData(rnf))
 import Control.Exception (finally,evaluate)

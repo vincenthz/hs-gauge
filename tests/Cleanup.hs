@@ -4,8 +4,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-import Criterion.Main (Benchmark, bench, nfIO)
-import Criterion.Types (Config(..), Verbosity(Quiet))
+import Gauge.Main (Benchmark, bench, nfIO)
+import Gauge.Types (Config(..), Verbosity(Quiet))
 import Control.Applicative (pure)
 import Control.DeepSeq (NFData(..))
 import Control.Exception (Exception, try, throwIO)
@@ -18,7 +18,7 @@ import System.IO ( Handle, IOMode(ReadWriteMode), SeekMode(AbsoluteSeek)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (testCase)
 import Test.HUnit (assertFailure)
-import qualified Criterion.Main as C
+import qualified Gauge.Main as C
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 

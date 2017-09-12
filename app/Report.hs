@@ -4,11 +4,11 @@ module Main (main) where
 import System.Exit (exitSuccess, exitFailure)
 import System.IO (hPutStrLn, stderr)
 
-import Criterion.IO (readJSONReports)
-import Criterion.Main (defaultConfig)
-import Criterion.Monad (withConfig)
-import Criterion.Report (report)
-import Criterion.Types (Config(reportFile, template))
+import Gauge.IO (readJSONReports)
+import Gauge.Main (defaultConfig)
+import Gauge.Monad (withConfig)
+import Gauge.Report (report)
+import Gauge.Types (Config(reportFile, template))
 
 import Options
 

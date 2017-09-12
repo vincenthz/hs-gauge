@@ -3,7 +3,7 @@
     RecordWildCards, ScopedTypeVariables #-}
 
 -- |
--- Module      : Criterion.Report
+-- Module      : Gauge.Report
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
 --
 -- License     : BSD-style
@@ -13,7 +13,7 @@
 --
 -- Reporting functions.
 
-module Criterion.Report
+module Gauge.Report
     (
       formatReport
     , report
@@ -31,14 +31,14 @@ import Control.Exception (Exception, IOException, throwIO)
 import Control.Monad (mplus, unless)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Reader (ask)
-import Criterion.Monad (Criterion)
-import Criterion.Types
+import Gauge.Monad (Criterion)
+import Gauge.Types
 import Data.Aeson (ToJSON (..), Value(..), object, (.=), Value, encode)
 import Data.Data (Data, Typeable)
 import Data.Foldable (forM_)
 import Data.Monoid ((<>))
 import GHC.Generics (Generic)
-import Paths_criterion (getDataFileName)
+import Paths_gauge (getDataFileName)
 import Statistics.Function (minMax)
 import Statistics.Types (confidenceInterval, confidenceLevel, confIntCL, estError)
 import System.Directory (doesFileExist)

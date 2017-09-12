@@ -4,7 +4,7 @@
 module Properties (tests) where
 
 import Control.Applicative as A ((<$>))
-import Criterion.Analysis
+import Gauge.Analysis
 import Statistics.Types (Sample)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)

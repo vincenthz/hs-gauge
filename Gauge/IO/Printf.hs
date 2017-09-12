@@ -1,6 +1,6 @@
 {-# LANGUAGE Trustworthy #-}
 -- |
--- Module      : Criterion.IO.Printf
+-- Module      : Gauge.IO.Printf
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
 --
 -- License     : BSD-style
@@ -11,7 +11,7 @@
 -- Input and output actions.
 
 {-# LANGUAGE FlexibleInstances, Rank2Types, TypeSynonymInstances #-}
-module Criterion.IO.Printf
+module Gauge.IO.Printf
     (
       CritHPrintfType
     , note
@@ -23,8 +23,8 @@ module Criterion.IO.Printf
 import Control.Monad (when)
 import Control.Monad.Reader (ask, asks)
 import Control.Monad.Trans (liftIO)
-import Criterion.Monad (Criterion)
-import Criterion.Types (Config(csvFile, verbosity), Verbosity(..))
+import Gauge.Monad (Criterion)
+import Gauge.Types (Config(csvFile, verbosity), Verbosity(..))
 import Data.Foldable (forM_)
 import System.IO (Handle, hFlush, stderr, stdout)
 import Text.Printf (PrintfArg)

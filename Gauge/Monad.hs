@@ -1,6 +1,6 @@
 {-# LANGUAGE Trustworthy #-}
 -- |
--- Module      : Criterion.Monad
+-- Module      : Gauge.Monad
 -- Copyright   : (c) 2009 Neil Brown
 --
 -- License     : BSD-style
@@ -9,7 +9,7 @@
 -- Portability : GHC
 --
 -- The environment in which most criterion code executes.
-module Criterion.Monad
+module Gauge.Monad
     (
       Criterion
     , withConfig
@@ -20,9 +20,9 @@ module Criterion.Monad
 import Control.Monad.Reader (asks, runReaderT)
 import Control.Monad.Trans (liftIO)
 import Control.Monad (when)
-import Criterion.Measurement (measure, runBenchmark, secs)
-import Criterion.Monad.Internal (Criterion(..), Crit(..))
-import Criterion.Types hiding (measure)
+import Gauge.Measurement (measure, runBenchmark, secs)
+import Gauge.Monad.Internal (Criterion(..), Crit(..))
+import Gauge.Types hiding (measure)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Statistics.Regression (olsRegress)
 import System.Random.MWC (GenIO, createSystemRandom)

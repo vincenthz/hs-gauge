@@ -1,13 +1,13 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import Criterion.Main (bench, bgroup, env, whnf)
+import Gauge.Main (bench, bgroup, env, whnf)
 import System.Environment (getEnv, withArgs)
 import System.Timeout (timeout)
 import Test.Tasty (defaultMain)
 import Test.Tasty.HUnit (testCase)
 import Test.HUnit (Assertion, assertFailure)
-import qualified Criterion.Main as C
+import qualified Gauge.Main as C
 import qualified Control.Exception as E
 import qualified Data.ByteString as B
 

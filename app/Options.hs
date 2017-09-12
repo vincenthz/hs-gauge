@@ -11,7 +11,7 @@ import Data.Monoid ((<>), mconcat)
 import Data.Version (showVersion)
 import Data.Data (Data, Typeable)
 import GHC.Generics (Generic)
-import Paths_criterion (version)
+import Paths_gauge (version)
 import Options.Applicative
 
 data CommandLine
@@ -23,7 +23,7 @@ reportOptions :: Parser CommandLine
 reportOptions = Report <$> measurements <*> outputFile <*> templateFile
   where
     measurements = strArgument $ mconcat
-        [metavar "INPUT-JSON", help "Json file to read Criterion output from."]
+        [metavar "INPUT-JSON", help "Json file to read Gauge output from."]
 
     outputFile = strArgument $ mconcat
         [metavar "OUTPUT-FILE", help "File to output formatted report too."]
@@ -47,4 +47,4 @@ parseCommandLine :: IO CommandLine
 parseCommandLine = execParser commandLine
 
 versionInfo :: String
-versionInfo = "criterion " ++ showVersion version
+versionInfo = "gauge " ++ showVersion version

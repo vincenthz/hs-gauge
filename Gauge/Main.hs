@@ -1,7 +1,7 @@
 {-# LANGUAGE Trustworthy #-}
 
 -- |
--- Module      : Criterion.Main
+-- Module      : Gauge.Main
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
 --
 -- License     : BSD-style
@@ -12,7 +12,7 @@
 -- Wrappers for compiling and running benchmarks quickly and easily.
 -- See 'defaultMain' below for an example.
 
-module Criterion.Main
+module Gauge.Main
     (
     -- * How to write benchmarks
     -- $bench
@@ -55,13 +55,13 @@ module Criterion.Main
 
 import Control.Monad (unless)
 import Control.Monad.Trans (liftIO)
-import Criterion.IO.Printf (printError, writeCsv)
-import Criterion.Internal (runAndAnalyse, runFixedIters)
-import Criterion.Main.Options (MatchType(..), Mode(..), defaultConfig, describe,
+import Gauge.IO.Printf (printError, writeCsv)
+import Gauge.Internal (runAndAnalyse, runFixedIters)
+import Gauge.Main.Options (MatchType(..), Mode(..), defaultConfig, describe,
                                versionInfo)
-import Criterion.Measurement (initializeTime)
-import Criterion.Monad (withConfig)
-import Criterion.Types
+import Gauge.Measurement (initializeTime)
+import Gauge.Monad (withConfig)
+import Gauge.Types
 import Data.Char (toLower)
 import Data.List (isInfixOf, isPrefixOf, sort, stripPrefix)
 import Data.Maybe (fromMaybe)
@@ -73,7 +73,7 @@ import System.IO.CodePage (withCP65001)
 
 -- | An entry point that can be used as a @main@ function.
 --
--- > import Criterion.Main
+-- > import Gauge.Main
 -- >
 -- > fib :: Int -> Int
 -- > fib 0 = 0
@@ -119,8 +119,8 @@ selectBenches matchType benches bsgroup = do
 --
 -- Example:
 --
--- > import Criterion.Main.Options
--- > import Criterion.Main
+-- > import Gauge.Main.Options
+-- > import Gauge.Main
 -- >
 -- > myConfig = defaultConfig {
 -- >              -- Do not GC between runs.

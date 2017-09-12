@@ -2,7 +2,7 @@
 {-# LANGUAGE CPP, OverloadedStrings #-}
 
 -- |
--- Module      : Criterion.IO
+-- Module      : Gauge.IO
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
 --
 -- License     : BSD-style
@@ -12,7 +12,7 @@
 --
 -- Input and output actions.
 
-module Criterion.IO
+module Gauge.IO
     (
       header
     , headerRoot
@@ -35,14 +35,14 @@ import Data.Binary.Get (runGetState)
 #endif
 import Data.Binary.Put (putByteString, putWord16be, runPut)
 import qualified Data.ByteString.Char8 as B
-import Criterion.Types (Report(..))
+import Gauge.Types (Report(..))
 import Data.List (intercalate)
 import Data.Version (Version(..))
-import Paths_criterion (version)
+import Paths_gauge (version)
 import System.IO (Handle, IOMode(..), withFile, hPutStrLn, stderr)
 import qualified Data.ByteString.Lazy as L
 
--- | The header identifies a criterion data file. This contains
+-- | The header identifies a gauge data file. This contains
 -- version information; there is no expectation of cross-version
 -- compatibility.
 header :: L.ByteString
@@ -54,7 +54,7 @@ header = runPut $ do
 headerRoot :: String
 headerRoot = "criterio"
 
--- | The current version of criterion, encoded into a string that is
+-- | The current version of gauge, encoded into a string that is
 -- used in files.
 critVersion :: String
 critVersion = intercalate "." $ map show $ versionBranch version
@@ -65,7 +65,7 @@ hGetRecords handle = do
   bs <- L.hGet handle (fromIntegral (L.length header))
   if bs == header
     then Right `fmap` readAll handle
-    else return $ Left $ "unexpected header, expected criterion version: "++show (versionBranch version)
+    else return $ Left $ "unexpected header, expected gauge version: "++show (versionBranch version)
 
 -- | Write records to the given 'Handle'.
 hPutRecords :: Binary a => Handle -> [a] -> IO ()
@@ -106,7 +106,7 @@ readAll handle = do
 type ReportFileContents = (String,String,[Report])
 
 -- | Alternative file IO with JSON instances.  Read a list of reports
--- from a .json file produced by criterion.
+-- from a .json file produced by gauge.
 --
 -- If the version does not match exactly, this issues a warning.
 readJSONReports :: FilePath -> IO (Either String ReportFileContents)

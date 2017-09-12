@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 
 -- |
--- Module      : Criterion.Types
+-- Module      : Gauge.Types
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
 --
 -- License     : BSD-style
@@ -25,7 +25,7 @@
 -- For an action of type @IO a@, the benchmarking harness calls the
 -- action repeatedly, but does not reduce the result.
 
-module Criterion.Types
+module Gauge.Types
     (
     -- * Configuration
       Config(..)

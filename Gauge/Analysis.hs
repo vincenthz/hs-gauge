@@ -2,7 +2,7 @@
 {-# LANGUAGE BangPatterns, DeriveDataTypeable, RecordWildCards #-}
 
 -- |
--- Module      : Criterion.Analysis
+-- Module      : Gauge.Analysis
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
 --
 -- License     : BSD-style
@@ -12,7 +12,7 @@
 --
 -- Analysis code for benchmarks.
 
-module Criterion.Analysis
+module Gauge.Analysis
     (
       Outliers(..)
     , OutlierEffect(..)
@@ -38,10 +38,10 @@ import Control.Monad (unless, when)
 import Control.Monad.Reader (ask)
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
-import Criterion.IO.Printf (note, prolix)
-import Criterion.Measurement (secs, threshold)
-import Criterion.Monad (Criterion, getGen, getOverhead)
-import Criterion.Types
+import Gauge.IO.Printf (note, prolix)
+import Gauge.Measurement (secs, threshold)
+import Gauge.Monad (Criterion, getGen, getOverhead)
+import Gauge.Types
 import Data.Int (Int64)
 import Data.Maybe (fromJust)
 import Statistics.Function (sort)

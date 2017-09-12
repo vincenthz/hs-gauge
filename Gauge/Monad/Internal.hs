@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 
 -- |
--- Module      : Criterion.Monad.Internal
+-- Module      : Gauge.Monad.Internal
 -- Copyright   : (c) 2009 Neil Brown
 --
 -- License     : BSD-style
@@ -11,7 +11,7 @@
 -- Portability : GHC
 --
 -- The environment in which most criterion code executes.
-module Criterion.Monad.Internal
+module Gauge.Monad.Internal
     (
       Criterion(..)
     , Crit(..)
@@ -23,7 +23,7 @@ import Control.Applicative
 import Control.Monad.Catch (MonadThrow, MonadCatch, MonadMask)
 import Control.Monad.Reader (MonadReader(..), ReaderT)
 import Control.Monad.Trans (MonadIO)
-import Criterion.Types (Config)
+import Gauge.Types (Config)
 import Data.IORef (IORef)
 import System.Random.MWC (GenIO)
 import Prelude

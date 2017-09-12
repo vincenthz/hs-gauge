@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 -- |
--- Module      : Criterion
+-- Module      : Gauge
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
 --
 -- License     : BSD-style
@@ -10,7 +10,7 @@
 --
 -- Core benchmarking code.
 
-module Criterion
+module Gauge
     (
     -- * Benchmarkable code
       Benchmarkable
@@ -38,12 +38,12 @@ module Criterion
     ) where
 
 import Control.Monad (void)
-import Criterion.IO.Printf (note)
-import Criterion.Internal (runAndAnalyseOne)
-import Criterion.Main.Options (defaultConfig)
-import Criterion.Measurement (initializeTime)
-import Criterion.Monad (withConfig)
-import Criterion.Types
+import Gauge.IO.Printf (note)
+import Gauge.Internal (runAndAnalyseOne)
+import Gauge.Main.Options (defaultConfig)
+import Gauge.Measurement (initializeTime)
+import Gauge.Monad (withConfig)
+import Gauge.Types
 
 -- | Run a benchmark interactively, and analyse its performance.
 benchmark :: Benchmarkable -> IO ()
