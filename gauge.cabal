@@ -25,14 +25,6 @@ description:
   performance.  It provides both a framework for executing and
   analysing benchmarks and a set of driver functions that makes it
   easy to build and run benchmarks, and to analyse their results.
-  .
-  The fastest way to get started is to read the
-  <http://www.serpentine.com/gauge/tutorial.html online tutorial>,
-  followed by the documentation and examples in the "Gauge.Main"
-  module.
-  .
-  For examples of the kinds of reports that gauge generates, see
-  <http://www.serpentine.com/gauge the home page>.
 
 flag fast
   description: compile without optimizations
@@ -135,12 +127,9 @@ test-suite tests
     base,
     gauge,
     statistics,
-    HUnit,
     tasty,
-    tasty-hunit,
     tasty-quickcheck,
-    vector,
-    aeson >= 0.8
+    vector
 
 test-suite cleanup
   type:                 exitcode-stdio-1.0
