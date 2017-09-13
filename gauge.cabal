@@ -76,7 +76,6 @@ library
     mwc-random >= 0.8.0.3,
     optparse-applicative >= 0.13,
     statistics >= 0.14 && < 0.15,
-    text >= 0.11,
     transformers,
     vector >= 0.7.1
   if impl(ghc < 7.6)
