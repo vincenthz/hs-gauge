@@ -34,15 +34,15 @@ flag fast
 library
   exposed-modules:
     Gauge
+    Gauge.Main
+    Gauge.Types
     Gauge.Analysis
-    Gauge.IO
+  other-modules:
     Gauge.IO.Printf
     Gauge.Internal
-    Gauge.Main
     Gauge.Main.Options
     Gauge.Measurement
     Gauge.Monad
-    Gauge.Types
 
   other-modules:
     Gauge.Monad.Internal
