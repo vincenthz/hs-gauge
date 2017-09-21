@@ -85,8 +85,6 @@ library
   build-depends:
     ansi-wl-pprint >= 0.6.7.2,
     base >= 4.5 && < 5,
-    base-compat >= 0.9,
-    bytestring >= 0.9 && < 1.0,
     code-page,
     containers,
     deepseq >= 1.1.0.0,
