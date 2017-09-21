@@ -84,7 +84,6 @@ import GHC.Generics (Generic)
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 import qualified Statistics.Types as St
-import           Statistics.Resampling.Bootstrap ()
 import Prelude
 
 -- | Control the amount of information displayed.

@@ -20,7 +20,7 @@ module Statistics.Sample.KernelDensity
     (
     -- * Estimation functions
       kde
-    , kde_
+    -- , kde_
     -- * References
     -- $references
     ) where

@@ -11,14 +11,12 @@
 
 module Statistics.Resampling.Bootstrap
     ( bootstrapBCA
-    , basicBootstrap
     -- * References
     -- $references
     ) where
 
 import           Data.Vector.Generic ((!))
 import qualified Data.Vector.Unboxed as U
-import qualified Data.Vector.Generic as G
 
 import Statistics.Distribution (cumulative, quantile)
 import Statistics.Distribution.Normal
@@ -26,8 +24,6 @@ import Statistics.Resampling (Bootstrap(..), jackknife)
 import Statistics.Sample (mean)
 import Statistics.Types (Sample, CL, Estimate, ConfInt, estimateFromInterval,
                          estimateFromErr, CL, significanceLevel)
-import Statistics.Function (gsort)
-
 import qualified Statistics.Resampling as R
 
 
@@ -77,29 +73,6 @@ bootstrapBCA confidenceLevel sample resampledData
                           d2 = d * d
                 jackMean     = mean jack
         jack  = jackknife est sample
-
-
--- | Basic bootstrap. This method simply uses empirical quantiles for
---   confidence interval.
-basicBootstrap
-  :: (G.Vector v a, Ord a, Num a)
-  => CL Double       -- ^ Confidence vector
-  -> Bootstrap v a   -- ^ Estimate from full sample and vector of
-                     --   estimates obtained from resamples
-  -> Estimate ConfInt a
-{-# INLINE basicBootstrap #-}
-basicBootstrap cl (Bootstrap e ests)
-  = estimateFromInterval e (sorted ! lo, sorted ! hi) cl
-  where
-    sorted = gsort ests
-    n  = fromIntegral $ G.length ests
-    c  = n * (significanceLevel cl / 2)
-    -- FIXME: can we have better estimates of quantiles in case when p
-    --        is not multiple of 1/N
-    --
-    -- FIXME: we could have undercoverage here
-    lo = round c
-    hi = truncate (n - c)
 
 -- $references
 --
