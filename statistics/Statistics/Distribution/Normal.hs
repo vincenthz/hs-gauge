@@ -22,7 +22,6 @@ module Statistics.Distribution.Normal
     , standard
     ) where
 
-import Control.Applicative
 import Data.Data             (Data, Typeable)
 import GHC.Generics          (Generic)
 import Numeric.MathFunctions.Constants (m_sqrt_2, m_sqrt_2_pi)
