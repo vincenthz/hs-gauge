@@ -43,6 +43,28 @@ library
     Gauge.Main.Options
     Gauge.Measurement
     Gauge.Monad
+    Statistics.Distribution
+    Statistics.Distribution.Normal
+    Statistics.Function
+    Statistics.Internal
+    Statistics.Math.RootFinding
+    Statistics.Matrix
+    Statistics.Matrix.Algorithms
+    Statistics.Matrix.Mutable
+    Statistics.Matrix.Types
+    Statistics.Quantile
+    Statistics.Regression
+    Statistics.Resampling
+    Statistics.Resampling.Bootstrap
+    Statistics.Sample
+    Statistics.Sample.Histogram
+    Statistics.Sample.Internal
+    Statistics.Sample.KernelDensity
+    Statistics.Transform
+    Statistics.Types
+    Statistics.Types.Internal
+
+  hs-source-dirs: . statistics
 
   other-modules:
     Gauge.Monad.Internal
@@ -75,9 +97,14 @@ library
     mtl >= 2,
     mwc-random >= 0.8.0.3,
     optparse-applicative >= 0.13,
-    statistics >= 0.14 && < 0.15,
     transformers,
-    vector >= 0.7.1
+    vector >= 0.7.1,
+
+    -- formely statistics dependency that we need
+    math-functions,
+    vector-algorithms,
+    primitive,
+    vector-th-unbox
   if impl(ghc < 7.6)
     build-depends:
       ghc-prim
