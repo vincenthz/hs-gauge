@@ -1,0 +1,6 @@
+resolver: nightly-2017-07-31
+packages:
+- '.'
+extra-deps:
+- basement-0.0.2
+- foundation-0.0.15
