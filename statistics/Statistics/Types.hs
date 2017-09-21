@@ -42,8 +42,6 @@ module Statistics.Types
 import Control.DeepSeq              (NFData(..))
 import Data.Data                    (Data,Typeable)
 import Data.Maybe                   (fromMaybe)
-import Data.Vector.Unboxed          (Unbox)
-import Data.Vector.Unboxed.Deriving (derivingUnbox)
 import GHC.Generics                 (Generic)
 
 #if __GLASGOW_HASKELL__ == 704

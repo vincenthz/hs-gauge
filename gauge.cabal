@@ -83,6 +83,7 @@ library
   build-depends:
     ansi-wl-pprint >= 0.6.7.2,
     base >= 4.5 && < 5,
+    basement,
     code-page,
     containers,
     deepseq >= 1.1.0.0,
@@ -98,9 +99,7 @@ library
 
     -- formely statistics dependency that we need
     math-functions,
-    vector-algorithms,
-    primitive,
-    vector-th-unbox
+    vector-algorithms
   if impl(ghc < 7.6)
     build-depends:
       ghc-prim
