@@ -1,5 +1,6 @@
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE BangPatterns, DeriveDataTypeable, RecordWildCards #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- |
 -- Module      : Gauge.Analysis
@@ -35,12 +36,12 @@ import Data.Monoid
 
 import Control.Arrow (second)
 import Control.Monad (unless, when)
-import Control.Monad.Reader (ask)
-import Control.Monad.Trans
-import Control.Monad.Trans.Except
+import Foundation.Monad.Reader
+import Foundation.Monad
 import Gauge.IO.Printf (note, prolix)
 import Gauge.Measurement (secs, threshold)
-import Gauge.Monad (Criterion, getGen, getOverhead)
+import Gauge.Monad (Gauge, getGen, getOverhead)
+import Gauge.Monad.ExceptT
 import Gauge.Types
 import Data.Int (Int64)
 import Data.Maybe (fromJust)
@@ -121,7 +122,7 @@ countOutliers (Outliers _ a b c d) = a + b + c + d
 analyseMean :: Sample
             -> Int              -- ^ Number of iterations used to
                                 -- compute the sample.
-            -> Criterion Double
+            -> Gauge Double
 analyseMean a iters = do
   let µ = mean a
   _ <- note "mean is %s (%d iterations)\n" (secs µ) iters
@@ -141,7 +142,7 @@ scale f s@SampleAnalysis{..} = s {
 analyseSample :: Int            -- ^ Experiment number.
               -> String         -- ^ Experiment name.
               -> V.Vector Measured -- ^ Sample data.
-              -> ExceptT String Criterion Report
+              -> ExceptT String Gauge Report
 analyseSample i name meas = do
   Config{..} <- ask
   overhead <- lift getOverhead
@@ -181,6 +182,7 @@ analyseSample i name meas = do
     , reportKDEs     = [uncurry (KDE "time") (kde 128 stime)]
     }
 
+
 -- | Regress the given predictors against the responder.
 --
 -- Errors may be returned under various circumstances, such as invalid
@@ -191,14 +193,14 @@ regress :: GenIO
         -> [String]             -- ^ Predictor names.
         -> String               -- ^ Responder name.
         -> V.Vector Measured
-        -> ExceptT String Criterion Regression
+        -> ExceptT String Gauge Regression
 regress gen predNames respName meas = do
   when (G.null meas) $
-    throwE "no measurements"
+    mFail "no measurements"
   accs <- ExceptT . return $ validateAccessors predNames respName
   let unmeasured = [n | (n, Nothing) <- map (second ($ G.head meas)) accs]
   unless (null unmeasured) $
-    throwE $ "no data available for " ++ renderNames unmeasured
+    mFail $ "no data available for " ++ renderNames unmeasured
   let (r:ps)      = map ((`measure` meas) . (fromJust .) . snd) accs
   Config{..} <- ask
   (coeffs,r2) <- liftIO $
@@ -245,10 +247,10 @@ renderNames :: [String] -> String
 renderNames = List.intercalate ", " . map show
 
 -- | Display a report of the 'Outliers' present in a 'Sample'.
-noteOutliers :: Outliers -> Criterion ()
+noteOutliers :: Outliers -> Gauge ()
 noteOutliers o = do
   let frac n = (100::Double) * fromIntegral n / fromIntegral (samplesSeen o)
-      check :: Int64 -> Double -> String -> Criterion ()
+      check :: Int64 -> Double -> String -> Gauge ()
       check k t d = when (frac k > t) $
                     note "  %d (%.1g%%) %s\n" k (frac k) d
       outCount = countOutliers o

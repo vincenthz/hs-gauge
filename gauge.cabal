@@ -41,6 +41,7 @@ library
     Gauge.IO.Printf
     Gauge.Internal
     Gauge.Monad.Internal
+    Gauge.Monad.ExceptT
     Gauge.Main.Options
     Gauge.Measurement
     Gauge.Monad
@@ -84,25 +85,23 @@ library
     ansi-wl-pprint >= 0.6.7.2,
     base >= 4.5 && < 5,
     basement,
+    foundation,
     code-page,
     containers,
     deepseq >= 1.1.0.0,
     directory,
-    exceptions >= 0.8.2 && < 0.9,
+    -- exceptions >= 0.8.2 && < 0.9,
     filepath,
     Glob >= 0.7.2,
-    mtl >= 2,
+    -- mtl >= 2,
     mwc-random >= 0.8.0.3,
     optparse-applicative >= 0.13,
-    transformers,
+    --transformers,
     vector >= 0.7.1,
 
     -- formely statistics dependency that we need
     math-functions,
     vector-algorithms
-  if impl(ghc < 7.6)
-    build-depends:
-      ghc-prim
 
   default-language: Haskell2010
   ghc-options: -Wall -funbox-strict-fields
@@ -168,6 +167,7 @@ test-suite cleanup
     gauge,
     deepseq,
     directory,
+    foundation,
     tasty,
     tasty-hunit
 

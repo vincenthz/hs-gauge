@@ -54,7 +54,7 @@ module Gauge.Main
     ) where
 
 import Control.Monad (unless)
-import Control.Monad.Trans (liftIO)
+import Foundation.Monad
 import Gauge.IO.Printf (printError)
 import Gauge.Internal (runAndAnalyse, runFixedIters)
 import Gauge.Main.Options (MatchType(..), Mode(..), defaultConfig, describe,

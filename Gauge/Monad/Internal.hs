@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 
 -- |
@@ -13,16 +14,15 @@
 -- The environment in which most criterion code executes.
 module Gauge.Monad.Internal
     (
-      Criterion(..)
+      Gauge(..)
     , Crit(..)
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
 import Control.Applicative
 
-import Control.Monad.Catch (MonadThrow, MonadCatch, MonadMask)
-import Control.Monad.Reader (MonadReader(..), ReaderT)
-import Control.Monad.Trans (MonadIO)
+import Foundation.Monad
+import Foundation.Monad.Reader
 import Gauge.Types (Config)
 import Data.IORef (IORef)
 import System.Random.MWC (GenIO)
@@ -35,11 +35,18 @@ data Crit = Crit {
   }
 
 -- | The monad in which most criterion code executes.
-newtype Criterion a = Criterion {
-      runCriterion :: ReaderT Crit IO a
-    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask)
+newtype Gauge a = Gauge {
+      runGauge :: ReaderT Crit IO a
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch) -- , MonadBracket)
 
-instance MonadReader Config Criterion where
-    ask     = config `fmap` Criterion ask
-    local f = Criterion . local fconfig . runCriterion
-      where fconfig c = c { config = f (config c) }
+instance MonadReader Gauge where
+    type ReaderContext Gauge = Config
+    ask = config `fmap` Gauge ask
+
+instance MonadBracket Gauge where
+    generalBracket acq cleanup cleanupExcept innerAction = Gauge $ do
+        c <- ask
+        lift $ generalBracket (runReaderT (runGauge acq) c)
+                              (\a b -> runReaderT (runGauge (cleanup a b)) c)
+                              (\a exn -> runReaderT (runGauge (cleanupExcept a exn)) c)
+                              (\a -> runReaderT (runGauge (innerAction a)) c)

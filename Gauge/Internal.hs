@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns, RecordWildCards #-}
 -- |
--- Module      : Criterion
+-- Module      : Gauge.Internal
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
 --
 -- License     : BSD-style
@@ -20,15 +20,14 @@ module Gauge.Internal
 import Control.DeepSeq (rnf)
 import Control.Exception (evaluate)
 import Control.Monad (foldM, forM_, void, when)
-import Control.Monad.Catch (MonadMask, finally)
-import Control.Monad.Reader (ask)
-import Control.Monad.Trans (MonadIO, liftIO)
-import Control.Monad.Trans.Except
+import Foundation.Monad
+import Foundation.Monad.Reader (ask)
 import Data.Int (Int64)
 import Gauge.Analysis (analyseSample, noteOutliers)
 import Gauge.IO.Printf (note, printError, prolix)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, secs)
-import Gauge.Monad (Criterion)
+import Gauge.Monad (Gauge)
+import Gauge.Monad.ExceptT
 import Gauge.Types hiding (measure)
 import qualified Data.Map as Map
 import qualified Data.Vector as V
@@ -36,7 +35,7 @@ import Statistics.Types (Estimate(..),ConfInt(..),confidenceInterval,cl95,confid
 import Text.Printf (printf)
 
 -- | Run a single benchmark.
-runOne :: Int -> String -> Benchmarkable -> Criterion DataRecord
+runOne :: Int -> String -> Benchmarkable -> Gauge DataRecord
 runOne i desc bm = do
   Config{..} <- ask
   (meas,timeTaken) <- liftIO $ runBenchmark bm timeLimit
@@ -45,7 +44,7 @@ runOne i desc bm = do
   return (Measurement i desc meas)
 
 -- | Analyse a single benchmark.
-analyseOne :: Int -> String -> V.Vector Measured -> Criterion DataRecord
+analyseOne :: Int -> String -> V.Vector Measured -> Gauge DataRecord
 analyseOne i desc meas = do
   Config{..} <- ask
   _ <- prolix "analysing with %d resamples\n" resamples
@@ -84,7 +83,7 @@ analyseOne i desc meas = do
         return ()
       _ <- note "\n"
       return (Analysed rpt)
-      where bs :: (Double -> String) -> String -> Estimate ConfInt Double -> Criterion ()
+      where bs :: (Double -> String) -> String -> Estimate ConfInt Double -> Gauge ()
             bs f metric e@Estimate{..} =
               note "%-20s %-10s (%s .. %s%s)\n" metric
                    (f estPoint) (f $ fst $ confidenceInterval e) (f $ snd $ confidenceInterval e)
@@ -96,7 +95,7 @@ analyseOne i desc meas = do
 
 
 -- | Run a single benchmark and analyse its performance.
-runAndAnalyseOne :: Int -> String -> Benchmarkable -> Criterion DataRecord
+runAndAnalyseOne :: Int -> String -> Benchmarkable -> Gauge DataRecord
 runAndAnalyseOne i desc bm = do
   Measurement _ _ meas <- runOne i desc bm
   analyseOne i desc meas
@@ -106,7 +105,7 @@ runAndAnalyse :: (String -> Bool) -- ^ A predicate that chooses
                                   -- whether to run a benchmark by its
                                   -- name.
               -> Benchmark
-              -> Criterion ()
+              -> Gauge ()
 runAndAnalyse select bs = do
   -- The type we write to the file is ReportFileContents, a triple.
   -- But here we ASSUME that the tuple will become a JSON array.
@@ -151,15 +150,17 @@ runFixedIters :: Int64            -- ^ Number of loop iterations to run.
                                   -- whether to run a benchmark by its
                                   -- name.
               -> Benchmark
-              -> Criterion ()
+              -> Gauge ()
 runFixedIters iters select bs =
   for select bs $ \_idx desc bm -> do
     _ <- note "benchmarking %s\n" desc
     liftIO $ runBenchmarkable_ bm iters
 
 -- | Iterate over benchmarks.
-for :: (MonadMask m, MonadIO m) => (String -> Bool) -> Benchmark
-    -> (Int -> String -> Benchmarkable -> m ()) -> m ()
+for :: (String -> Bool)
+    -> Benchmark
+    -> (Int -> String -> Benchmarkable -> Gauge ())
+    -> Gauge ()
 for select bs0 handle = go (0::Int) ("", bs0) >> return ()
   where
     go !idx (pfx, Environment mkenv cleanenv mkbench)
@@ -183,7 +184,7 @@ for select bs0 handle = go (0::Int) ("", bs0) >> return ()
 
 {-
 -- | Write summary JUnit file (if applicable)
-junit :: [Report] -> Criterion ()
+junit :: [Report] -> Gauge ()
 junit rs
   = do junitOpt <- asks junitFile
        case junitOpt of
@@ -191,7 +192,7 @@ junit rs
          Nothing -> return ()
   where
     msg = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ++
-          printf "<testsuite name=\"Criterion benchmarks\" tests=\"%d\">\n"
+          printf "<testsuite name=\"Gauge benchmarks\" tests=\"%d\">\n"
           (length rs) ++
           concatMap single rs ++
           "</testsuite>\n"

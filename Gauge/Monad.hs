@@ -1,4 +1,5 @@
 {-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE TypeFamilies #-}
 -- |
 -- Module      : Gauge.Monad
 -- Copyright   : (c) 2009 Neil Brown
@@ -11,26 +12,26 @@
 -- The environment in which most criterion code executes.
 module Gauge.Monad
     (
-      Criterion
+      Gauge
     , withConfig
     , getGen
     , getOverhead
     ) where
 
-import Control.Monad.Reader (asks, runReaderT)
-import Control.Monad.Trans (liftIO)
+import Foundation.Monad
+import Foundation.Monad.Reader
 import Control.Monad (when)
 import Gauge.Measurement (measure, runBenchmark, secs)
-import Gauge.Monad.Internal (Criterion(..), Crit(..))
+import Gauge.Monad.Internal (Gauge(..), Crit(..))
 import Gauge.Types hiding (measure)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Statistics.Regression (olsRegress)
 import System.Random.MWC (GenIO, createSystemRandom)
 import qualified Data.Vector.Generic as G
 
--- | Run a 'Criterion' action with the given 'Config'.
-withConfig :: Config -> Criterion a -> IO a
-withConfig cfg (Criterion act) = do
+-- | Run a 'Gauge' action with the given 'Config'.
+withConfig :: Config -> Gauge a -> IO a
+withConfig cfg (Gauge act) = do
   g <- newIORef Nothing
   o <- newIORef Nothing
   runReaderT act (Crit cfg g o)
@@ -39,13 +40,13 @@ withConfig cfg (Criterion act) = do
 --
 -- This is not currently thread-safe, but in a harmless way (we might
 -- call 'createSystemRandom' more than once if multiple threads race).
-getGen :: Criterion GenIO
+getGen :: Gauge GenIO
 getGen = memoise gen createSystemRandom
 
 -- | Return an estimate of the measurement overhead.
-getOverhead :: Criterion Double
+getOverhead :: Gauge Double
 getOverhead = do
-  verbose <- asks ((== Verbose) . verbosity)
+  verbose <- ((== Verbose) . verbosity) <$> ask
   memoise overhead $ do
     (meas,_) <- runBenchmark (whnfIO $ measure (whnfIO $ return ()) 1) 1
     let metric get = G.convert . G.map get $ meas
@@ -61,9 +62,9 @@ getOverhead = do
 -- We might call the given action more than once if multiple threads
 -- race, so our caller's job is to write actions that can be run
 -- multiple times safely.
-memoise :: (Crit -> IORef (Maybe a)) -> IO a -> Criterion a
+memoise :: (Crit -> IORef (Maybe a)) -> IO a -> Gauge a
 memoise ref generate = do
-  r <- Criterion $ asks ref
+  r <- Gauge (ref <$> ask)
   liftIO $ do
     mv <- readIORef r
     case mv of

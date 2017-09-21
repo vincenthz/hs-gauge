@@ -446,8 +446,8 @@ envWithCleanup = Environment
 --
 -- The environment is evaluated to normal form before the benchmark is run.
 --
--- When using 'whnf', 'whnfIO', etc. Criterion creates a 'Benchmarkable'
--- whichs runs a batch of @N@ repeat runs of that expressions. Criterion may
+-- When using 'whnf', 'whnfIO', etc. Gauge creates a 'Benchmarkable'
+-- whichs runs a batch of @N@ repeat runs of that expressions. Gauge may
 -- run any number of these batches to get accurate measurements. Environments
 -- created by 'env' and 'envWithCleanup', are shared across all these batches
 -- of runs.
@@ -460,7 +460,7 @@ envWithCleanup = Environment
 -- An example: Suppose we want to benchmark writing to a Chan, if we allocate
 -- the Chan using environment and our benchmark consists of @writeChan env ()@,
 -- the contents and thus size of the Chan will grow with every repeat. If
--- Criterion runs a 1,000 batches of 1,000 repeats, the result is that the
+-- Gauge runs a 1,000 batches of 1,000 repeats, the result is that the
 -- channel will have 999,000 items in it by the time the last batch is run.
 -- Since GHC GC has to copy the live set for every major GC this means our last
 -- set of writes will suffer a lot of noise of the previous repeats.
@@ -503,7 +503,7 @@ perBatchEnvWithCleanup alloc clean work
 -- before the benchmark is run.
 --
 -- This introduces extra noise and result in reduce accuracy compared to other
--- Criterion benchmarks. But allows easier benchmarking for mutable operations
+-- Gauge benchmarks. But allows easier benchmarking for mutable operations
 -- than was previously possible.
 perRunEnv
     :: (NFData env, NFData b)
