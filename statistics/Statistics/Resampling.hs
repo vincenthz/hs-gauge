@@ -17,20 +17,11 @@
 
 module Statistics.Resampling
     ( -- * Data types
-      Resample(..)
-    , Bootstrap(..)
+      Bootstrap(..)
     , Estimator(..)
-    , estimate
-      -- * Resampling
-    , resampleST
     , resample
-    , resampleVector
       -- * Jackknife
     , jackknife
-    , jackknifeMean
-    , jackknifeVariance
-    , jackknifeVarianceUnb
-    , jackknifeStdDev
       -- * Helper functions
     , splitGen
     ) where
@@ -40,7 +31,7 @@ import Control.Monad
 import Control.Monad.Primitive (PrimMonad(..))
 import Data.Data (Data, Typeable)
 import Data.Vector.Algorithms.Intro (sort)
-import Data.Vector.Generic (unsafeFreeze,unsafeThaw)
+import Data.Vector.Generic (unsafeFreeze)
 import Data.Word (Word32)
 import qualified Data.Foldable as T
 import qualified Data.Traversable as T
@@ -60,13 +51,6 @@ import System.Random.MWC (Gen, GenIO, initialize, uniformR, uniformVector)
 ----------------------------------------------------------------
 -- Data types
 ----------------------------------------------------------------
-
--- | A resample drawn randomly, with replacement, from a set of data
--- points.  Distinct from a normal array to make it harder for your
--- humble author's brain to go wrong.
-newtype Resample = Resample {
-      fromResample :: U.Vector Double
-    } deriving (Eq, Read, Show, Typeable, Data, Generic)
 
 data Bootstrap v a = Bootstrap
   { fullSample :: !a
@@ -101,26 +85,6 @@ estimate (Function est) = est
 ----------------------------------------------------------------
 -- Resampling
 ----------------------------------------------------------------
-
--- | Single threaded and deterministic version of resample.
-resampleST :: PrimMonad m
-           => Gen (PrimState m)
-           -> [Estimator]         -- ^ Estimation functions.
-           -> Int                 -- ^ Number of resamples to compute.
-           -> U.Vector Double     -- ^ Original sample.
-           -> m [Bootstrap U.Vector Double]
-resampleST gen ests numResamples sample = do
-  -- Generate resamples
-  res <- forM ests $ \e -> U.replicateM numResamples $ do
-    v <- resampleVector gen sample
-    return $! estimate e v
-  -- Sort resamples
-  resM <- mapM unsafeThaw res
-  mapM_ sort resM
-  resSorted <- mapM unsafeFreeze resM
-  return $ zipWith Bootstrap [estimate e sample | e <- ests]
-                             resSorted
-
 
 -- | /O(e*r*s)/ Resample a data set repeatedly, with replacement,
 -- computing each estimate over the resampled data.

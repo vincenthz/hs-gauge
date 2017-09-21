@@ -17,8 +17,8 @@ module Statistics.Distribution.Normal
     (
       NormalDistribution
     -- * Constructors
-    , normalDistr
-    , normalDistrE
+    -- , normalDistr
+    --, normalDistrE
     , standard
     ) where
 
@@ -26,11 +26,8 @@ import Data.Data             (Data, Typeable)
 import GHC.Generics          (Generic)
 import Numeric.MathFunctions.Constants (m_sqrt_2, m_sqrt_2_pi)
 import Numeric.SpecFunctions (erfc, invErfc)
-import qualified System.Random.MWC.Distributions as MWC
-import qualified Data.Vector.Generic as G
 
 import qualified Statistics.Distribution as D
-import qualified Statistics.Sample as S
 import Statistics.Internal
 
 
@@ -56,28 +53,6 @@ instance D.ContDistr NormalDistribution where
     quantile      = quantile
     complQuantile = complQuantile
 
-instance D.MaybeMean NormalDistribution where
-    maybeMean = Just . D.mean
-
-instance D.Mean NormalDistribution where
-    mean = mean
-
-instance D.MaybeVariance NormalDistribution where
-    maybeStdDev   = Just . D.stdDev
-    maybeVariance = Just . D.variance
-
-instance D.Variance NormalDistribution where
-    stdDev = stdDev
-
-instance D.Entropy NormalDistribution where
-  entropy d = 0.5 * log (2 * pi * exp 1 * D.variance d)
-
-instance D.MaybeEntropy NormalDistribution where
-  maybeEntropy = Just . D.entropy
-
-instance D.ContGen NormalDistribution where
-    genContVar d = MWC.normal (mean d) (stdDev d)
-
 -- | Standard normal distribution with mean equal to 0 and variance equal to 1
 standard :: NormalDistribution
 standard = ND { mean       = 0.0
@@ -85,15 +60,6 @@ standard = ND { mean       = 0.0
               , ndPdfDenom = log m_sqrt_2_pi
               , ndCdfDenom = m_sqrt_2
               }
-
--- | Create normal distribution from parameters.
---
--- IMPORTANT: prior to 0.10 release second parameter was variance not
--- standard deviation.
-normalDistr :: Double            -- ^ Mean of distribution
-            -> Double            -- ^ Standard deviation of distribution
-            -> NormalDistribution
-normalDistr m sd = maybe (error $ errMsg m sd) id $ normalDistrE m sd
 
 -- | Create normal distribution from parameters.
 --
@@ -109,22 +75,6 @@ normalDistrE m sd
                         , ndCdfDenom = m_sqrt_2 * sd
                         }
   | otherwise = Nothing
-
-errMsg :: Double -> Double -> String
-errMsg _ sd = "Statistics.Distribution.Normal.normalDistr: standard deviation must be positive. Got " ++ show sd
-
--- | Variance is estimated using maximum likelihood method
---   (biased estimation).
---
---   Returns @Nothing@ if sample contains less than one element or
---   variance is zero (all elements are equal)
-instance D.FromSample NormalDistribution Double where
-  fromSample xs
-    | G.length xs <= 1 = Nothing
-    | v == 0           = Nothing
-    | otherwise        = Just $! normalDistr m (sqrt v)
-    where
-      (m,v) = S.meanVariance xs
 
 logDensity :: NormalDistribution -> Double -> Double
 logDensity d x = (-xm * xm / (2 * sd * sd)) - ndPdfDenom d

@@ -16,8 +16,6 @@ module Gauge.Main.Options
       Mode(..)
     , MatchType(..)
     , defaultConfig
-    , parseWith
-    , config
     , describe
     , versionInfo
     ) where

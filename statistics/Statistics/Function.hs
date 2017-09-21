@@ -20,11 +20,8 @@ module Statistics.Function
       minMax
     -- * Sorting
     , sort
-    , gsort
-    , sortBy
     , partialSort
     -- * Indexing
-    , indexed
     , indices
     -- * Bit twiddling
     , nextHighestPowerOfTwo
@@ -54,16 +51,6 @@ sort :: U.Vector Double -> U.Vector Double
 sort = G.modify I.sort
 {-# NOINLINE sort #-}
 
--- | Sort a vector.
-gsort :: (Ord e, G.Vector v e) => v e -> v e
-gsort = G.modify I.sort
-{-# INLINE gsort #-}
-
--- | Sort a vector using a custom ordering.
-sortBy :: (G.Vector v e) => I.Comparison e -> v e -> v e
-sortBy f = G.modify $ I.sortBy f
-{-# INLINE sortBy #-}
-
 -- | Partially sort a vector, such that the least /k/ elements will be
 -- at the front.
 partialSort :: (G.Vector v e, Ord e) =>
@@ -77,11 +64,6 @@ partialSort k = G.modify (`I.partialSort` k)
 indices :: (G.Vector v a, G.Vector v Int) => v a -> v Int
 indices a = G.enumFromTo 0 (G.length a - 1)
 {-# INLINE indices #-}
-
--- | Zip a vector with its indices.
-indexed :: (G.Vector v e, G.Vector v Int, G.Vector v (Int,e)) => v e -> v (Int,e)
-indexed a = G.zip (indices a) a
-{-# INLINE indexed #-}
 
 data MM = MM {-# UNPACK #-} !Double {-# UNPACK #-} !Double
 

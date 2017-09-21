@@ -14,7 +14,6 @@ module Gauge.Internal
     (
       runAndAnalyse
     , runAndAnalyseOne
-    , runOne
     , runFixedIters
     ) where
 

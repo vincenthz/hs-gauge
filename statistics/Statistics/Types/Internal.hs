@@ -17,8 +17,8 @@ import qualified Data.Vector.Unboxed as U (Vector)
 type Sample = U.Vector Double
 
 -- | Sample with weights. First element of sample is data, second is weight
-type WeightedSample = U.Vector (Double,Double)
+--type WeightedSample = U.Vector (Double,Double)
 
 -- | Weights for affecting the importance of elements of a sample.
-type Weights = U.Vector Double
+--type Weights = U.Vector Double
 

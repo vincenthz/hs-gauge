@@ -40,6 +40,7 @@ library
   other-modules:
     Gauge.IO.Printf
     Gauge.Internal
+    Gauge.Monad.Internal
     Gauge.Main.Options
     Gauge.Measurement
     Gauge.Monad
@@ -65,9 +66,6 @@ library
     Statistics.Types.Internal
 
   hs-source-dirs: . statistics
-
-  other-modules:
-    Gauge.Monad.Internal
 
   c-sources: cbits/cycles.c
   if os(darwin)

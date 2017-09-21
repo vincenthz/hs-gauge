@@ -11,14 +11,11 @@ module Statistics.Matrix.Mutable
     , MVector
     , replicate
     , thaw
-    , bounds
-    , unsafeNew
     , unsafeFreeze
     , unsafeRead
     , unsafeWrite
     , unsafeModify
     , immutably
-    , unsafeBounds
     ) where
 
 import Control.Applicative ((<$>))
@@ -38,17 +35,6 @@ thaw (Matrix r c e v) = MMatrix r c e <$> U.thaw v
 unsafeFreeze :: MMatrix s -> ST s Matrix
 unsafeFreeze (MMatrix r c e mv) = Matrix r c e <$> U.unsafeFreeze mv
 
--- | Allocate new matrix. Matrix content is not initialized hence unsafe.
-unsafeNew :: Int                -- ^ Number of row
-          -> Int                -- ^ Number of columns
-          -> ST s (MMatrix s)
-unsafeNew r c
-  | r < 0     = error "Statistics.Matrix.Mutable.unsafeNew: negative number of rows"
-  | c < 0     = error "Statistics.Matrix.Mutable.unsafeNew: negative number of columns"
-  | otherwise = do
-      vec <- M.new (r*c)
-      return $ MMatrix r c 0 vec
-
 unsafeRead :: MMatrix s -> Int -> Int -> ST s Double
 unsafeRead mat r c = unsafeBounds mat r c M.unsafeRead
 {-# INLINE unsafeRead #-}
@@ -63,15 +49,6 @@ unsafeModify mat row col f = unsafeBounds mat row col $ \v i -> do
   k <- M.unsafeRead v i
   M.unsafeWrite v i (f k)
 {-# INLINE unsafeModify #-}
-
--- | Given row and column numbers, calculate the offset into the flat
--- row-major vector.
-bounds :: MMatrix s -> Int -> Int -> (MVector s -> Int -> r) -> r
-bounds (MMatrix rs cs _ mv) r c k
-  | r < 0 || r >= rs = error "row out of bounds"
-  | c < 0 || c >= cs = error "column out of bounds"
-  | otherwise        = k mv $! r * cs + c
-{-# INLINE bounds #-}
 
 -- | Given row and column numbers, calculate the offset into the flat
 -- row-major vector, without checking.

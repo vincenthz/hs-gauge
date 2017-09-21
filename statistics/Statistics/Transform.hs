@@ -21,12 +21,7 @@ module Statistics.Transform
       CD
     -- * Discrete cosine transform
     , dct
-    , dct_
     , idct
-    , idct_
-    -- * Fast Fourier transform
-    , fft
-    , ifft
     ) where
 
 import Control.Monad (when)
@@ -47,14 +42,6 @@ dct = dctWorker . G.map (:+0)
 {-# INLINABLE  dct #-}
 {-# SPECIAlIZE dct :: U.Vector Double -> U.Vector Double #-}
 {-# SPECIAlIZE dct :: V.Vector Double -> V.Vector Double #-}
-
--- | Discrete cosine transform (DCT-II). Only real part of vector is
---   transformed, imaginary part is ignored.
-dct_ :: (G.Vector v CD, G.Vector v Double, G.Vector v Int) => v CD -> v Double
-dct_ = dctWorker . G.map (\(i :+ _) -> i :+ 0)
-{-# INLINABLE  dct_ #-}
-{-# SPECIAlIZE dct_ :: U.Vector CD -> U.Vector Double #-}
-{-# SPECIAlIZE dct_ :: V.Vector CD -> V.Vector Double#-}
 
 dctWorker :: (G.Vector v CD, G.Vector v Double, G.Vector v Int) => v CD -> v Double
 {-# INLINE dctWorker #-}
@@ -82,14 +69,6 @@ idct = idctWorker . G.map (:+0)
 {-# INLINABLE  idct #-}
 {-# SPECIAlIZE idct :: U.Vector Double -> U.Vector Double #-}
 {-# SPECIAlIZE idct :: V.Vector Double -> V.Vector Double #-}
-
--- | Inverse discrete cosine transform (DCT-III). Only real part of vector is
---   transformed, imaginary part is ignored.
-idct_ :: (G.Vector v CD, G.Vector v Double) => v CD -> v Double
-idct_ = idctWorker . G.map (\(i :+ _) -> i :+ 0)
-{-# INLINABLE  idct_ #-}
-{-# SPECIAlIZE idct_ :: U.Vector CD -> U.Vector Double #-}
-{-# SPECIAlIZE idct_ :: V.Vector CD -> V.Vector Double #-}
 
 idctWorker :: (G.Vector v CD, G.Vector v Double) => v CD -> v Double
 {-# INLINE idctWorker #-}

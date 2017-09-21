@@ -14,7 +14,6 @@ module Statistics.Matrix.Types
     , MVector
     , Matrix(..)
     , MMatrix(..)
-    , debug
     ) where
 
 import Data.Char (isSpace)

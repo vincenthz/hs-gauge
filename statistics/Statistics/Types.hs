@@ -2,7 +2,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DeriveDataTypeable, DeriveGeneric #-}
 -- |
@@ -23,44 +22,21 @@ module Statistics.Types
     , significanceLevel
       -- ** Constructors
     , mkCL
-    , mkCLE
-    , mkCLFromSignificance
-    , mkCLFromSignificanceE
       -- ** Constants and conversion to nσ
-    , cl90
     , cl95
-    , cl99
-      -- *** Normal approximation
-    , nSigma
-    , nSigma1
-    , getNSigma
-    , getNSigma1
-      -- * p-value
-    , PValue
-      -- ** Accessors
-    , pValue
-      -- ** Constructors
-    , mkPValue
-    , mkPValueE
       -- * Estimates and upper/lower limits
     , Estimate(..)
-    , NormalErr(..)
+    -- , NormalErr(..)
     , ConfInt(..)
-    , UpperLimit(..)
-    , LowerLimit(..)
       -- ** Constructors
-    , estimateNormErr
-    , (±)
+    -- , estimateNormErr
     , estimateFromInterval
     , estimateFromErr
       -- ** Accessors
     , confidenceInterval
-    , asymErrors
     , Scale(..)
       -- * Other
     , Sample
-    , WeightedSample
-    , Weights
     ) where
 
 import Control.DeepSeq              (NFData(..))
@@ -77,8 +53,6 @@ import qualified Data.Vector.Generic.Mutable
 
 import Statistics.Internal
 import Statistics.Types.Internal
-import Statistics.Distribution
-import Statistics.Distribution.Normal
 
 
 ----------------------------------------------------------------
@@ -146,15 +120,6 @@ mkCLE p
   | p >= 0 && p <= 1 = Just $ CL (1 - p)
   | otherwise        = Nothing
 
--- | Create confidence level from probability α or probability that
---   confidence interval does not contain true value of estimate. Will
---   throw exception if parameter is out of [0,1] range
---
--- >>> mkCLFromSignificance 0.05    -- same as cl95
--- mkCLFromSignificance 0.05
-mkCLFromSignificance :: (Ord a, Num a) => a -> CL a
-mkCLFromSignificance = fromMaybe (error errMkCL) . mkCLFromSignificanceE
-
 -- | Same as 'mkCLFromSignificance' but returns @Nothing@ instead of error if
 --   parameter is out of [0,1] range
 --
@@ -164,10 +129,6 @@ mkCLFromSignificanceE :: (Ord a, Num a) => a -> Maybe (CL a)
 mkCLFromSignificanceE p
   | p >= 0 && p <= 1 = Just $ CL p
   | otherwise        = Nothing
-
-errMkCL :: String
-errMkCL = "Statistics.Types.mkPValCL: probability is out if [0,1] range"
-
 
 -- | Get confidence level. This function is subject to rounding
 --   errors. If @1 - CL@ is needed use 'significanceLevel' instead
@@ -180,19 +141,9 @@ significanceLevel (CL p) = p
 
 
 
--- | 90% confidence level
-cl90 :: Fractional a => CL a
-cl90 = CL 0.10
-
 -- | 95% confidence level
 cl95 :: Fractional a => CL a
 cl95 = CL 0.05
-
--- | 99% confidence level
-cl99 :: Fractional a => CL a
-cl99 = CL 0.01
-
-
 
 ----------------------------------------------------------------
 -- Data type for p-value
@@ -211,56 +162,11 @@ instance NFData a => NFData (PValue a) where
   rnf (PValue a) = rnf a
 
 
--- | Construct PValue. Throws error if argument is out of [0,1] range.
---
-mkPValue :: (Ord a, Num a) => a -> PValue a
-mkPValue = fromMaybe (error errMkPValue) . mkPValueE
-
 -- | Construct PValue. Returns @Nothing@ if argument is out of [0,1] range.
 mkPValueE :: (Ord a, Num a) => a -> Maybe (PValue a)
 mkPValueE p
   | p >= 0 && p <= 1 = Just $ PValue p
   | otherwise        = Nothing
-
--- | Get p-value
-pValue :: PValue a -> a
-pValue (PValue p) = p
-
-
--- | P-value expressed in sigma. This is convention widely used in
---   experimental physics. N sigma confidence level corresponds to
---   probability within N sigma of normal distribution.
---
---   Note that this correspondence is for normal distribution. Other
---   distribution will have different dependency. Also experimental
---   distribution usually only approximately normal (especially at
---   extreme tails).
-nSigma :: Double -> PValue Double
-nSigma n
-  | n > 0     = PValue $ 2 * cumulative standard (-n)
-  | otherwise = error "Statistics.Extra.Error.nSigma: non-positive number of sigma"
-
--- | P-value expressed in sigma for one-tail hypothesis. This correspond to
---   probability of obtaining value less than @N·σ@.
-nSigma1 :: Double -> PValue Double
-nSigma1 n
-  | n > 0     = PValue $ cumulative standard (-n)
-  | otherwise = error "Statistics.Extra.Error.nSigma1: non-positive number of sigma"
-
--- | Express confidence level in sigmas
-getNSigma :: PValue Double -> Double
-getNSigma (PValue p) = negate $ quantile standard (p / 2)
-
--- | Express confidence level in sigmas for one-tailed hypothesis.
-getNSigma1 :: PValue Double -> Double
-getNSigma1 (PValue p) = negate $ quantile standard p
-
-
-
-errMkPValue :: String
-errMkPValue = "Statistics.Types.mkPValue: probability is out if [0,1] range"
-
-
 
 ----------------------------------------------------------------
 -- Point estimates
@@ -314,20 +220,6 @@ instance (NFData   (e a), NFData   a) => NFData   (Estimate e a) where
     rnf (Estimate x dx) = rnf x `seq` rnf dx
 
 
-
--- |
--- Normal errors. They are stored as 1σ errors which corresponds to
--- 68.8% CL. Since we can recalculate them to any confidence level if
--- needed we don't store it.
-newtype NormalErr a = NormalErr
-  { normalError :: a
-  }
-  deriving (Eq, Read, Show, Typeable, Data, Generic)
-
-instance NFData   a => NFData   (NormalErr a) where
-    rnf (NormalErr x) = rnf x
-
-
 -- | Confidence interval. It assumes that confidence interval forms
 --   single interval and isn't set of disjoint intervals.
 data ConfInt a = ConfInt
@@ -349,18 +241,6 @@ instance NFData   a => NFData   (ConfInt a) where
 
 ----------------------------------------
 -- Constructors
-
--- | Create estimate with normal errors
-estimateNormErr :: a            -- ^ Point estimate
-                -> a            -- ^ 1σ error
-                -> Estimate NormalErr a
-estimateNormErr x dx = Estimate x (NormalErr dx)
-
--- | Synonym for 'estimateNormErr'
-(±) :: a      -- ^ Point estimate
-    -> a      -- ^ 1σ error
-    -> Estimate NormalErr a
-(±) = estimateNormErr
 
 -- | Create estimate with asymmetric error.
 estimateFromErr
@@ -391,18 +271,10 @@ confidenceInterval :: Num a => Estimate ConfInt a -> (a,a)
 confidenceInterval (Estimate x (ConfInt ldx udx _))
   = (x - ldx, x + udx)
 
--- | Get asymmetric errors
-asymErrors :: Estimate ConfInt a -> (a,a)
-asymErrors (Estimate _ (ConfInt ldx udx _)) = (ldx,udx)
-
-
 
 -- | Data types which could be multiplied by constant.
 class Scale e where
   scale :: (Ord a, Num a) => a -> e a -> e a
-
-instance Scale NormalErr where
-  scale a (NormalErr e) = NormalErr (abs a * e)
 
 instance Scale ConfInt where
   scale a (ConfInt l u cl) | a >= 0    = ConfInt  (a*l)  (a*u) cl
@@ -411,75 +283,3 @@ instance Scale ConfInt where
 instance Scale e => Scale (Estimate e) where
   scale a (Estimate x dx) = Estimate (a*x) (scale a dx)
 
-
-
-----------------------------------------------------------------
--- Upper/lower limit
-----------------------------------------------------------------
-
--- | Upper limit. They are usually given for small non-negative values
---   when it's not possible detect difference from zero.
-data UpperLimit a = UpperLimit
-    { upperLimit        :: !a
-      -- ^ Upper limit
-    , ulConfidenceLevel :: !(CL Double)
-      -- ^ Confidence level for which limit was calculated
-    } deriving (Eq, Read, Show, Typeable, Data, Generic)
-
-
-instance NFData   a => NFData   (UpperLimit a) where
-    rnf (UpperLimit x cl) = rnf x `seq` rnf cl
-
-
-
--- | Lower limit. They are usually given for large quantities when
---   it's not possible to measure them. For example: proton half-life
-data LowerLimit a = LowerLimit {
-    lowerLimit        :: !a
-    -- ^ Lower limit
-  , llConfidenceLevel :: !(CL Double)
-    -- ^ Confidence level for which limit was calculated
-  } deriving (Eq, Read, Show, Typeable, Data, Generic)
-
-instance NFData   a => NFData   (LowerLimit a) where
-    rnf (LowerLimit x cl) = rnf x `seq` rnf cl
-
-
-----------------------------------------------------------------
--- Deriving unbox instances
-----------------------------------------------------------------
-
-derivingUnbox "CL"
-  [t| forall a. Unbox a => CL a -> a |]
-  [| \(CL a) -> a |]
-  [| CL           |]
-
-derivingUnbox "PValue"
-  [t| forall a. Unbox a => PValue a -> a |]
-  [| \(PValue a) -> a |]
-  [| PValue           |]
-
-derivingUnbox "Estimate"
-  [t| forall a e. (Unbox a, Unbox (e a)) => Estimate e a -> (a, e a) |]
-  [| \(Estimate x dx) -> (x,dx) |]
-  [| \(x,dx) -> (Estimate x dx) |]
-
-derivingUnbox "NormalErr"
-  [t| forall a. Unbox a => NormalErr a -> a |]
-  [| \(NormalErr a) -> a |]
-  [| NormalErr           |]
-
-derivingUnbox "ConfInt"
-  [t| forall a. Unbox a => ConfInt a -> (a, a, CL Double) |]
-  [| \(ConfInt a b c) -> (a,b,c) |]
-  [| \(a,b,c) -> ConfInt a b c   |]
-
-derivingUnbox "UpperLimit"
-  [t| forall a. Unbox a => UpperLimit a -> (a, CL Double) |]
-  [| \(UpperLimit a b) -> (a,b) |]
-  [| \(a,b) -> UpperLimit a b   |]
-
-derivingUnbox "LowerLimit"
-  [t| forall a. Unbox a => LowerLimit a -> (a, CL Double) |]
-  [| \(LowerLimit a b) -> (a,b) |]
-  [| \(a,b) -> LowerLimit a b   |]

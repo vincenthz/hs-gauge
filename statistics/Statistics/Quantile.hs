@@ -21,26 +21,11 @@ module Statistics.Quantile
     (
     -- * Quantile estimation functions
       weightedAvg
-    , ContParam(..)
-    , continuousBy
-    , midspread
-
-    -- * Parameters for the continuous sample method
-    , cadpw
-    , hazen
-    , s
-    , spss
-    , medianUnbiased
-    , normalUnbiased
-
-    -- * Median functions
-    , mad
     -- * References
     -- $references
     ) where
 
 import Data.Vector.Generic ((!))
-import Numeric.MathFunctions.Constants (m_epsilon)
 import Statistics.Function (partialSort)
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as G
@@ -79,132 +64,9 @@ weightedAvg k q x
 {-# SPECIALIZE weightedAvg :: Int -> Int -> U.Vector Double -> Double #-}
 {-# SPECIALIZE weightedAvg :: Int -> Int -> V.Vector Double -> Double #-}
 
--- | Parameters /a/ and /b/ to the 'continuousBy' function.
-data ContParam = ContParam {-# UNPACK #-} !Double {-# UNPACK #-} !Double
-
--- | O(/n/ log /n/). Estimate the /k/th /q/-quantile of a sample /x/,
--- using the continuous sample method with the given parameters.  This
--- is the method used by most statistical software, such as R,
--- Mathematica, SPSS, and S.
-continuousBy :: G.Vector v Double =>
-                ContParam  -- ^ Parameters /a/ and /b/.
-             -> Int        -- ^ /k/, the desired quantile.
-             -> Int        -- ^ /q/, the number of quantiles.
-             -> v Double   -- ^ /x/, the sample data.
-             -> Double
-continuousBy (ContParam a b) k q x
-  | q < 2          = modErr "continuousBy" "At least 2 quantiles is needed"
-  | k < 0 || k > q = modErr "continuousBy" "Wrong quantile number"
-  | G.any isNaN x  = modErr "continuousBy" "Sample contains NaNs"
-  | otherwise      = (1-h) * item (j-1) + h * item j
-  where
-    j               = floor (t + eps)
-    t               = a + p * (fromIntegral n + 1 - a - b)
-    p               = fromIntegral k / fromIntegral q
-    h | abs r < eps = 0
-      | otherwise   = r
-      where r       = t - fromIntegral j
-    eps             = m_epsilon * 4
-    n               = G.length x
-    item            = (sx !) . bracket
-    sx              = partialSort (bracket j + 1) x
-    bracket m       = min (max m 0) (n - 1)
-{-# SPECIALIZE
-    continuousBy :: ContParam -> Int -> Int -> U.Vector Double -> Double #-}
-{-# SPECIALIZE
-    continuousBy :: ContParam -> Int -> Int -> V.Vector Double -> Double #-}
-
--- | O(/n/ log /n/). Estimate the range between /q/-quantiles 1 and
--- /q/-1 of a sample /x/, using the continuous sample method with the
--- given parameters.
---
--- For instance, the interquartile range (IQR) can be estimated as
--- follows:
---
--- > midspread medianUnbiased 4 (U.fromList [1,1,2,2,3])
--- > ==> 1.333333
-midspread :: G.Vector v Double =>
-             ContParam  -- ^ Parameters /a/ and /b/.
-          -> Int        -- ^ /q/, the number of quantiles.
-          -> v Double   -- ^ /x/, the sample data.
-          -> Double
-midspread (ContParam a b) k x
-  | G.any isNaN x = modErr "midspread" "Sample contains NaNs"
-  | k <= 0        = modErr "midspread" "Nonpositive number of quantiles"
-  | otherwise     = quantile (1-frac) - quantile frac
-  where
-    quantile i        = (1-h i) * item (j i-1) + h i * item (j i)
-    j i               = floor (t i + eps) :: Int
-    t i               = a + i * (fromIntegral n + 1 - a - b)
-    h i | abs r < eps = 0
-        | otherwise   = r
-        where r       = t i - fromIntegral (j i)
-    eps               = m_epsilon * 4
-    n                 = G.length x
-    item              = (sx !) . bracket
-    sx                = partialSort (bracket (j (1-frac)) + 1) x
-    bracket m         = min (max m 0) (n - 1)
-    frac              = 1 / fromIntegral k
-{-# SPECIALIZE midspread :: ContParam -> Int -> U.Vector Double -> Double #-}
-{-# SPECIALIZE midspread :: ContParam -> Int -> V.Vector Double -> Double #-}
-
--- | California Department of Public Works definition, /a/=0, /b/=1.
--- Gives a linear interpolation of the empirical CDF.  This
--- corresponds to method 4 in R and Mathematica.
-cadpw :: ContParam
-cadpw = ContParam 0 1
-
--- | Hazen's definition, /a/=0.5, /b/=0.5.  This is claimed to be
--- popular among hydrologists.  This corresponds to method 5 in R and
--- Mathematica.
-hazen :: ContParam
-hazen = ContParam 0.5 0.5
-
--- | Definition used by the SPSS statistics application, with /a/=0,
--- /b/=0 (also known as Weibull's definition).  This corresponds to
--- method 6 in R and Mathematica.
-spss :: ContParam
-spss = ContParam 0 0
-
--- | Definition used by the S statistics application, with /a/=1,
--- /b/=1.  The interpolation points divide the sample range into @n-1@
--- intervals.  This corresponds to method 7 in R and Mathematica.
-s :: ContParam
-s = ContParam 1 1
-
--- | Median unbiased definition, /a/=1\/3, /b/=1\/3. The resulting
--- quantile estimates are approximately median unbiased regardless of
--- the distribution of /x/.  This corresponds to method 8 in R and
--- Mathematica.
-medianUnbiased :: ContParam
-medianUnbiased = ContParam third third
-    where third = 1/3
-
--- | Normal unbiased definition, /a/=3\/8, /b/=3\/8.  An approximately
--- unbiased estimate if the empirical distribution approximates the
--- normal distribution.  This corresponds to method 9 in R and
--- Mathematica.
-normalUnbiased :: ContParam
-normalUnbiased = ContParam ta ta
-    where ta = 3/8
-
 modErr :: String -> String -> a
 modErr f err = error $ "Statistics.Quantile." ++ f ++ ": " ++ err
 
-
--- | O(/n/ log /n/). Estimate the median absolute deviation (MAD) of a
---   sample /x/ using 'continuousBy'. It's robust estimate of
---   variability in sample and defined as:
---
---   \[
---   MAD = \operatorname{median}(| X_i - \operatorname{median}(X) |)
---   \]
-mad :: G.Vector v Double
-    => ContParam  -- ^ Parameters /a/ and /b/.
-    -> v Double   -- ^ /x/, the sample data.
-    -> Double
-mad cp x = med . G.map (\a -> abs $ a - med x) $ x
-  where med = continuousBy cp 2 4
 
 
 -- $references

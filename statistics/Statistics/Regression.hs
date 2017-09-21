@@ -8,8 +8,6 @@
 module Statistics.Regression
     (
       olsRegress
-    , ols
-    , rSquare
     , bootstrapRegress
     ) where
 
@@ -21,7 +19,7 @@ import Control.Monad (forM_, replicateM)
 import GHC.Conc (getNumCapabilities)
 import Prelude hiding (pred, sum)
 import Statistics.Function as F
-import Statistics.Matrix hiding (map)
+import Statistics.Matrix
 import Statistics.Matrix.Algorithms (qr)
 import Statistics.Resampling (splitGen)
 import Statistics.Types      (Estimate(..),ConfInt,CL,estimateFromInterval,significanceLevel)
