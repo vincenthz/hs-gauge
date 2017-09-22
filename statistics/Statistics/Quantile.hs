@@ -19,17 +19,21 @@
 
 module Statistics.Quantile
     (
+    
     -- * Quantile estimation functions
       weightedAvg
+    , Sorted(..)
     -- * References
     -- $references
     ) where
 
 import Data.Vector.Generic ((!))
-import Statistics.Function (partialSort)
+-- import Statistics.Function (partialSort)
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as G
 import qualified Data.Vector.Unboxed as U
+
+newtype Sorted x = Sorted x
 
 -- | O(/n/ log /n/). Estimate the /k/th /q/-quantile of a sample,
 -- using the weighted average method.
@@ -43,9 +47,9 @@ import qualified Data.Vector.Unboxed as U
 weightedAvg :: G.Vector v Double =>
                Int        -- ^ /k/, the desired quantile.
             -> Int        -- ^ /q/, the number of quantiles.
-            -> v Double   -- ^ /x/, the sample data.
+            -> Sorted (v Double)   -- ^ /x/, the sample data.
             -> Double
-weightedAvg k q x
+weightedAvg k q (Sorted x)
   | G.any isNaN x   = modErr "weightedAvg" "Sample contains NaNs"
   | n == 0          = modErr "weightedAvg" "Sample is empty"
   | n == 1          = G.head x
@@ -59,10 +63,10 @@ weightedAvg k q x
     g   = idx - fromIntegral j
     xj  = sx ! j
     xj1 = sx ! (j+1)
-    sx  = partialSort (j+2) x
+    sx  = x -- partialSort (j+2) x
     n   = G.length x
-{-# SPECIALIZE weightedAvg :: Int -> Int -> U.Vector Double -> Double #-}
-{-# SPECIALIZE weightedAvg :: Int -> Int -> V.Vector Double -> Double #-}
+{-# SPECIALIZE weightedAvg :: Int -> Int -> Sorted (U.Vector Double) -> Double #-}
+{-# SPECIALIZE weightedAvg :: Int -> Int -> Sorted (V.Vector Double) -> Double #-}
 
 modErr :: String -> String -> a
 modErr f err = error $ "Statistics.Quantile." ++ f ++ ": " ++ err

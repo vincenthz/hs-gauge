@@ -42,7 +42,7 @@ import qualified Data.Vector.Unboxed.Mutable as MU
 import GHC.Conc (numCapabilities)
 import GHC.Generics (Generic)
 import Numeric.Sum (Summation(..), kbn)
-import Statistics.Function (indices)
+import Statistics.Function (indices, inplaceSortIO)
 import Statistics.Sample (mean, stdDev, variance, varianceUnbiased)
 import Statistics.Types (Sample)
 import System.Random.MWC (Gen, GenIO, initialize, uniformR, uniformVector)
@@ -121,7 +121,7 @@ resample gen ests numResamples samples = do
             loop (k+1) ers
       loop start (zip ests' results)
   replicateM_ numCapabilities $ readChan done
-  mapM_ inplaceSortBy results
+  mapM_ inplaceSortIO results
   -- Build resamples
   res <- mapM unsafeFreeze results
   return $ zip ests
@@ -129,47 +129,6 @@ resample gen ests numResamples samples = do
                              res
  where
   ests' = map estimate ests
-
-inplaceSortBy :: MU.MVector (PrimState IO) Double
-              -> IO ()
-inplaceSortBy mvec = qsort 0 (MU.length mvec-1)
-    where
-        qsort lo hi
-            | lo >= hi  = pure ()
-            | otherwise = do
-                p <- partition lo hi
-                qsort lo (pred p)
-                qsort (p+1) hi
-        pivotStrategy low high = do
-            let mid = (low + high) `div` 2
-            pivot <- MU.unsafeRead mvec mid
-            MU.unsafeRead mvec high >>= MU.unsafeWrite mvec mid
-            MU.unsafeWrite mvec high pivot
-            pure pivot
-        partition lo hi = do
-            pivot <- pivotStrategy lo hi
-            let go iOrig jOrig = do
-                    let fw k = do ak <- MU.unsafeRead mvec k
-                                  if compare ak pivot == LT
-                                    then fw (k+1)
-                                    else pure (k, ak)
-                    (i, ai) <- fw iOrig
-                    let bw k | k==i = pure (i, ai)
-                             | otherwise = do ak <- MU.unsafeRead mvec k
-                                              if compare ak pivot /= LT
-                                                then bw (pred k)
-                                                else pure (k, ak)
-                    (j, aj) <- bw jOrig
-                    if i < j
-                        then do
-                            MU.unsafeWrite mvec i aj
-                            MU.unsafeWrite mvec j ai
-                            go (i+1) (pred j)
-                        else do
-                            MU.unsafeWrite mvec hi ai
-                            MU.unsafeWrite mvec i pivot
-                            pure i
-            go lo hi
 
 -- | Create vector using resamples
 resampleVector :: G.Vector v a
@@ -179,7 +138,6 @@ resampleVector gen v
                         return $! G.unsafeIndex v i
   where
     n = G.length v
-
 
 ----------------------------------------------------------------
 -- Jackknife

@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns, CPP, FlexibleContexts, Rank2Types #-}
+{-# LANGUAGE TypeFamilies #-}
 #if __GLASGOW_HASKELL__ >= 704
 {-# OPTIONS_GHC -fsimpl-tick-factor=200 #-}
 #endif
@@ -20,7 +21,7 @@ module Statistics.Function
       minMax
     -- * Sorting
     , sort
-    , partialSort
+    , inplaceSortIO
     -- * Indexing
     , indices
     -- * Bit twiddling
@@ -40,25 +41,98 @@ module Statistics.Function
 
 import Control.Monad.ST (ST)
 import Data.Bits ((.|.), shiftR)
-import qualified Data.Vector.Algorithms.Intro as I
 import qualified Data.Vector.Generic as G
 import qualified Data.Vector.Unboxed as U
 import qualified Data.Vector.Unboxed.Mutable as M
 import Numeric.MathFunctions.Comparison (within)
+import Basement.Monad
 
 -- | Sort a vector.
 sort :: U.Vector Double -> U.Vector Double
-sort = G.modify I.sort
+sort = G.modify inplaceSortST
 {-# NOINLINE sort #-}
 
--- | Partially sort a vector, such that the least /k/ elements will be
--- at the front.
-partialSort :: (G.Vector v e, Ord e) =>
-               Int -- ^ The number /k/ of least elements.
-            -> v e
-            -> v e
-partialSort k = G.modify (`I.partialSort` k)
-{-# SPECIALIZE partialSort :: Int -> U.Vector Double -> U.Vector Double #-}
+inplaceSortST :: M.MVector s Double
+              -> ST s ()
+inplaceSortST mvec = qsort 0 (M.length mvec-1)
+    where
+        qsort lo hi
+            | lo >= hi  = pure ()
+            | otherwise = do
+                p <- partition lo hi
+                qsort lo (pred p)
+                qsort (p+1) hi
+        pivotStrategy low high = do
+            let mid = (low + high) `div` 2
+            pivot <- M.unsafeRead mvec mid
+            M.unsafeRead mvec high >>= M.unsafeWrite mvec mid
+            M.unsafeWrite mvec high pivot
+            pure pivot
+        partition lo hi = do
+            pivot <- pivotStrategy lo hi
+            let go iOrig jOrig = do
+                    let fw k = do ak <- M.unsafeRead mvec k
+                                  if compare ak pivot == LT
+                                    then fw (k+1)
+                                    else pure (k, ak)
+                    (i, ai) <- fw iOrig
+                    let bw k | k==i = pure (i, ai)
+                             | otherwise = do ak <- M.unsafeRead mvec k
+                                              if compare ak pivot /= LT
+                                                then bw (pred k)
+                                                else pure (k, ak)
+                    (j, aj) <- bw jOrig
+                    if i < j
+                        then do
+                            M.unsafeWrite mvec i aj
+                            M.unsafeWrite mvec j ai
+                            go (i+1) (pred j)
+                        else do
+                            M.unsafeWrite mvec hi ai
+                            M.unsafeWrite mvec i pivot
+                            pure i
+            go lo hi
+
+inplaceSortIO :: M.MVector (PrimState IO) Double
+              -> IO ()
+inplaceSortIO mvec = qsort 0 (M.length mvec-1)
+    where
+        qsort lo hi
+            | lo >= hi  = pure ()
+            | otherwise = do
+                p <- partition lo hi
+                qsort lo (pred p)
+                qsort (p+1) hi
+        pivotStrategy low high = do
+            let mid = (low + high) `div` 2
+            pivot <- M.unsafeRead mvec mid
+            M.unsafeRead mvec high >>= M.unsafeWrite mvec mid
+            M.unsafeWrite mvec high pivot
+            pure pivot
+        partition lo hi = do
+            pivot <- pivotStrategy lo hi
+            let go iOrig jOrig = do
+                    let fw k = do ak <- M.unsafeRead mvec k
+                                  if compare ak pivot == LT
+                                    then fw (k+1)
+                                    else pure (k, ak)
+                    (i, ai) <- fw iOrig
+                    let bw k | k==i = pure (i, ai)
+                             | otherwise = do ak <- M.unsafeRead mvec k
+                                              if compare ak pivot /= LT
+                                                then bw (pred k)
+                                                else pure (k, ak)
+                    (j, aj) <- bw jOrig
+                    if i < j
+                        then do
+                            M.unsafeWrite mvec i aj
+                            M.unsafeWrite mvec j ai
+                            go (i+1) (pred j)
+                        else do
+                            M.unsafeWrite mvec hi ai
+                            M.unsafeWrite mvec i pivot
+                            pure i
+            go lo hi
 
 -- | Return the indices of a vector.
 indices :: (G.Vector v a, G.Vector v Int) => v a -> v Int

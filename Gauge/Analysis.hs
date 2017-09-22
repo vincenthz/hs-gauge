@@ -46,7 +46,7 @@ import Gauge.Types
 import Data.Int (Int64)
 import Data.Maybe (fromJust)
 import Statistics.Function (sort)
-import Statistics.Quantile (weightedAvg)
+import Statistics.Quantile (weightedAvg, Sorted(..))
 import Statistics.Regression (bootstrapRegress, olsRegress)
 import Statistics.Resampling (Estimator(..),resample)
 import Statistics.Sample (mean)
@@ -76,8 +76,8 @@ classifyOutliers sa = U.foldl' ((. outlier) . mappend) mempty ssa
           !loM = q1 - (iqr * 1.5)
           !hiM = q3 + (iqr * 1.5)
           !hiS = q3 + (iqr * 3)
-          q1   = weightedAvg 1 4 ssa
-          q3   = weightedAvg 3 4 ssa
+          q1   = weightedAvg 1 4 (Sorted ssa)
+          q3   = weightedAvg 3 4 (Sorted ssa)
           ssa  = sort sa
           iqr  = q3 - q1
 
