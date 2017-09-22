@@ -4,5 +4,6 @@ packages:
 extra-deps:
 - basement-0.0.2
 - foundation-0.0.15
+- optparse-applicative-0.14.0.0
 flags: {}
 extra-package-dbs: []
