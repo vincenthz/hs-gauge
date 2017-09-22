@@ -89,14 +89,8 @@ library
     code-page,
     containers,
     deepseq >= 1.1.0.0,
-    directory,
-    -- exceptions >= 0.8.2 && < 0.9,
-    filepath,
-    Glob >= 0.7.2,
-    -- mtl >= 2,
     mwc-random >= 0.8.0.3,
     optparse-applicative >= 0.13,
-    --transformers,
     vector >= 0.7.1,
 
     -- formely statistics dependency that we need

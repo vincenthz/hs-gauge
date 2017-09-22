@@ -47,8 +47,6 @@ import Prelude
 data MatchType = Prefix
                  -- ^ Match by prefix. For example, a prefix of
                  -- @\"foo\"@ will match @\"foobar\"@.
-               | Glob
-                 -- ^ Match by Unix-style glob pattern.
                | Pattern
                  -- ^ Match by searching given substring in benchmark
                  -- paths.
@@ -162,12 +160,11 @@ match = do
   case map toLower m of
     mm | mm `isPrefixOf` "pfx"      -> return Prefix
        | mm `isPrefixOf` "prefix"   -> return Prefix
-       | mm `isPrefixOf` "glob"     -> return Glob
        | mm `isPrefixOf` "pattern"  -> return Pattern
        | mm `isPrefixOf` "ipattern" -> return IPattern
        | otherwise                  -> readerError $
                                        show m ++ " is not a known match type"
-                                              ++ "Try \"prefix\", \"pattern\", \"ipattern\" or \"glob\"."
+                                              ++ "Try \"prefix\", \"pattern\", \"ipattern\"."
 
 regressParams :: ReadM ([String], String)
 regressParams = do

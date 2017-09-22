@@ -63,12 +63,11 @@ import Gauge.Measurement (initializeTime)
 import Gauge.Monad (withConfig)
 import Gauge.Types
 import Data.Char (toLower)
-import Data.List (isInfixOf, isPrefixOf, sort, stripPrefix)
-import Data.Maybe (fromMaybe)
+import Data.List (isInfixOf, isPrefixOf, sort)
 import Options.Applicative (execParser)
 import System.Environment (getProgName)
 import System.Exit (ExitCode(..), exitWith)
-import System.FilePath.Glob
+-- import System.FilePath.Glob
 import System.IO.CodePage (withCP65001)
 
 -- | An entry point that can be used as a @main@ function.
@@ -98,12 +97,6 @@ makeMatcher :: MatchType
 makeMatcher matchKind args =
   case matchKind of
     Prefix -> Right $ \b -> null args || any (`isPrefixOf` b) args
-    Glob ->
-      let compOptions = compDefault { errorRecovery = False }
-      in case mapM (tryCompileWith compOptions) args of
-           Left errMsg -> Left . fromMaybe errMsg . stripPrefix "compile :: " $
-                          errMsg
-           Right ps -> Right $ \b -> null ps || any (`match` b) ps
     Pattern -> Right $ \b -> null args || any (`isInfixOf` b) args
     IPattern -> Right $ \b -> null args || any (`isInfixOf` map toLower b) (map (map toLower) args)
 
