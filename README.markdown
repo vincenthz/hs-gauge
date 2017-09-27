@@ -44,3 +44,5 @@ Removed:
 * uuid-types 1.0.3
 * vector-binary-instances 0.2.3.5
 
+![Criterion](/.README.imgs/criterion.png)
+![Gauge](/.README.imgs/gauge.png)
