@@ -1,6 +1,6 @@
 name:           gauge
 version:        0.1.0
-synopsis:       Robust, reliable performance measurement and analysis
+synopsis:       small framework for performance measurement and analysis
 license:        BSD3
 license-file:   LICENSE
 author:         Bryan O'Sullivan <bos@serpentine.com>
