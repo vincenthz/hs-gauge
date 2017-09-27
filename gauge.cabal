@@ -26,11 +26,6 @@ description:
   analysing benchmarks and a set of driver functions that makes it
   easy to build and run benchmarks, and to analyse their results.
 
-flag fast
-  description: compile without optimizations
-  default: False
-  manual: True
-
 library
   exposed-modules:
     Gauge
@@ -97,24 +92,14 @@ library
     math-functions
 
   default-language: Haskell2010
-  ghc-options: -Wall -funbox-strict-fields
-  if impl(ghc >= 6.8)
-    ghc-options: -fwarn-tabs
-  if flag(fast)
-    ghc-options: -O0
-  else
-    ghc-options: -O2
+  ghc-options: -O2 -Wall -funbox-strict-fields
 
 test-suite sanity
   type:                 exitcode-stdio-1.0
   hs-source-dirs:       tests
   main-is:              Sanity.hs
   default-language:     Haskell2010
-  ghc-options:          -Wall -rtsopts
-  if flag(fast)
-    ghc-options:        -O0
-  else
-    ghc-options:        -O2
+  ghc-options:          -O2 -Wall -rtsopts
 
   build-depends:
     HUnit,
