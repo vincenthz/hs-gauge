@@ -28,7 +28,6 @@ module Statistics.Quantile
     ) where
 
 import Data.Vector.Generic ((!))
--- import Statistics.Function (partialSort)
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as G
 import qualified Data.Vector.Unboxed as U
@@ -61,9 +60,8 @@ weightedAvg k q (Sorted x)
     j   = floor idx
     idx = fromIntegral (n - 1) * fromIntegral k / fromIntegral q
     g   = idx - fromIntegral j
-    xj  = sx ! j
-    xj1 = sx ! (j+1)
-    sx  = x -- partialSort (j+2) x
+    xj  = x ! j
+    xj1 = x ! (j+1)
     n   = G.length x
 {-# SPECIALIZE weightedAvg :: Int -> Int -> Sorted (U.Vector Double) -> Double #-}
 {-# SPECIALIZE weightedAvg :: Int -> Int -> Sorted (V.Vector Double) -> Double #-}
