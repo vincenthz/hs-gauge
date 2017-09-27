@@ -11,7 +11,7 @@
 -- Stability   : experimental
 -- Portability : GHC
 --
--- The environment in which most criterion code executes.
+-- The environment in which most gauge code executes.
 module Gauge.Monad.Internal
     (
       Gauge(..)
@@ -34,7 +34,7 @@ data Crit = Crit {
   , overhead :: !(IORef (Maybe Double))
   }
 
--- | The monad in which most criterion code executes.
+-- | The monad in which most gauge code executes.
 newtype Gauge a = Gauge {
       runGauge :: ReaderT Crit IO a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch) -- , MonadBracket)

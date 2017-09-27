@@ -118,7 +118,7 @@ data GCStatistics = GCStatistics
 {-# DEPRECATED getGCStats
       ["GCStats has been deprecated in GHC 8.2. As a consequence,",
        "getGCStats has also been deprecated in favor of getGCStatistics.",
-       "getGCStats will be removed in the next major criterion release."] #-}
+       "getGCStats will be removed in the next major gauge release."] #-}
 getGCStats :: IO (Maybe GCStats)
 getGCStats =
   (Just `fmap` Stats.getGCStats) `Exc.catch` \(_::Exc.SomeException) ->
@@ -334,7 +334,7 @@ measured = Measured {
 {-# DEPRECATED applyGCStats
       ["GCStats has been deprecated in GHC 8.2. As a consequence,",
        "applyGCStats has also been deprecated in favor of applyGCStatistics.",
-       "applyGCStats will be removed in the next major criterion release."] #-}
+       "applyGCStats will be removed in the next major gauge release."] #-}
 applyGCStats :: Maybe GCStats
              -- ^ Statistics gathered at the __end__ of a run.
              -> Maybe GCStats
@@ -399,17 +399,17 @@ secs k
                | otherwise = printf "%.3f %s" t u
 
 -- | Set up time measurement.
-foreign import ccall unsafe "criterion_inittime" initializeTime :: IO ()
+foreign import ccall unsafe "gauge_inittime" initializeTime :: IO ()
 
 -- | Read the CPU cycle counter.
-foreign import ccall unsafe "criterion_rdtsc" getCycles :: IO Word64
+foreign import ccall unsafe "gauge_rdtsc" getCycles :: IO Word64
 
 -- | Return the current wallclock time, in seconds since some
 -- arbitrary time.
 --
 -- You /must/ call 'initializeTime' once before calling this function!
-foreign import ccall unsafe "criterion_gettime" getTime :: IO Double
+foreign import ccall unsafe "gauge_gettime" getTime :: IO Double
 
 -- | Return the amount of elapsed CPU time, combining user and kernel
 -- (system) time into a single measure.
-foreign import ccall unsafe "criterion_getcputime" getCPUTime :: IO Double
+foreign import ccall unsafe "gauge_getcputime" getCPUTime :: IO Double

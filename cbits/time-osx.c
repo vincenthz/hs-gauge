@@ -4,7 +4,7 @@
 static mach_timebase_info_data_t timebase_info;
 static double timebase_recip;
 
-void criterion_inittime(void)
+void gauge_inittime(void)
 {
     if (timebase_recip == 0) {
 	mach_timebase_info(&timebase_info);
@@ -12,7 +12,7 @@ void criterion_inittime(void)
     }
 }
 
-double criterion_gettime(void)
+double gauge_gettime(void)
 {
     return mach_absolute_time() * timebase_recip;
 }
@@ -22,7 +22,7 @@ static double to_double(time_value_t time)
     return time.seconds + time.microseconds / 1e6;
 }
 
-double criterion_getcputime(void)
+double gauge_getcputime(void)
 {
     struct task_thread_times_info thread_info_data;
     mach_msg_type_number_t thread_info_count = TASK_THREAD_TIMES_INFO_COUNT;

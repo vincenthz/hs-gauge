@@ -17,11 +17,11 @@
 
 #if 0
 
-void criterion_inittime(void)
+void gauge_inittime(void)
 {
 }
 
-double criterion_gettime(void)
+double gauge_gettime(void)
 {
     FILETIME ft;
     ULARGE_INTEGER li;
@@ -38,7 +38,7 @@ double criterion_gettime(void)
 static double freq_recip;
 static LARGE_INTEGER firstClock;
 
-void criterion_inittime(void)
+void gauge_inittime(void)
 {
     LARGE_INTEGER freq;
 
@@ -49,7 +49,7 @@ void criterion_inittime(void)
     }
 }
 
-double criterion_gettime(void)
+double gauge_gettime(void)
 {
     LARGE_INTEGER li;
 
@@ -68,7 +68,7 @@ static ULONGLONG to_quad_100ns(FILETIME ft)
     return li.QuadPart;
 }
 
-double criterion_getcputime(void)
+double gauge_getcputime(void)
 {
     FILETIME creation, exit, kernel, user;
     ULONGLONG time;

@@ -2,7 +2,7 @@
 
 #if x86_64_HOST_ARCH || i386_HOST_ARCH
 
-StgWord64 criterion_rdtsc(void)
+StgWord64 gauge_rdtsc(void)
 {
   StgWord32 hi, lo;
   __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
@@ -42,7 +42,7 @@ fini(void)
 }
 
 StgWord64
-criterion_rdtsc (void)
+gauge_rdtsc (void)
 {
   StgWord64 result = 0;
   if (read (fddev, &result, sizeof(result)) < sizeof(result))

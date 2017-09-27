@@ -1,10 +1,10 @@
 #include <time.h>
 
-void criterion_inittime(void)
+void gauge_inittime(void)
 {
 }
 
-double criterion_gettime(void)
+double gauge_gettime(void)
 {
     struct timespec ts;
 
@@ -14,7 +14,7 @@ double criterion_gettime(void)
 }
 
 
-double criterion_getcputime(void)
+double gauge_getcputime(void)
 {
     struct timespec ts;
 

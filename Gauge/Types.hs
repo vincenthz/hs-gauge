@@ -347,9 +347,7 @@ data Benchmark where
 -- A common example of environment data is input that is read from a
 -- file.  Another is a large data structure constructed in-place.
 --
--- __Motivation.__ In earlier versions of criterion, all benchmark
--- inputs were always created when a program started running.  By
--- deferring the creation of an environment when its associated
+-- By deferring the creation of an environment when its associated
 -- benchmarks need the its, we avoid two problems that this strategy
 -- caused:
 --

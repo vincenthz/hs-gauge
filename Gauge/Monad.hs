@@ -9,7 +9,7 @@
 -- Stability   : experimental
 -- Portability : GHC
 --
--- The environment in which most criterion code executes.
+-- The environment in which most gauge code executes.
 module Gauge.Monad
     (
       Gauge
