@@ -1,5 +1,7 @@
 # Gauge: a clone of criterion
 
+This is a clone of criterion with a code / dependencies on a diet. It works the same way as criterion
+for outputing to terminal benchmark data.
 
 ## features compared to criterion
 
@@ -9,7 +11,14 @@ missing:
 * JSON export
 * HTML/javascript pages
 
-## dependencies compared to criterion
+## Future Feature Plan
+
+* Remove further dependencies
+* storing benchmarks data in CSV and JSON
+* Add a standalong program taking benchmark data files and rendering to html/javascript/graphs
+* Make the library more useful as a standalone library to gather benchmark numbers related to functions in a programatic way
+
+## Direct dependencies removed compared to criterion
 
 Removed:
 
