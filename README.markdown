@@ -74,5 +74,11 @@ Dependencies removed:
 * vector-algorithms 0.7.0.1
 * vector-binary-instances 0.2.3.5
 
+
+Criterion graph of dependencies:
+
 ![Criterion](/.README.imgs/criterion.png)
+
+Gauge graph of dependencies:
+
 ![Gauge](/.README.imgs/gauge.png)
