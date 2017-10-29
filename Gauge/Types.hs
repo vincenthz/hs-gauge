@@ -29,6 +29,8 @@ module Gauge.Types
     (
     -- * Configuration
       Config(..)
+    , Mode(..)
+    , MatchType(..)
     , Verbosity(..)
     -- * Benchmark descriptions
     , Benchmarkable(..)
@@ -93,6 +95,31 @@ data Verbosity = Quiet
                  deriving (Eq, Ord, Bounded, Enum, Read, Show, Typeable, Data,
                            Generic)
 
+-- | How to match a benchmark name.
+data MatchType = Prefix
+                 -- ^ Match by prefix. For example, a prefix of
+                 -- @\"foo\"@ will match @\"foobar\"@.
+               | Pattern
+                 -- ^ Match by searching given substring in benchmark
+                 -- paths.
+               | IPattern
+                 -- ^ Same as 'Pattern', but case insensitive.
+               deriving (Eq, Ord, Bounded, Enum, Read, Show, Typeable, Data,
+                         Generic)
+
+-- | Execution mode for a benchmark program.
+data Mode = List
+            -- ^ List all benchmarks.
+          | Version
+            -- ^ Print the version.
+          | Help
+            -- ^ Print help
+          | DefaultMode
+            -- ^ Default Benchmark mode
+          deriving (Eq, Read, Show, Typeable, Data, Generic)
+
+
+
 -- | Top-level benchmarking configuration.
 data Config = Config {
       confInterval :: St.CL Double
@@ -126,6 +153,12 @@ data Config = Config {
       -- benchmarks.
     , template     :: FilePath
       -- ^ Template file to use if writing a report.
+    , iters        :: Maybe Int64
+      -- ^ Number of iterations
+    , match        :: MatchType
+      -- ^ Type of matching to use, if any
+    , mode         :: Mode
+      -- ^ Mode of operation
     } deriving (Eq, Read, Show, Typeable, Data, Generic)
 
 

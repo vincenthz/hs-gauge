@@ -57,15 +57,13 @@ import Control.Monad (unless)
 import Foundation.Monad
 import Gauge.IO.Printf (printError)
 import Gauge.Internal (runAndAnalyse, runFixedIters)
-import Gauge.Main.Options (MatchType(..), Mode(..), defaultConfig, describe,
-                               versionInfo)
+import Gauge.Main.Options (defaultConfig, versionInfo, parseWith, describe)
 import Gauge.Measurement (initializeTime)
 import Gauge.Monad (withConfig)
 import Gauge.Types
 import Data.Char (toLower)
 import Data.List (isInfixOf, isPrefixOf, sort)
-import Options.Applicative (execParser)
-import System.Environment (getProgName)
+import System.Environment (getProgName, getArgs)
 import System.Exit (ExitCode(..), exitWith)
 -- import System.FilePath.Glob
 import System.IO.CodePage (withCP65001)
@@ -135,29 +133,33 @@ defaultMainWith :: Config
                 -> [Benchmark]
                 -> IO ()
 defaultMainWith defCfg bs = withCP65001 $ do
-  wat <- execParser (describe defCfg)
-  runMode wat bs
+    args <- getArgs
+    let (cfg, extra) = parseWith defCfg args
+    runMode (mode cfg) cfg extra bs
 
 -- | Run a set of 'Benchmark's with the given 'Mode'.
 --
 -- This can be useful if you have a 'Mode' from some other source (e.g. from a
 -- one in your benchmark driver's command-line parser).
-runMode :: Mode -> [Benchmark] -> IO ()
-runMode wat bs =
+runMode :: Mode -> Config -> [String] -> [Benchmark] -> IO ()
+runMode wat cfg benches bs =
   case wat of
-    List -> mapM_ putStrLn . sort . concatMap benchNames $ bs
+    List    -> mapM_ putStrLn . sort . concatMap benchNames $ bs
     Version -> putStrLn versionInfo
-    RunIters cfg iters matchType benches -> do
-      shouldRun <- selectBenches matchType benches bsgroup
-      withConfig cfg $
-        runFixedIters iters shouldRun bsgroup
-    Run cfg matchType benches -> do
-      shouldRun <- selectBenches matchType benches bsgroup
-      withConfig cfg $ do
-        --writeCsv ("Name","Mean","MeanLB","MeanUB","Stddev","StddevLB",
-        --          "StddevUB")
-        liftIO initializeTime
-        runAndAnalyse shouldRun bsgroup
+    Help    -> putStrLn describe
+    DefaultMode ->
+        case iters cfg of
+            Just nbIters -> do
+                shouldRun <- selectBenches (match cfg) benches bsgroup
+                withConfig cfg $
+                    runFixedIters nbIters shouldRun bsgroup
+            Nothing -> do
+                shouldRun <- selectBenches (match cfg) benches bsgroup
+                withConfig cfg $ do
+                    --writeCsv ("Name","Mean","MeanLB","MeanUB","Stddev","StddevLB",
+                    --          "StddevUB")
+                    liftIO initializeTime
+                    runAndAnalyse shouldRun bsgroup
   where bsgroup = BenchGroup "" bs
 
 -- | Display an error message from a command line parsing failure, and
