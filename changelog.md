@@ -1,3 +1,7 @@
+# 0.1.1
+
+* remove optparse-applicative
+
 # 0.1.0
 
 * remove bunch of dependencies
