@@ -20,13 +20,11 @@ module Gauge.Internal
 import Control.DeepSeq (rnf)
 import Control.Exception (evaluate)
 import Control.Monad (foldM, forM_, void, when)
-import Foundation.Monad
-import Foundation.Monad.Reader (ask)
 import Data.Int (Int64)
 import Gauge.Analysis (analyseSample, noteOutliers)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, secs)
-import Gauge.Monad (Gauge, finallyGauge)
+import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
 import Gauge.Types hiding (measure)
 import qualified Data.Map as Map
 import qualified Data.Vector as V
@@ -37,8 +35,8 @@ import Text.Printf (printf)
 -- | Run a single benchmark.
 runOne :: Int -> String -> Benchmarkable -> Gauge DataRecord
 runOne i desc bm = do
-  Config{..} <- ask
-  (meas,timeTaken) <- liftIO $ runBenchmark bm timeLimit
+  Config{..} <- askConfig
+  (meas,timeTaken) <- gaugeIO $ runBenchmark bm timeLimit
   when (timeTaken > timeLimit * 1.25) .
     void $ prolix "measurement took %s\n" (secs timeTaken)
   return (Measurement i desc meas)
@@ -46,7 +44,7 @@ runOne i desc bm = do
 -- | Analyse a single benchmark.
 analyseOne :: Int -> String -> V.Vector Measured -> Gauge DataRecord
 analyseOne i desc meas = do
-  Config{..} <- ask
+  Config{..} <- askConfig
   _ <- prolix "analysing with %d resamples\n" resamples
   erp <- analyseSample i desc meas
   case erp of
@@ -129,7 +127,7 @@ runAndAnalyse select bs = do
   --liftIO $ hPutStr handle $ "[ \"" ++ headerRoot ++ "\", " ++
   --                           "\"" ++ critVersion ++ "\", [ "
 
-  liftIO $ hSetBuffering stdout NoBuffering
+  gaugeIO $ hSetBuffering stdout NoBuffering
   for select bs $ \idx desc bm -> do
     _ <- note "benchmarking %s" desc
     Analysed _ <- runAndAnalyseOne idx desc bm
@@ -171,7 +169,7 @@ runFixedIters :: Int64            -- ^ Number of loop iterations to run.
 runFixedIters iters select bs =
   for select bs $ \_idx desc bm -> do
     _ <- note "benchmarking %s\r" desc
-    liftIO $ runBenchmarkable_ bm iters
+    gaugeIO $ runBenchmarkable_ bm iters
 
 -- | Iterate over benchmarks.
 for :: (String -> Bool)
@@ -182,11 +180,11 @@ for select bs0 handle = go (0::Int) ("", bs0) >> return ()
   where
     go !idx (pfx, Environment mkenv cleanenv mkbench)
       | shouldRun pfx mkbench = do
-        e <- liftIO $ do
+        e <- gaugeIO $ do
           ee <- mkenv
           evaluate (rnf ee)
           return ee
-        go idx (pfx, mkbench e) `finallyGauge` liftIO (cleanenv e)
+        go idx (pfx, mkbench e) `finallyGauge` gaugeIO (cleanenv e)
       | otherwise = return idx
     go idx (pfx, Benchmark desc b)
       | select desc' = do handle idx desc' b; return $! idx + 1

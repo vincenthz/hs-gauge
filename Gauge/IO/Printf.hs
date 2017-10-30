@@ -20,9 +20,7 @@ module Gauge.IO.Printf
     ) where
 
 import Control.Monad (when)
-import Foundation.Monad.Reader (ask)
-import Foundation.Monad (liftIO)
-import Gauge.Monad (Gauge)
+import Gauge.Monad (Gauge, askConfig, gaugeIO)
 import Gauge.Types (Config(verbosity), Verbosity(..))
 import System.IO (Handle, hFlush, stderr, stdout)
 import Text.Printf (PrintfArg)
@@ -43,8 +41,8 @@ class CritHPrintfType a where
 
 instance CritHPrintfType (Gauge a) where
   chPrintfImpl check (PrintfCont final _)
-    = do x <- ask
-         when (check x) (liftIO (final >> hFlush stderr >> hFlush stdout))
+    = do x <- askConfig
+         when (check x) (gaugeIO (final >> hFlush stderr >> hFlush stdout))
          return undefined
 
 instance CritHPrintfType (IO a) where

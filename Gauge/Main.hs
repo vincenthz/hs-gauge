@@ -54,12 +54,11 @@ module Gauge.Main
     ) where
 
 import Control.Monad (unless)
-import Foundation.Monad
 import Gauge.IO.Printf (printError)
 import Gauge.Internal (runAndAnalyse, runFixedIters)
 import Gauge.Main.Options (defaultConfig, versionInfo, parseWith, describe)
 import Gauge.Measurement (initializeTime)
-import Gauge.Monad (withConfig)
+import Gauge.Monad (withConfig, gaugeIO)
 import Gauge.Types
 import Data.Char (toLower)
 import Data.List (isInfixOf, isPrefixOf, sort)
@@ -158,7 +157,7 @@ runMode wat cfg benches bs =
                 withConfig cfg $ do
                     --writeCsv ("Name","Mean","MeanLB","MeanUB","Stddev","StddevLB",
                     --          "StddevUB")
-                    liftIO initializeTime
+                    gaugeIO initializeTime
                     runAndAnalyse shouldRun bsgroup
   where bsgroup = BenchGroup "" bs
 

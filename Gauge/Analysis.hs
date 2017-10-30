@@ -36,11 +36,9 @@ import Data.Monoid
 
 import Control.Arrow (second)
 import Control.Monad (unless, when)
-import Foundation.Monad.Reader
-import Foundation.Monad
 import Gauge.IO.Printf (note, prolix)
 import Gauge.Measurement (secs, threshold)
-import Gauge.Monad (Gauge, getGen, getOverhead)
+import Gauge.Monad (Gauge, getGen, getOverhead, askConfig, gaugeIO)
 import Gauge.Types
 import Data.Int (Int64)
 import Data.Maybe (fromJust)
@@ -143,7 +141,7 @@ analyseSample :: Int            -- ^ Experiment number.
               -> V.Vector Measured -- ^ Sample data.
               -> Gauge (Either String Report)
 analyseSample i name meas = do
-  Config{..} <- ask
+  Config{..} <- askConfig
   overhead <- getOverhead
   let ests      = [Mean,StdDev]
       -- The use of filter here throws away very-low-quality
@@ -163,7 +161,7 @@ analyseSample i name meas = do
   case ers of
     Left err -> pure $ Left err
     Right rs -> do
-      resamps <- liftIO $ resample gen ests resamples stime
+      resamps <- gaugeIO $ resample gen ests resamples stime
       let [estMean,estStdDev] = B.bootstrapBCA confInterval stime resamps
           ov = outlierVariance estMean estStdDev (fromIntegral n)
           an = SampleAnalysis
@@ -205,8 +203,8 @@ regress gen predNames respName meas
                 then pure $ Left $ "no data available for " ++ renderNames unmeasured
                 else do
                     let (r:ps) = map ((`measure` meas) . (fromJust .) . snd) accs
-                    Config{..} <- ask
-                    (coeffs,r2) <- liftIO $ bootstrapRegress gen resamples confInterval olsRegress ps r
+                    Config{..} <- askConfig
+                    (coeffs,r2) <- gaugeIO $ bootstrapRegress gen resamples confInterval olsRegress ps r
                     pure $ Right $ Regression
                         { regResponder = respName
                         , regCoeffs    = Map.fromList (zip (predNames ++ ["y"]) (G.toList coeffs))

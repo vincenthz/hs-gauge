@@ -13,17 +13,18 @@
 module Gauge.Monad
     (
       Gauge
+    , askConfig
+    , gaugeIO
     , withConfig
     , getGen
     , getOverhead
     , finallyGauge
     ) where
 
-import Foundation.Monad
-import Foundation.Monad.Reader
+import Foundation.Monad.Reader (runReaderT)
 import Control.Monad (when)
 import Gauge.Measurement (measure, runBenchmark, secs)
-import Gauge.Monad.Internal (Gauge(..), Crit(..), finallyGauge)
+import Gauge.Monad.Internal (Gauge(..), Crit(..), finallyGauge, askConfig, askCrit, gaugeIO)
 import Gauge.Types hiding (measure)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Statistics.Regression (olsRegress)
@@ -47,13 +48,13 @@ getGen = memoise gen createSystemRandom
 -- | Return an estimate of the measurement overhead.
 getOverhead :: Gauge Double
 getOverhead = do
-  verbose <- ((== Verbose) . verbosity) <$> ask
+  verbose <- ((== Verbose) . verbosity) <$> askConfig
   memoise overhead $ do
     (meas,_) <- runBenchmark (whnfIO $ measure (whnfIO $ return ()) 1) 1
     let metric get = G.convert . G.map get $ meas
     let o = G.head . fst $
             olsRegress [metric (fromIntegral . measIters)] (metric measTime)
-    when verbose . liftIO $
+    when verbose $
       putStrLn $ "measurement overhead " ++ secs o
     return o
 
@@ -65,8 +66,8 @@ getOverhead = do
 -- multiple times safely.
 memoise :: (Crit -> IORef (Maybe a)) -> IO a -> Gauge a
 memoise ref generate = do
-  r <- Gauge (ref <$> ask)
-  liftIO $ do
+  r <- ref <$> askCrit
+  gaugeIO $ do
     mv <- readIORef r
     case mv of
       Just rv -> return rv

@@ -15,45 +15,44 @@
 module Gauge.Monad.Internal
     (
       Gauge(..)
+    , gaugeIO
     , finallyGauge
     , Crit(..)
+    , askConfig
+    , askCrit
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
 import Control.Applicative
 import Control.Exception
 
-import Foundation.Monad
+import Foundation.Monad (lift)
 import Foundation.Monad.Reader
 import Gauge.Types (Config)
 import Data.IORef (IORef)
 import System.Random.MWC (GenIO)
 import Prelude
 
-data Crit = Crit {
-    config   :: !Config
-  , gen      :: !(IORef (Maybe GenIO))
-  , overhead :: !(IORef (Maybe Double))
-  }
+data Crit = Crit
+    { config   :: !Config
+    , gen      :: !(IORef (Maybe GenIO))
+    , overhead :: !(IORef (Maybe Double))
+    }
 
 -- | The monad in which most gauge code executes.
-newtype Gauge a = Gauge {
-      runGauge :: ReaderT Crit IO a
-    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch)
+newtype Gauge a = Gauge { runGauge :: ReaderT Crit IO a }
+    deriving (Functor, Applicative, Monad)
 
-instance MonadReader Gauge where
-    type ReaderContext Gauge = Config
-    ask = config `fmap` Gauge ask
+askConfig :: Gauge Config
+askConfig = config `fmap` Gauge ask
 
-instance MonadBracket Gauge where
-    generalBracket acq cleanup cleanupExcept innerAction = Gauge $ do
-        c <- ask
-        lift $ generalBracket (runReaderT (runGauge acq) c)
-                              (\a b -> runReaderT (runGauge (cleanup a b)) c)
-                              (\a exn -> runReaderT (runGauge (cleanupExcept a exn)) c)
-                              (\a -> runReaderT (runGauge (innerAction a)) c)
+askCrit :: Gauge Crit
+askCrit = Gauge ask
+
+gaugeIO :: IO a -> Gauge a
+gaugeIO f = Gauge $ lift f
 
 finallyGauge :: Gauge a -> Gauge b -> Gauge a
 finallyGauge (Gauge f) (Gauge g) = Gauge $ do
     crit <- ask
-    liftIO $ finally (runReaderT f crit) (runReaderT g crit)
+    lift $ finally (runReaderT f crit) (runReaderT g crit)
