@@ -10,6 +10,11 @@ missing:
 * CSV export
 * JSON export
 * HTML/javascript pages
+* Glob benchmark matching
+
+Added:
+
+* Small condensed output (`-s` or `--small`)
 
 ## Future Feature Plan
 
@@ -17,6 +22,15 @@ missing:
 * storing benchmarks data in CSV and JSON
 * Add a standalong program taking benchmark data files and rendering to html/javascript/graphs
 * Make the library more useful as a standalone library to gather benchmark numbers related to functions in a programatic way
+
+## Small mode
+
+It's hard to compare many benchmarks with criterion, so gauge has a `--small` output:
+
+```
+identity                                 mean 41.65 ns  ( +- 2.246 ns  )
+slow                                     mean 163.9 ns  ( +- 9.683 ns  )
+```
 
 ## Direct dependencies removed compared to criterion
 
