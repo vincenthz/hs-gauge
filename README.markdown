@@ -36,7 +36,7 @@ slow                                     mean 163.9 ns  ( +- 9.683 ns  )
 
 Number of total dependencies (direct & indirect):
 
-* gauge: 20 dependencies
+* gauge: 19 dependencies
 * criterion: 63 dependencies
 
 Dependencies removed:
