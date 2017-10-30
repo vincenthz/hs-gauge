@@ -15,11 +15,13 @@
 module Gauge.Monad.Internal
     (
       Gauge(..)
+    , finallyGauge
     , Crit(..)
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
 import Control.Applicative
+import Control.Exception
 
 import Foundation.Monad
 import Foundation.Monad.Reader
@@ -37,7 +39,7 @@ data Crit = Crit {
 -- | The monad in which most gauge code executes.
 newtype Gauge a = Gauge {
       runGauge :: ReaderT Crit IO a
-    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch) -- , MonadBracket)
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch)
 
 instance MonadReader Gauge where
     type ReaderContext Gauge = Config
@@ -50,3 +52,8 @@ instance MonadBracket Gauge where
                               (\a b -> runReaderT (runGauge (cleanup a b)) c)
                               (\a exn -> runReaderT (runGauge (cleanupExcept a exn)) c)
                               (\a -> runReaderT (runGauge (innerAction a)) c)
+
+finallyGauge :: Gauge a -> Gauge b -> Gauge a
+finallyGauge (Gauge f) (Gauge g) = Gauge $ do
+    crit <- ask
+    liftIO $ finally (runReaderT f crit) (runReaderT g crit)

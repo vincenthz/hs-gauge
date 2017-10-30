@@ -16,13 +16,14 @@ module Gauge.Monad
     , withConfig
     , getGen
     , getOverhead
+    , finallyGauge
     ) where
 
 import Foundation.Monad
 import Foundation.Monad.Reader
 import Control.Monad (when)
 import Gauge.Measurement (measure, runBenchmark, secs)
-import Gauge.Monad.Internal (Gauge(..), Crit(..))
+import Gauge.Monad.Internal (Gauge(..), Crit(..), finallyGauge)
 import Gauge.Types hiding (measure)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Statistics.Regression (olsRegress)

@@ -36,7 +36,6 @@ library
     Gauge.IO.Printf
     Gauge.Internal
     Gauge.Monad.Internal
-    Gauge.Monad.ExceptT
     Gauge.Main.Options
     Gauge.Measurement
     Gauge.Monad

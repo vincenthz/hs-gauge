@@ -26,8 +26,7 @@ import Data.Int (Int64)
 import Gauge.Analysis (analyseSample, noteOutliers)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, secs)
-import Gauge.Monad (Gauge)
-import Gauge.Monad.ExceptT
+import Gauge.Monad (Gauge, finallyGauge)
 import Gauge.Types hiding (measure)
 import qualified Data.Map as Map
 import qualified Data.Vector as V
@@ -49,7 +48,7 @@ analyseOne :: Int -> String -> V.Vector Measured -> Gauge DataRecord
 analyseOne i desc meas = do
   Config{..} <- ask
   _ <- prolix "analysing with %d resamples\n" resamples
-  erp <- runExceptT $ analyseSample i desc meas
+  erp <- analyseSample i desc meas
   case erp of
     Left err -> printError "*** Error: %s\n" err
     Right rpt@Report{..} -> do
@@ -187,7 +186,7 @@ for select bs0 handle = go (0::Int) ("", bs0) >> return ()
           ee <- mkenv
           evaluate (rnf ee)
           return ee
-        go idx (pfx, mkbench e) `finally` liftIO (cleanenv e)
+        go idx (pfx, mkbench e) `finallyGauge` liftIO (cleanenv e)
       | otherwise = return idx
     go idx (pfx, Benchmark desc b)
       | select desc' = do handle idx desc' b; return $! idx + 1
