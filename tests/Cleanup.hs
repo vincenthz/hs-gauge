@@ -8,9 +8,8 @@ import Gauge.Main (Benchmark, bench, nfIO)
 import Gauge.Types (Config(..), Verbosity(Quiet))
 import Control.Applicative (pure)
 import Control.DeepSeq (NFData(..))
-import Control.Exception (Exception, try)
+import Control.Exception (Exception, try, throwIO)
 import Control.Monad (when)
-import Foundation.Monad
 import Data.Typeable (Typeable)
 import System.Directory (doesFileExist, removeFile)
 import System.Environment (withArgs)
@@ -53,8 +52,8 @@ testCleanup shouldFail name withEnvClean = testCase name $ do
     result <- runTest . withEnvClean name alloc clean $ \hnd -> do
         result <- hFileSize hnd >>= BS.hGet hnd . fromIntegral
         resetHandle hnd
-        when (result /= testData) $ throw WrongData
-        when shouldFail $ throw ShouldThrow
+        when (result /= testData) $ throwIO WrongData
+        when shouldFail $ throwIO ShouldThrow
 
     case result of
         Left WrongData -> failTest "Incorrect result read from file"

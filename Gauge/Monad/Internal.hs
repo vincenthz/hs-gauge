@@ -25,9 +25,8 @@ module Gauge.Monad.Internal
 -- Temporary: to support pre-AMP GHC 7.8.4:
 import Control.Applicative
 import Control.Exception
+import Control.Monad (ap)
 
-import Foundation.Monad (lift)
-import Foundation.Monad.Reader
 import Gauge.Types (Config)
 import Data.IORef (IORef)
 import System.Random.MWC (GenIO)
@@ -40,19 +39,26 @@ data Crit = Crit
     }
 
 -- | The monad in which most gauge code executes.
-newtype Gauge a = Gauge { runGauge :: ReaderT Crit IO a }
-    deriving (Functor, Applicative, Monad)
+newtype Gauge a = Gauge { runGauge :: Crit -> IO a }
+
+instance Functor Gauge where
+    fmap f a = Gauge $ \r -> f <$> runGauge a r
+instance Applicative Gauge where
+    pure = Gauge . const . pure
+    (<*>) = ap
+instance Monad Gauge where
+    return    = pure
+    ma >>= mb = Gauge $ \r -> runGauge ma r >>= \a -> runGauge (mb a) r
 
 askConfig :: Gauge Config
-askConfig = config `fmap` Gauge ask
+askConfig = Gauge (pure . config)
 
 askCrit :: Gauge Crit
-askCrit = Gauge ask
+askCrit = Gauge pure
 
 gaugeIO :: IO a -> Gauge a
-gaugeIO f = Gauge $ lift f
+gaugeIO = Gauge . const
 
 finallyGauge :: Gauge a -> Gauge b -> Gauge a
-finallyGauge (Gauge f) (Gauge g) = Gauge $ do
-    crit <- ask
-    lift $ finally (runReaderT f crit) (runReaderT g crit)
+finallyGauge f g = Gauge $ \crit -> do
+    finally (runGauge f crit) (runGauge g crit)

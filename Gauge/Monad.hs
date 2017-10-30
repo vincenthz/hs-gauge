@@ -21,7 +21,6 @@ module Gauge.Monad
     , finallyGauge
     ) where
 
-import Foundation.Monad.Reader (runReaderT)
 import Control.Monad (when)
 import Gauge.Measurement (measure, runBenchmark, secs)
 import Gauge.Monad.Internal (Gauge(..), Crit(..), finallyGauge, askConfig, askCrit, gaugeIO)
@@ -33,10 +32,10 @@ import qualified Data.Vector.Generic as G
 
 -- | Run a 'Gauge' action with the given 'Config'.
 withConfig :: Config -> Gauge a -> IO a
-withConfig cfg (Gauge act) = do
+withConfig cfg act = do
   g <- newIORef Nothing
   o <- newIORef Nothing
-  runReaderT act (Crit cfg g o)
+  runGauge act (Crit cfg g o)
 
 -- | Return a random number generator, creating one if necessary.
 --
