@@ -22,7 +22,7 @@ module Gauge.Main.Options
 import Data.Monoid
 
 import Gauge.Analysis (validateAccessors)
-import Gauge.Types (Config(..), Verbosity(..), Mode(..), MatchType(..))
+import Gauge.Types (Config(..), Verbosity(..), Mode(..), DisplayMode(..), MatchType(..))
 --import Gauge.Types (Config(..), Verbosity(..), measureAccessors, measureKeys, Mode(..), MatchType(..))
 import Data.Char (isSpace, toLower)
 import Data.List (foldl')
@@ -50,6 +50,7 @@ defaultConfig = Config
     , iters        = Nothing
     , match        = Prefix
     , mode         = DefaultMode
+    , displayMode  = StatsTable
     }
 
 parseWith :: Config
@@ -80,6 +81,7 @@ opts =
     , Option "m" ["match"]      (ReqArg setMatch "MATCH") "How to match benchmark names: prefix, glob, pattern, or ipattern"
     , Option "l" ["list"]       (NoArg $ setMode List) "List benchmarks"
     , Option ""  ["version"]    (NoArg $ setMode Version) "Show version info"
+    , Option "s" ["small"]      (NoArg $ setDisplayMode Condensed) "Set benchmark display to the minimum useful information"
     , Option "h" ["help"]       (NoArg $ setMode Help) "Show help"
     ]
   where
@@ -106,6 +108,7 @@ opts =
                     _          -> optionError ("unknown match type: " <> s)
          in v { match = m }
     setMode m v = v { mode = m }
+    setDisplayMode m v = v { displayMode = m }
 
 -- FIXME
 optionError :: String -> a

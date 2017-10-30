@@ -30,6 +30,7 @@ module Gauge.Types
     -- * Configuration
       Config(..)
     , Mode(..)
+    , DisplayMode(..)
     , MatchType(..)
     , Verbosity(..)
     -- * Benchmark descriptions
@@ -118,7 +119,10 @@ data Mode = List
             -- ^ Default Benchmark mode
           deriving (Eq, Read, Show, Typeable, Data, Generic)
 
-
+data DisplayMode =
+      Condensed
+    | StatsTable
+    deriving (Eq, Read, Show, Typeable, Data, Generic)
 
 -- | Top-level benchmarking configuration.
 data Config = Config {
@@ -159,6 +163,7 @@ data Config = Config {
       -- ^ Type of matching to use, if any
     , mode         :: Mode
       -- ^ Mode of operation
+    , displayMode  :: DisplayMode
     } deriving (Eq, Read, Show, Typeable, Data, Generic)
 
 

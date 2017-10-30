@@ -24,7 +24,7 @@ import Foundation.Monad
 import Foundation.Monad.Reader (ask)
 import Data.Int (Int64)
 import Gauge.Analysis (analyseSample, noteOutliers)
-import Gauge.IO.Printf (note, printError, prolix)
+import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, secs)
 import Gauge.Monad (Gauge)
 import Gauge.Monad.ExceptT
@@ -32,6 +32,7 @@ import Gauge.Types hiding (measure)
 import qualified Data.Map as Map
 import qualified Data.Vector as V
 import Statistics.Types (Estimate(..),ConfInt(..),confidenceInterval,cl95,confidenceLevel)
+import System.IO (hSetBuffering, BufferMode(..), stdout)
 import Text.Printf (printf)
 
 -- | Run a single benchmark.
@@ -52,37 +53,44 @@ analyseOne i desc meas = do
   case erp of
     Left err -> printError "*** Error: %s\n" err
     Right rpt@Report{..} -> do
-      let SampleAnalysis{..} = reportAnalysis
-          OutlierVariance{..} = anOutlierVar
-          wibble = case ovEffect of
-                     Unaffected -> "unaffected" :: String
-                     Slight -> "slightly inflated"
-                     Moderate -> "moderately inflated"
-                     Severe -> "severely inflated"
-          (builtin, others) = splitAt 1 anRegress
-      let r2 n = printf "%.3f R\178" n
-      forM_ builtin $ \Regression{..} ->
-        case Map.lookup "iters" regCoeffs of
-          Nothing -> return ()
-          Just t  -> bs secs "time" t >> bs r2 "" regRSquare
-      bs secs "mean" anMean
-      bs secs "std dev" anStdDev
-      forM_ others $ \Regression{..} -> do
-        _ <- bs r2 (regResponder ++ ":") regRSquare
-        forM_ (Map.toList regCoeffs) $ \(prd,val) ->
-          bs (printf "%.3g") ("  " ++ prd) val
-      --writeCsv
-      --  (desc,
-      --   estPoint anMean,   fst $ confidenceInterval anMean,   snd $ confidenceInterval anMean,
-      --   estPoint anStdDev, fst $ confidenceInterval anStdDev, snd $ confidenceInterval anStdDev
-      -- )
-      when (verbosity == Verbose || (ovEffect > Slight && verbosity > Quiet)) $ do
-        when (verbosity == Verbose) $ noteOutliers reportOutliers
-        _ <- note "variance introduced by outliers: %d%% (%s)\n"
-             (round (ovFraction * 100) :: Int) wibble
-        return ()
-      _ <- note "\n"
-      return (Analysed rpt)
+        let SampleAnalysis{..} = reportAnalysis
+            OutlierVariance{..} = anOutlierVar
+            wibble = printOverallEffect ovEffect
+            (builtin, others) = splitAt 1 anRegress
+        case displayMode of
+            StatsTable -> do
+              _ <- note "%sbenchmarked %s\n" rewindClearLine desc
+              let r2 n = printf "%.3f R\178" n
+              forM_ builtin $ \Regression{..} ->
+                case Map.lookup "iters" regCoeffs of
+                  Nothing -> return ()
+                  Just t  -> bs secs "time" t >> bs r2 "" regRSquare
+              bs secs "mean" anMean
+              bs secs "std dev" anStdDev
+              forM_ others $ \Regression{..} -> do
+                _ <- bs r2 (regResponder ++ ":") regRSquare
+                forM_ (Map.toList regCoeffs) $ \(prd,val) ->
+                  bs (printf "%.3g") ("  " ++ prd) val
+              --writeCsv
+              --  (desc,
+              --   estPoint anMean,   fst $ confidenceInterval anMean,   snd $ confidenceInterval anMean,
+              --   estPoint anStdDev, fst $ confidenceInterval anStdDev, snd $ confidenceInterval anStdDev
+              -- )
+              when (verbosity == Verbose || (ovEffect > Slight && verbosity > Quiet)) $ do
+                when (verbosity == Verbose) $ noteOutliers reportOutliers
+                _ <- note "variance introduced by outliers: %d%% (%s)\n"
+                     (round (ovFraction * 100) :: Int) wibble
+                return ()
+              _ <- note "\n"
+              pure ()
+            Condensed -> do
+              _ <- note "%s%-40s " rewindClearLine desc
+              bsSmall secs "mean" anMean
+              bsSmall secs "( +-" anStdDev
+              _ <- note ")\n"
+              pure ()
+
+        return (Analysed rpt)
       where bs :: (Double -> String) -> String -> Estimate ConfInt Double -> Gauge ()
             bs f metric e@Estimate{..} =
               note "%-20s %-10s (%s .. %s%s)\n" metric
@@ -92,6 +100,15 @@ analyseOne i desc meas = do
                             | otherwise  = printf ", ci %.3f" (confidenceLevel cl)
                     in str
                    )
+            bsSmall :: (Double -> String) -> String -> Estimate ConfInt Double -> Gauge ()
+            bsSmall f metric Estimate{..} =
+              note "%s %-10s" metric (f estPoint)
+
+printOverallEffect :: OutlierEffect -> String
+printOverallEffect Unaffected = "unaffected"
+printOverallEffect Slight     = "slightly inflated"
+printOverallEffect Moderate   = "moderately inflated"
+printOverallEffect Severe     = "severely inflated"
 
 
 -- | Run a single benchmark and analyse its performance.
@@ -113,8 +130,9 @@ runAndAnalyse select bs = do
   --liftIO $ hPutStr handle $ "[ \"" ++ headerRoot ++ "\", " ++
   --                           "\"" ++ critVersion ++ "\", [ "
 
+  liftIO $ hSetBuffering stdout NoBuffering
   for select bs $ \idx desc bm -> do
-    _ <- note "benchmarking %s\n" desc
+    _ <- note "benchmarking %s" desc
     Analysed _ <- runAndAnalyseOne idx desc bm
     return ()
     --unless (idx == 0) $
@@ -153,7 +171,7 @@ runFixedIters :: Int64            -- ^ Number of loop iterations to run.
               -> Gauge ()
 runFixedIters iters select bs =
   for select bs $ \_idx desc bm -> do
-    _ <- note "benchmarking %s\n" desc
+    _ <- note "benchmarking %s\r" desc
     liftIO $ runBenchmarkable_ bm iters
 
 -- | Iterate over benchmarks.

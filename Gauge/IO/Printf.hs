@@ -9,13 +9,14 @@
 --
 -- Input and output actions.
 
-{-# LANGUAGE FlexibleInstances, Rank2Types, TypeSynonymInstances #-}
+{-# LANGUAGE CPP, FlexibleInstances, Rank2Types, TypeSynonymInstances #-}
 module Gauge.IO.Printf
     (
       CritHPrintfType
     , note
     , printError
     , prolix
+    , rewindClearLine
     ) where
 
 import Control.Monad (when)
@@ -88,3 +89,12 @@ prolix = chPrintf ((== Verbose) . verbosity) stdout
 -- | Print an error message.
 printError :: (CritHPrintfType r) => String -> r
 printError = chPrintf (const True) stderr
+
+-- | ansi escape on unix to rewind and clear the line to the end
+rewindClearLine :: String
+#ifdef mingw32_HOST_OS
+rewindClearLine = "\n"
+#else
+rewindClearLine = "\r\ESC[0K"
+#endif
+

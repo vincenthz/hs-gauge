@@ -240,7 +240,11 @@ threshold :: Double
 threshold = 0.03
 {-# INLINE threshold #-}
 
-runBenchmarkable :: Benchmarkable -> Int64 -> (a -> a -> a) -> (IO () -> IO a) -> IO a
+runBenchmarkable :: Benchmarkable
+                 -> Int64
+                 -> (a -> a -> a)
+                 -> (IO () -> IO a)
+                 -> IO a
 runBenchmarkable Benchmarkable{..} i comb f
     | perRun = work >>= go (i - 1)
     | otherwise = work
