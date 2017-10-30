@@ -1,3 +1,7 @@
+# 0.1.2
+
+* condensed display with `--small`
+
 # 0.1.1
 
 * remove optparse-applicative
