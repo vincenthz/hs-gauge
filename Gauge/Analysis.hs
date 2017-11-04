@@ -32,7 +32,7 @@ module Gauge.Analysis
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
-import Data.Monoid 
+import Data.Monoid
 
 import Control.Arrow (second)
 import Control.Monad (unless, when)
@@ -136,11 +136,10 @@ scale f s@SampleAnalysis{..} = s {
                                }
 
 -- | Perform an analysis of a measurement.
-analyseSample :: Int            -- ^ Experiment number.
-              -> String         -- ^ Experiment name.
+analyseSample :: String            -- ^ Experiment name.
               -> V.Vector Measured -- ^ Sample data.
               -> Gauge (Either String Report)
-analyseSample i name meas = do
+analyseSample name meas = do
   Config{..} <- askConfig
   overhead <- getOverhead
   let ests      = [Mean,StdDev]
@@ -172,8 +171,7 @@ analyseSample i name meas = do
                  , anOutlierVar = ov
                  }
       return $ Right $ Report
-        { reportNumber   = i
-        , reportName     = name
+        { reportName     = name
         , reportKeys     = measureKeys
         , reportMeasured = meas
         , reportAnalysis = an

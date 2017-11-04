@@ -65,5 +65,5 @@ benchmarkWith' cfg bm = do
   initializeTime
   withConfig cfg $ do
     _ <- note "benchmarking...\n"
-    Analysed rpt <- runAndAnalyseOne 0 "function" bm
+    Analysed rpt <- runAndAnalyseOne "function" bm
     return rpt

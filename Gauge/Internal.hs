@@ -42,11 +42,11 @@ runOne desc bm = do
   return (Measurement desc meas)
 
 -- | Analyse a single benchmark.
-analyseOne :: Int -> String -> V.Vector Measured -> Gauge DataRecord
-analyseOne i desc meas = do
+analyseOne :: String -> V.Vector Measured -> Gauge DataRecord
+analyseOne desc meas = do
   Config{..} <- askConfig
   _ <- prolix "analysing with %d resamples\n" resamples
-  erp <- analyseSample i desc meas
+  erp <- analyseSample desc meas
   case erp of
     Left err -> printError "*** Error: %s\n" err
     Right rpt@Report{..} -> do
@@ -109,10 +109,10 @@ printOverallEffect Severe     = "severely inflated"
 
 
 -- | Run a single benchmark and analyse its performance.
-runAndAnalyseOne :: Int -> String -> Benchmarkable -> Gauge DataRecord
-runAndAnalyseOne i desc bm = do
+runAndAnalyseOne :: String -> Benchmarkable -> Gauge DataRecord
+runAndAnalyseOne desc bm = do
   Measurement _ meas <- runOne desc bm
-  analyseOne i desc meas
+  analyseOne desc meas
 
 -- | Run, and analyse, one or more benchmarks.
 runAndAnalyse :: (String -> Bool) -- ^ A predicate that chooses
@@ -130,7 +130,7 @@ runAndAnalyse select bs = do
   gaugeIO $ hSetBuffering stdout NoBuffering
   for select bs $ \idx desc bm -> do
     _ <- note "benchmarking %s" desc
-    Analysed _ <- runAndAnalyseOne idx desc bm
+    Analysed _ <- runAndAnalyseOne desc bm
     return ()
     --unless (idx == 0) $
     --  liftIO $ hPutStr handle ", "

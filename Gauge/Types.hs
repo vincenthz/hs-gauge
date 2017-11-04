@@ -702,9 +702,7 @@ instance NFData KDE where
 
 -- | Report of a sample analysis.
 data Report = Report {
-      reportNumber   :: Int
-      -- ^ A simple index indicating that this is the /n/th report.
-    , reportName     :: String
+      reportName     :: String
       -- ^ The name of this report.
     , reportKeys     :: [String]
       -- ^ See 'measureKeys'.
@@ -722,7 +720,7 @@ data Report = Report {
 
 instance NFData Report where
     rnf Report{..} =
-      rnf reportNumber `seq` rnf reportName `seq` rnf reportKeys `seq`
+      rnf reportName `seq` rnf reportKeys `seq`
       rnf reportMeasured `seq` rnf reportAnalysis `seq` rnf reportOutliers `seq`
       rnf reportKDEs
 
