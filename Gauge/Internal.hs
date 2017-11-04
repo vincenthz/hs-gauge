@@ -33,13 +33,13 @@ import System.IO (hSetBuffering, BufferMode(..), stdout)
 import Text.Printf (printf)
 
 -- | Run a single benchmark.
-runOne :: Int -> String -> Benchmarkable -> Gauge DataRecord
-runOne i desc bm = do
+runOne :: String -> Benchmarkable -> Gauge DataRecord
+runOne desc bm = do
   Config{..} <- askConfig
   (meas,timeTaken) <- gaugeIO $ runBenchmark bm timeLimit
   when (timeTaken > timeLimit * 1.25) .
     void $ prolix "measurement took %s\n" (secs timeTaken)
-  return (Measurement i desc meas)
+  return (Measurement desc meas)
 
 -- | Analyse a single benchmark.
 analyseOne :: Int -> String -> V.Vector Measured -> Gauge DataRecord
@@ -111,7 +111,7 @@ printOverallEffect Severe     = "severely inflated"
 -- | Run a single benchmark and analyse its performance.
 runAndAnalyseOne :: Int -> String -> Benchmarkable -> Gauge DataRecord
 runAndAnalyseOne i desc bm = do
-  Measurement _ _ meas <- runOne i desc bm
+  Measurement _ meas <- runOne desc bm
   analyseOne i desc meas
 
 -- | Run, and analyse, one or more benchmarks.
