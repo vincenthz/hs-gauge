@@ -55,7 +55,7 @@ module Gauge.Main
 
 import Control.Monad (unless)
 import Gauge.IO.Printf (printError)
-import Gauge.Internal (runAndAnalyse, runFixedIters)
+import Gauge.Internal (runAndAnalyse, runFixedIters, runOnly)
 import Gauge.Main.Options (defaultConfig, versionInfo, parseWith, describe)
 import Gauge.Measurement (initializeTime)
 import Gauge.Monad (withConfig, gaugeIO)
@@ -147,18 +147,25 @@ runMode wat cfg benches bs =
     Version -> putStrLn versionInfo
     Help    -> putStrLn describe
     DefaultMode ->
-        case iters cfg of
-            Just nbIters -> do
-                shouldRun <- selectBenches (match cfg) benches bsgroup
-                withConfig cfg $
-                    runFixedIters nbIters shouldRun bsgroup
-            Nothing -> do
+        case measureOnly cfg of
+            Just outfile -> do
                 shouldRun <- selectBenches (match cfg) benches bsgroup
                 withConfig cfg $ do
-                    --writeCsv ("Name","Mean","MeanLB","MeanUB","Stddev","StddevLB",
-                    --          "StddevUB")
                     gaugeIO initializeTime
-                    runAndAnalyse shouldRun bsgroup
+                    runOnly shouldRun bsgroup (timeLimit cfg) outfile
+            Nothing ->
+                case iters cfg of
+                    Just nbIters -> do
+                        shouldRun <- selectBenches (match cfg) benches bsgroup
+                        withConfig cfg $
+                            runFixedIters nbIters shouldRun bsgroup
+                    Nothing -> do
+                        shouldRun <- selectBenches (match cfg) benches bsgroup
+                        withConfig cfg $ do
+                            --writeCsv ("Name","Mean","MeanLB","MeanUB","Stddev","StddevLB",
+                            --          "StddevUB")
+                            gaugeIO initializeTime
+                            runAndAnalyse shouldRun bsgroup
   where bsgroup = BenchGroup "" bs
 
 -- | Display an error message from a command line parsing failure, and

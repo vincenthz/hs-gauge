@@ -14,11 +14,12 @@ module Gauge.Internal
     (
       runAndAnalyse
     , runAndAnalyseOne
+    , runOnly
     , runFixedIters
     ) where
 
 import Control.DeepSeq (rnf)
-import Control.Exception (evaluate)
+import Control.Exception (bracket, catch, evaluate)
 import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
 import Gauge.Analysis (analyseBenchmark)
@@ -26,22 +27,50 @@ import Gauge.IO.Printf (note, prolix)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, secs)
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
 import Gauge.Types hiding (measure)
-import System.IO (hSetBuffering, BufferMode(..), stdout)
+import System.Directory (canonicalizePath, getTemporaryDirectory, removeFile)
+import System.IO (hClose, hSetBuffering, BufferMode(..), openTempFile, stdout)
 import qualified Data.Vector as V
+import System.Process (callProcess)
 
--- | Run a single benchmark.
-runOne :: Benchmarkable -> Gauge (V.Vector Measured)
-runOne bm = do
-  Config{..} <- askConfig
-  (meas,timeTaken) <- gaugeIO $ runBenchmark bm timeLimit
-  when (timeTaken > timeLimit * 1.25) .
-    void $ prolix "measurement took %s\n" (secs timeTaken)
-  return meas
+withSystemTempFile
+  :: String   -- ^ File name template
+  -> (FilePath -> IO a) -- ^ Callback that can use the file
+  -> IO a
+withSystemTempFile template action = do
+  tmpDir <- getTemporaryDirectory >>= canonicalizePath
+  withTempFile tmpDir
+  where
+  withTempFile tmpDir = bracket
+    (openTempFile tmpDir template >>= \(f, h) -> hClose h >> return f)
+    (\name -> ignoringIOErrors (removeFile name))
+    (action)
+  ignoringIOErrors act = act `catch` (\e -> const (return ()) (e :: IOError))
+
+runOnly :: (String -> Bool) -> Benchmark -> Double -> FilePath -> Gauge ()
+runOnly select bs tlimit outfile =
+  for select bs $ \_ _ bm -> gaugeIO $ do
+    output <- runBenchmark bm tlimit
+    writeFile outfile $ show output
+
+-- | Run a single benchmark measurement only in a separate process.
+runBenchmarkWith :: String -> String -> Double -> IO (V.Vector Measured, Double)
+runBenchmarkWith prog desc tlimit =
+    withSystemTempFile "gauge-quarantine" $ \file -> do
+      (callProcess prog ["--time-limit", show tlimit
+                          , "--measure-only", file, desc
+                          ])
+      readFile file >>= return . read
 
 -- | Run a single benchmark and analyse its performance.
 runAndAnalyseOne :: String -> Benchmarkable -> Gauge Report
 runAndAnalyseOne desc bm = do
-  meas <- runOne bm
+  Config{..} <- askConfig
+  (meas, timeTaken) <-
+    case measureWith of
+      Just prog -> gaugeIO $ runBenchmarkWith prog desc timeLimit
+      Nothing -> gaugeIO $ runBenchmark bm timeLimit
+  when (timeTaken > timeLimit * 1.25) .
+    void $ prolix "measurement took %s\n" (secs timeTaken)
   analyseBenchmark desc meas
 
 -- | Run, and analyse, one or more benchmarks.

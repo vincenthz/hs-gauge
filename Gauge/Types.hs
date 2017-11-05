@@ -136,6 +136,12 @@ data Config = Config {
     , timeLimit    :: Double
       -- ^ Number of seconds to run a single benchmark.  (In practice,
       -- execution time will very slightly exceed this limit.)
+    , measureOnly  :: Maybe FilePath
+    -- ^ Just measure the given benchmark and place the raw output in this
+    -- file, do not analyse and generate a report.
+    , measureWith  :: Maybe FilePath
+    -- ^ Specify the path of the benchmarking program to use (this program
+    -- itself) for measuring the benchmarks in a separate process.
     , resamples    :: Int
       -- ^ Number of resamples to perform when bootstrapping.
     , regressions  :: [([String], String)]
