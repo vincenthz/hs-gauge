@@ -724,10 +724,10 @@ instance NFData Report where
       rnf reportMeasured `seq` rnf reportAnalysis `seq` rnf reportOutliers `seq`
       rnf reportKDEs
 
-data DataRecord = Measurement String (V.Vector Measured)
+data DataRecord = Measurement (V.Vector Measured)
                 | Analysed Report
                 deriving (Eq, Read, Show, Typeable, Generic)
 
 instance NFData DataRecord where
-  rnf (Measurement n v) = rnf n `seq` rnf v
-  rnf (Analysed r)      = rnf r
+  rnf (Measurement v) = rnf v
+  rnf (Analysed r)    = rnf r

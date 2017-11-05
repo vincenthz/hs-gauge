@@ -29,18 +29,18 @@ import Gauge.Types hiding (measure)
 import System.IO (hSetBuffering, BufferMode(..), stdout)
 
 -- | Run a single benchmark.
-runOne :: String -> Benchmarkable -> Gauge DataRecord
-runOne desc bm = do
+runOne :: Benchmarkable -> Gauge DataRecord
+runOne bm = do
   Config{..} <- askConfig
   (meas,timeTaken) <- gaugeIO $ runBenchmark bm timeLimit
   when (timeTaken > timeLimit * 1.25) .
     void $ prolix "measurement took %s\n" (secs timeTaken)
-  return (Measurement desc meas)
+  return (Measurement meas)
 
 -- | Run a single benchmark and analyse its performance.
 runAndAnalyseOne :: String -> Benchmarkable -> Gauge DataRecord
 runAndAnalyseOne desc bm = do
-  Measurement _ meas <- runOne desc bm
+  Measurement meas <- runOne bm
   analyseOne desc meas
 
 -- | Run, and analyse, one or more benchmarks.
