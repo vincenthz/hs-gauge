@@ -71,7 +71,6 @@ module Gauge.Types
     , KDE(..)
     , Report(..)
     , SampleAnalysis(..)
-    , DataRecord(..)
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
@@ -723,11 +722,3 @@ instance NFData Report where
       rnf reportName `seq` rnf reportKeys `seq`
       rnf reportMeasured `seq` rnf reportAnalysis `seq` rnf reportOutliers `seq`
       rnf reportKDEs
-
-data DataRecord = Measurement (V.Vector Measured)
-                | Analysed Report
-                deriving (Eq, Read, Show, Typeable, Generic)
-
-instance NFData DataRecord where
-  rnf (Measurement v) = rnf v
-  rnf (Analysed r)    = rnf r

@@ -267,7 +267,7 @@ noteOutliers o = do
     check (highSevere o) 0 "high severe"
 
 -- | Analyse a single benchmark.
-analyseOne :: String -> V.Vector Measured -> Gauge DataRecord
+analyseOne :: String -> V.Vector Measured -> Gauge Report
 analyseOne desc meas = do
   Config{..} <- askConfig
   _ <- prolix "analysing with %d resamples\n" resamples
@@ -312,7 +312,7 @@ analyseOne desc meas = do
               _ <- note ")\n"
               pure ()
 
-        return (Analysed rpt)
+        return rpt
       where bs :: (Double -> String) -> String -> Estimate ConfInt Double -> Gauge ()
             bs f metric e@Estimate{..} =
               note "%-20s %-10s (%s .. %s%s)\n" metric

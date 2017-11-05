@@ -27,20 +27,21 @@ import Gauge.Measurement (runBenchmark, runBenchmarkable_, secs)
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
 import Gauge.Types hiding (measure)
 import System.IO (hSetBuffering, BufferMode(..), stdout)
+import qualified Data.Vector as V
 
 -- | Run a single benchmark.
-runOne :: Benchmarkable -> Gauge DataRecord
+runOne :: Benchmarkable -> Gauge (V.Vector Measured)
 runOne bm = do
   Config{..} <- askConfig
   (meas,timeTaken) <- gaugeIO $ runBenchmark bm timeLimit
   when (timeTaken > timeLimit * 1.25) .
     void $ prolix "measurement took %s\n" (secs timeTaken)
-  return (Measurement meas)
+  return meas
 
 -- | Run a single benchmark and analyse its performance.
-runAndAnalyseOne :: String -> Benchmarkable -> Gauge DataRecord
+runAndAnalyseOne :: String -> Benchmarkable -> Gauge Report
 runAndAnalyseOne desc bm = do
-  Measurement meas <- runOne bm
+  meas <- runOne bm
   analyseOne desc meas
 
 -- | Run, and analyse, one or more benchmarks.
@@ -59,7 +60,7 @@ runAndAnalyse select bs = do
   gaugeIO $ hSetBuffering stdout NoBuffering
   for select bs $ \idx desc bm -> do
     _ <- note "benchmarking %s" desc
-    Analysed _ <- runAndAnalyseOne desc bm
+    _ <- runAndAnalyseOne desc bm
     return ()
     --unless (idx == 0) $
     --  liftIO $ hPutStr handle ", "
