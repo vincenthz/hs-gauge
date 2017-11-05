@@ -19,18 +19,14 @@ module Gauge.Internal
 
 import Control.DeepSeq (rnf)
 import Control.Exception (evaluate)
-import Control.Monad (foldM, forM_, void, when)
+import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
-import Gauge.Analysis (analyseSample, noteOutliers)
-import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
+import Gauge.Analysis (analyseOne)
+import Gauge.IO.Printf (note, prolix)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, secs)
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
 import Gauge.Types hiding (measure)
-import qualified Data.Map as Map
-import qualified Data.Vector as V
-import Statistics.Types (Estimate(..),ConfInt(..),confidenceInterval,cl95,confidenceLevel)
 import System.IO (hSetBuffering, BufferMode(..), stdout)
-import Text.Printf (printf)
 
 -- | Run a single benchmark.
 runOne :: String -> Benchmarkable -> Gauge DataRecord
@@ -40,73 +36,6 @@ runOne desc bm = do
   when (timeTaken > timeLimit * 1.25) .
     void $ prolix "measurement took %s\n" (secs timeTaken)
   return (Measurement desc meas)
-
--- | Analyse a single benchmark.
-analyseOne :: String -> V.Vector Measured -> Gauge DataRecord
-analyseOne desc meas = do
-  Config{..} <- askConfig
-  _ <- prolix "analysing with %d resamples\n" resamples
-  erp <- analyseSample desc meas
-  case erp of
-    Left err -> printError "*** Error: %s\n" err
-    Right rpt@Report{..} -> do
-        let SampleAnalysis{..} = reportAnalysis
-            OutlierVariance{..} = anOutlierVar
-            wibble = printOverallEffect ovEffect
-            (builtin, others) = splitAt 1 anRegress
-        case displayMode of
-            StatsTable -> do
-              _ <- note "%sbenchmarked %s\n" rewindClearLine desc
-              let r2 n = printf "%.3f R\178" n
-              forM_ builtin $ \Regression{..} ->
-                case Map.lookup "iters" regCoeffs of
-                  Nothing -> return ()
-                  Just t  -> bs secs "time" t >> bs r2 "" regRSquare
-              bs secs "mean" anMean
-              bs secs "std dev" anStdDev
-              forM_ others $ \Regression{..} -> do
-                _ <- bs r2 (regResponder ++ ":") regRSquare
-                forM_ (Map.toList regCoeffs) $ \(prd,val) ->
-                  bs (printf "%.3g") ("  " ++ prd) val
-              --writeCsv
-              --  (desc,
-              --   estPoint anMean,   fst $ confidenceInterval anMean,   snd $ confidenceInterval anMean,
-              --   estPoint anStdDev, fst $ confidenceInterval anStdDev, snd $ confidenceInterval anStdDev
-              -- )
-              when (verbosity == Verbose || (ovEffect > Slight && verbosity > Quiet)) $ do
-                when (verbosity == Verbose) $ noteOutliers reportOutliers
-                _ <- note "variance introduced by outliers: %d%% (%s)\n"
-                     (round (ovFraction * 100) :: Int) wibble
-                return ()
-              _ <- note "\n"
-              pure ()
-            Condensed -> do
-              _ <- note "%s%-40s " rewindClearLine desc
-              bsSmall secs "mean" anMean
-              bsSmall secs "( +-" anStdDev
-              _ <- note ")\n"
-              pure ()
-
-        return (Analysed rpt)
-      where bs :: (Double -> String) -> String -> Estimate ConfInt Double -> Gauge ()
-            bs f metric e@Estimate{..} =
-              note "%-20s %-10s (%s .. %s%s)\n" metric
-                   (f estPoint) (f $ fst $ confidenceInterval e) (f $ snd $ confidenceInterval e)
-                   (let cl = confIntCL estError
-                        str | cl == cl95 = ""
-                            | otherwise  = printf ", ci %.3f" (confidenceLevel cl)
-                    in str
-                   )
-            bsSmall :: (Double -> String) -> String -> Estimate ConfInt Double -> Gauge ()
-            bsSmall f metric Estimate{..} =
-              note "%s %-10s" metric (f estPoint)
-
-printOverallEffect :: OutlierEffect -> String
-printOverallEffect Unaffected = "unaffected"
-printOverallEffect Slight     = "slightly inflated"
-printOverallEffect Moderate   = "moderately inflated"
-printOverallEffect Severe     = "severely inflated"
-
 
 -- | Run a single benchmark and analyse its performance.
 runAndAnalyseOne :: String -> Benchmarkable -> Gauge DataRecord
