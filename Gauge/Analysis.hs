@@ -18,13 +18,13 @@
 -- module.
 
 module Gauge.Analysis
-    ( analyseOne
-    , Outliers(..)
+    ( Outliers(..)
     , OutlierEffect(..)
     , OutlierVariance(..)
     , SampleAnalysis(..)
     , analyseSample
     , scale
+    , analyseBenchmark
     , analyseMean
     , countOutliers
     , classifyOutliers
@@ -267,8 +267,8 @@ noteOutliers o = do
     check (highSevere o) 0 "high severe"
 
 -- | Analyse a single benchmark.
-analyseOne :: String -> V.Vector Measured -> Gauge Report
-analyseOne desc meas = do
+analyseBenchmark :: String -> V.Vector Measured -> Gauge Report
+analyseBenchmark desc meas = do
   Config{..} <- askConfig
   _ <- prolix "analysing with %d resamples\n" resamples
   erp <- analyseSample desc meas

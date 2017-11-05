@@ -21,7 +21,7 @@ import Control.DeepSeq (rnf)
 import Control.Exception (evaluate)
 import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
-import Gauge.Analysis (analyseOne)
+import Gauge.Analysis (analyseBenchmark)
 import Gauge.IO.Printf (note, prolix)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, secs)
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
@@ -42,7 +42,7 @@ runOne bm = do
 runAndAnalyseOne :: String -> Benchmarkable -> Gauge Report
 runAndAnalyseOne desc bm = do
   meas <- runOne bm
-  analyseOne desc meas
+  analyseBenchmark desc meas
 
 -- | Run, and analyse, one or more benchmarks.
 runAndAnalyse :: (String -> Bool) -- ^ A predicate that chooses
