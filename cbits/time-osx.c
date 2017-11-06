@@ -1,6 +1,8 @@
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 
+#include "gauge-time.h"
+
 static mach_timebase_info_data_t timebase_info;
 static double timebase_recip;
 
@@ -10,6 +12,30 @@ void gauge_inittime(void)
 	mach_timebase_info(&timebase_info);
 	timebase_recip = (timebase_info.denom / timebase_info.numer) / 1e9;
     }
+}
+
+static inline uint64_t scale64(uint64_t i, uint64_t numer, uint64_t denom)
+{
+    uint64_t high = (i >> 32) * numer;
+    uint64_t low = (i & 0xffffffffULL) * numer / denom;
+    uint64_t highRem = ((high % denom) << 32) / denom;
+    high /= denom;
+    return (high << 32) + highRem + low;
+}
+
+void gauge_record(struct gauge_time *tr)
+{
+    struct task_thread_times_info thread_info_data;
+    mach_msg_type_number_t thread_info_count = TASK_THREAD_TIMES_INFO_COUNT;
+    kern_return_t kr = task_info(mach_task_self(), TASK_THREAD_TIMES_INFO,
+				                 (task_info_t) &thread_info_data,
+				                 &thread_info_count);
+
+    tr->clock_nanosecs = scale64(mach_absolute_time(), timebase_info.numer, timebase_info.denom);
+
+    tr->cpu_nanosecs = (((uint64_t) thread_info_data.seconds) * ref_second) +
+                       (((uint64_t) thread_info_data.microseconds) * ref_microsecond)
+    tr->rdtsc = 0;
 }
 
 double gauge_gettime(void)
