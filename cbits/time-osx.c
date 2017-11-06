@@ -36,7 +36,7 @@ void gauge_record(struct gauge_time *tr)
     tr->cpu_nanosecs = (((uint64_t) thread_info_data.user_time.seconds) * ref_second) +
                        (((uint64_t) thread_info_data.user_time.microseconds) * ref_microsecond) +
                        (((uint64_t) thread_info_data.system_time.seconds) * ref_second) +
-                       (((uint64_t) thread_info_data.system_time.microseconds) * ref_microsecond)
+                       (((uint64_t) thread_info_data.system_time.microseconds) * ref_microsecond);
     tr->rdtsc = 0;
 }
 
