@@ -69,7 +69,8 @@ void gauge_record(struct gauge_time *tr)
 
     time = to_quad_100ns(user) + to_quad_100ns(kernel);
 
-    tr->clock_nanosecs = (li.QuadPart - firstClock.QuadPart) / freq.QuadPart;
+    tr->clock_nanosecs = (li.QuadPart / freq.QuadPart * ref_second) +
+                         ((li.QuadPart % freq.QuadPart) * ref_second) / freq.QuadPart;
     tr->cpu_nanosecs = time * ref_100nanosecond;
     tr->rdtsc = 0;
 }
