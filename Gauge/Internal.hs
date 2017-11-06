@@ -87,7 +87,7 @@ runAndAnalyse select bs = do
   --                           "\"" ++ critVersion ++ "\", [ "
 
   gaugeIO $ hSetBuffering stdout NoBuffering
-  for select bs $ \idx desc bm -> do
+  for select bs $ \_ desc bm -> do
     _ <- note "benchmarking %s" desc
     _ <- runAndAnalyseOne desc bm
     return ()
