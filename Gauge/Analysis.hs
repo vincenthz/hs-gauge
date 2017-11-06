@@ -1,6 +1,8 @@
+{-# LANGUAGE CPP         #-}
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE BangPatterns, DeriveDataTypeable, RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- |
 -- Module      : Gauge.Analysis
@@ -33,6 +35,7 @@ module Gauge.Analysis
     , resolveAccessors
     , validateAccessors
     , regress
+    , secs
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
@@ -41,10 +44,12 @@ import Data.Monoid
 import Control.Arrow (second)
 import Control.Monad (forM_, unless, when)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
-import Gauge.Measurement (secs, threshold)
-import Gauge.Monad (Gauge, getGen, getOverhead, askConfig, gaugeIO)
+import Gauge.Measurement (measure, runBenchmark, threshold)
+import Gauge.Monad (Gauge, askConfig, gaugeIO)
+import Gauge.Monad.Internal (Crit(..), askCrit)
 import Gauge.Types
 import Data.Int (Int64)
+import Data.IORef (IORef, readIORef, writeIORef)
 import Data.Maybe (fromJust)
 import Statistics.Function (sort)
 import Statistics.Quantile (weightedAvg, Sorted(..))
@@ -54,7 +59,7 @@ import Statistics.Sample (mean)
 import Statistics.Sample.KernelDensity (kde)
 import Statistics.Types (Sample, Estimate(..),ConfInt(..),confidenceInterval
                         ,cl95,confidenceLevel)
-import System.Random.MWC (GenIO)
+import System.Random.MWC (GenIO, createSystemRandom)
 import Text.Printf (printf)
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -64,6 +69,69 @@ import qualified Data.Vector.Unboxed as U
 import qualified Statistics.Resampling.Bootstrap as B
 import qualified Statistics.Types                as B
 import Prelude
+
+-- | Convert a number of seconds to a string.  The string will consist
+-- of four decimal places, followed by a short description of the time
+-- units.
+secs :: Double -> String
+secs k
+    | k < 0      = '-' : secs (-k)
+    | k >= 1     = k        `with` "s"
+    | k >= 1e-3  = (k*1e3)  `with` "ms"
+#ifdef mingw32_HOST_OS
+    | k >= 1e-6  = (k*1e6)  `with` "us"
+#else
+    | k >= 1e-6  = (k*1e6)  `with` "μs"
+#endif
+    | k >= 1e-9  = (k*1e9)  `with` "ns"
+    | k >= 1e-12 = (k*1e12) `with` "ps"
+    | k >= 1e-15 = (k*1e15) `with` "fs"
+    | k >= 1e-18 = (k*1e18) `with` "as"
+    | otherwise  = printf "%g s" k
+     where with (t :: Double) (u :: String)
+               | t >= 1e9  = printf "%.4g %s" t u
+               | t >= 1e3  = printf "%.0f %s" t u
+               | t >= 1e2  = printf "%.1f %s" t u
+               | t >= 1e1  = printf "%.2f %s" t u
+               | otherwise = printf "%.3f %s" t u
+
+-- | Return a random number generator, creating one if necessary.
+--
+-- This is not currently thread-safe, but in a harmless way (we might
+-- call 'createSystemRandom' more than once if multiple threads race).
+getGen :: Gauge GenIO
+getGen = memoise gen createSystemRandom
+
+-- | Return an estimate of the measurement overhead.
+getOverhead :: Gauge Double
+getOverhead = do
+  verbose <- ((== Verbose) . verbosity) <$> askConfig
+  memoise overhead $ do
+    (meas,_) <- runBenchmark (whnfIO $ measure (whnfIO $ return ()) 1) 1
+    let metric get = G.convert . G.map get $ meas
+    let o = G.head . fst $
+            olsRegress [metric (fromIntegral . measIters)] (metric measTime)
+    when verbose $
+      putStrLn $ "measurement overhead " ++ secs o
+    return o
+
+-- | Memoise the result of an 'IO' action.
+--
+-- This is not currently thread-safe, but hopefully in a harmless way.
+-- We might call the given action more than once if multiple threads
+-- race, so our caller's job is to write actions that can be run
+-- multiple times safely.
+memoise :: (Crit -> IORef (Maybe a)) -> IO a -> Gauge a
+memoise ref generate = do
+  r <- ref <$> askCrit
+  gaugeIO $ do
+    mv <- readIORef r
+    case mv of
+      Just rv -> return rv
+      Nothing -> do
+        rv <- generate
+        writeIORef r (Just rv)
+        return rv
 
 -- | Classify outliers in a data set, using the boxplot technique.
 classifyOutliers :: Sample -> Outliers
@@ -141,6 +209,9 @@ scale f s@SampleAnalysis{..} = s {
                                , anStdDev = B.scale f anStdDev
                                }
 
+getMeasurement :: (U.Unbox a) => (Measured -> a) -> V.Vector Measured -> U.Vector a
+getMeasurement f v = U.convert . V.map f $ v
+
 -- | Perform an analysis of a measurement.
 analyseSample :: String            -- ^ Experiment name.
               -> V.Vector Measured -- ^ Sample data.
@@ -153,7 +224,7 @@ analyseSample name meas = do
       -- measurements when bootstrapping the mean and standard
       -- deviations.  Without this, the numbers look nonsensical when
       -- very brief actions are measured.
-      stime     = measure (measTime . rescale) .
+      stime     = getMeasurement (measTime . rescale) .
                   G.filter ((>= threshold) . measTime) . G.map fixTime .
                   G.tail $ meas
       fixTime m = m { measTime = measTime m - overhead / 2 }
@@ -206,7 +277,7 @@ regress gen predNames respName meas
             if not (null unmeasured)
                 then pure $ Left $ "no data available for " ++ renderNames unmeasured
                 else do
-                    let (r:ps) = map ((`measure` meas) . (fromJust .) . snd) accs
+                    let (r:ps) = map ((`getMeasurement` meas) . (fromJust .) . snd) accs
                     Config{..} <- askConfig
                     (coeffs,r2) <- gaugeIO $ bootstrapRegress gen resamples confInterval olsRegress ps r
                     pure $ Right $ Regression
