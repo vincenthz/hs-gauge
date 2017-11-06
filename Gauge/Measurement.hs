@@ -186,6 +186,16 @@ getGCStatistics = do
   \(_::Exc.SomeException) -> return Nothing
 #endif
 
+data RUsage = RUsage
+    { ruUtime  :: Int64
+    , ruStime  :: Int64
+    , ruMaxrss :: Int64
+    , ruMinflt :: Int64
+    , ruMajflt :: Int64
+    , ruNvcsw  :: Int64
+    , ruNivcsw :: Int64
+    }
+
 -- | Measure the execution of a benchmark a given number of times.
 measure :: Benchmarkable        -- ^ Operation to benchmark.
         -> Int64                -- ^ Number of iterations.
@@ -203,20 +213,18 @@ measure bm iters = runBenchmarkable bm iters addResults $ \act -> do
   endRUsage <- getRUsage
   endStats <- getGCStatistics
 
-  let diffRUsage f = do
-        start <- f startRUsage
-        end   <- f endRUsage
-        return $ end - start
-
-  nvcsw  <- diffRUsage getRUnvcsw
-  nivcsw <- diffRUsage getRUnivcsw
-
+  let diffRUsage f = f endRUsage - f startRUsage
   let !m = applyGCStatistics endStats startStats $ measured {
              measTime    = max 0 (endTime - startTime)
            , measCpuTime = max 0 (endCpuTime - startCpuTime)
            , measCycles  = max 0 (fromIntegral (endCycles - startCycles))
-           , measNvcsw   = max 0 (fromIntegral nvcsw)
-           , measNivcsw  = max 0 (fromIntegral nivcsw)
+           , measUtime   = max 0 (diffRUsage ruUtime)
+           , measStime   = max 0 (diffRUsage ruStime)
+           , measMaxrss  = max 0 (diffRUsage ruMaxrss)
+           , measMinflt  = max 0 (diffRUsage ruMinflt)
+           , measMajflt  = max 0 (diffRUsage ruMajflt)
+           , measNvcsw   = max 0 (diffRUsage ruNvcsw)
+           , measNivcsw  = max 0 (diffRUsage ruNivcsw)
            , measIters   = iters
            }
   return (m, endTime)
@@ -232,6 +240,11 @@ measure bm iters = runBenchmarkable bm iters addResults $ \act -> do
             , measCycles             = add measCycles
             , measIters              = add measIters
 
+            , measUtime              = add measUtime
+            , measStime              = add measStime
+            , measMaxrss             = add measMaxrss
+            , measMinflt             = add measMinflt
+            , measMajflt             = add measMajflt
             , measNvcsw              = add measNvcsw
             , measNivcsw             = add measNivcsw
 
@@ -342,6 +355,11 @@ measured = Measured {
     , measCycles             = 0
     , measIters              = 0
 
+    , measUtime              = 0
+    , measStime              = 0
+    , measMaxrss             = 0
+    , measMinflt             = 0
+    , measMajflt             = 0
     , measNvcsw              = 0
     , measNivcsw             = 0
 
@@ -440,12 +458,42 @@ foreign import ccall unsafe "gauge_gettime" getTime :: IO Double
 foreign import ccall unsafe "gauge_getcputime" getCPUTime :: IO Double
 
 -- rusage accessor functions
-data RUsageStruct
-type RUsage = Ptr RUsageStruct
-
 -- XXX All fields of rusage may not be available on MinGW
-foreign import ccall unsafe "gauge_getrusage" getRUsage :: IO RUsage
-foreign import ccall unsafe "gauge_getrusage_nivcsw" getRUnivcsw
-    :: RUsage -> IO CLong
-foreign import ccall unsafe "gauge_getrusage_nvcsw" getRUnvcsw
-    :: RUsage -> IO CLong
+foreign import ccall unsafe "gauge_getrusage" c_getRUsage :: IO (Ptr RUsage)
+
+foreign import ccall unsafe "gauge_getrusage_utime" c_getRUutime
+    :: Ptr RUsage -> IO CLong
+foreign import ccall unsafe "gauge_getrusage_stime" c_getRUstime
+    :: Ptr RUsage -> IO CLong
+foreign import ccall unsafe "gauge_getrusage_maxrss" c_getRUmaxrss
+    :: Ptr RUsage -> IO CLong
+foreign import ccall unsafe "gauge_getrusage_minflt" c_getRUminflt
+    :: Ptr RUsage -> IO CLong
+foreign import ccall unsafe "gauge_getrusage_majflt" c_getRUmajflt
+    :: Ptr RUsage -> IO CLong
+foreign import ccall unsafe "gauge_getrusage_nvcsw" c_getRUnvcsw
+    :: Ptr RUsage -> IO CLong
+foreign import ccall unsafe "gauge_getrusage_nivcsw" c_getRUnivcsw
+    :: Ptr RUsage -> IO CLong
+
+getRUsage :: IO RUsage
+getRUsage = do
+    ru <- c_getRUsage
+    -- ru points to static memory, copy it over
+    utime  <- c_getRUutime ru
+    stime  <- c_getRUstime ru
+    maxrss <- c_getRUmaxrss ru
+    minflt <- c_getRUminflt ru
+    majflt <- c_getRUmajflt ru
+    nvcsw  <- c_getRUnvcsw ru
+    nivcsw <- c_getRUnivcsw ru
+
+    return RUsage
+        { ruUtime  = (fromInteger . toInteger) utime
+        , ruStime  = (fromInteger . toInteger) stime
+        , ruMaxrss = (fromInteger . toInteger) maxrss
+        , ruMinflt = (fromInteger . toInteger) minflt
+        , ruMajflt = (fromInteger . toInteger) majflt
+        , ruNvcsw  = (fromInteger . toInteger) nvcsw
+        , ruNivcsw = (fromInteger . toInteger) nivcsw
+        }

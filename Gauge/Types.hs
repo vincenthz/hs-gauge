@@ -216,6 +216,16 @@ data Measured = Measured {
     , measIters              :: !Int64
       -- ^ Number of loop iterations measured.
 
+    , measUtime              :: !Int64
+    -- ^ User time
+    , measStime              :: !Int64
+    -- ^ System time
+    , measMaxrss             :: !Int64
+    -- ^ Maximum resident set size
+    , measMinflt             :: !Int64
+    -- ^ Minor page faults
+    , measMajflt             :: !Int64
+    -- ^ Major page faults
     , measNvcsw              :: !Int64
     -- ^ Number of voluntary context switches
     , measNivcsw             :: !Int64
@@ -262,10 +272,20 @@ measureAccessors_ = [
                             "CPU cycles"))
   , ("iters",              (Just . fromIntegral . measIters,
                             "loop iterations"))
+  , ("utime",              (Just . fromIntegral . measUtime,
+                            "user time"))
+  , ("stime",              (Just . fromIntegral . measStime,
+                            "system time"))
+  , ("maxrss",             (Just . fromIntegral . measMaxrss,
+                            "maximum resident set size"))
+  , ("minflt",             (Just . fromIntegral . measMinflt,
+                            "minor page faults"))
+  , ("majflt",             (Just . fromIntegral . measMajflt,
+                            "major page faults"))
   , ("nvcsw",              (Just . fromIntegral . measNvcsw,
-                            "voluntary context swicthes"))
+                            "voluntary context switches"))
   , ("nivcsw",             (Just . fromIntegral . measNivcsw,
-                            "involuntary context swicthes"))
+                            "involuntary context switches"))
   , ("allocated",          (fmap fromIntegral . fromInt . measAllocated,
                             "(+RTS -T) bytes allocated"))
   , ("numGcs",             (fmap fromIntegral . fromInt . measNumGcs,
@@ -301,6 +321,12 @@ rescale m@Measured{..} = m {
     , measCycles             = i measCycles
     -- skip measIters
 
+    , measUtime              = i measUtime
+    , measStime              = i measStime
+    -- maxrss gets averaged out
+    , measMaxrss             = i measMaxrss
+    , measMinflt             = i measMinflt
+    , measMajflt             = i measMajflt
     , measNvcsw              = i measNvcsw
     , measNivcsw             = i measNivcsw
 

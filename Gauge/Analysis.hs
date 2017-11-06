@@ -304,19 +304,15 @@ analyseBenchmark desc meas = do
                      (round (ovFraction * 100) :: Int) wibble
                 return ()
 
+              reportStat Verbose measUtime (secs . (/ 1000000) . fromIntegral) "User time"
+              reportStat Verbose measStime (secs . (/ 1000000) . fromIntegral) "System time"
+              reportStat Verbose measMaxrss show "Maximum resident set size"
+              reportStat Verbose measMinflt show "Minor page faults"
+              reportStat Verbose measMajflt show "Major page faults"
+              reportStat Verbose measNvcsw show "Total voluntary context switches"
               -- Always report involuntary context switches, may indicate too
               -- much load on the system when measuring.
-              let nivcsw = toInteger (V.sum (V.map measNivcsw meas))
-              when (nivcsw > 0) $ do
-                _ <- note "Total involuntary context switches: %d\n"
-                     (fromInteger nivcsw :: Int)
-                return ()
-
-              let nvcsw = toInteger (V.sum (V.map measNvcsw meas))
-              when (verbosity == Verbose && nvcsw > 0) $ do
-                _ <- note "Total voluntary context switches: %d\n"
-                     (fromInteger nvcsw :: Int)
-                return ()
+              reportStat Quiet measNivcsw show "Total involuntary context switches"
 
               _ <- note "\n"
               pure ()
@@ -340,6 +336,15 @@ analyseBenchmark desc meas = do
             bsSmall :: (Double -> String) -> String -> Estimate ConfInt Double -> Gauge ()
             bsSmall f metric Estimate{..} =
               note "%s %-10s" metric (f estPoint)
+
+            reportStat :: Verbosity -> (Measured -> Int64) -> (Int64 -> String)
+                       -> String -> Gauge ()
+            reportStat lvl accessor sh msg = do
+              let val = V.sum (V.map accessor meas)
+              when (verbosity >= lvl && val > 0) $ do
+                _ <- note (msg ++ ": %s\n") (sh val)
+                return ()
+
 
 printOverallEffect :: OutlierEffect -> String
 printOverallEffect Unaffected = "unaffected"
