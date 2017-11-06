@@ -44,7 +44,6 @@ module Gauge.Types
     , toDouble
     , measureAccessors
     , measureKeys
-    , measure
     , rescale
     -- * Benchmark construction
     , env
@@ -605,9 +604,6 @@ instance Show Benchmark where
     show (Environment _ _ b) = "Environment _ _" ++ show (b undefined)
     show (Benchmark d _)   = "Benchmark " ++ show d
     show (BenchGroup d _)  = "BenchGroup " ++ show d
-
-measure :: (U.Unbox a) => (Measured -> a) -> V.Vector Measured -> U.Vector a
-measure f v = U.convert . V.map f $ v
 
 -- | Outliers from sample data, calculated using the boxplot
 -- technique.
