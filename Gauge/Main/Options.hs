@@ -38,6 +38,8 @@ defaultConfig = Config
     { confInterval = cl95
     , forceGC      = True
     , timeLimit    = 5
+    , measureOnly  = Nothing
+    , measureWith  = Nothing
     , resamples    = 1000
     , regressions  = []
     , rawDataFile  = Nothing
@@ -68,6 +70,8 @@ opts =
     [ Option "I" ["ci"]         (ReqArg setCI "CI") "Confidence interval"
     , Option "G" ["no-gc"]      (NoArg setNoGC)     "Do not collect garbage between iterations"
     , Option "L" ["time-limit"] (ReqArg setTimeLimit "SECS") "Time limit to run a benchmark"
+    , Option ""  ["measure-only"] (fileArg setMeasureOnly) "Just measure the benchmark and place the raw data in the given file"
+    , Option ""  ["measure-with"] (fileArg setMeasureProg) "Perform measurements in a separate process using this program."
     , Option ""  ["resamples"]  (ReqArg setResamples "COUNT") "Number of boostrap resamples to perform"
     , Option ""  ["regress"]    (ReqArg setRegressions "RESP:PRED..") "Regressions to perform"
     , Option ""  ["raw"]        (fileArg setRaw) "File to write raw data to"
@@ -89,6 +93,8 @@ opts =
     setCI s v = v { confInterval = mkCL (range 0.001 0.999 s) }
     setNoGC v = v { forceGC = False }
     setTimeLimit s v = v { timeLimit = range 0.1 86400 s }
+    setMeasureOnly f v = v { measureOnly = Just f }
+    setMeasureProg f v = v { measureWith = Just f }
     setResamples s v = v { resamples = range 1 1000000 s }
     setRegressions s v = v { regressions = regressParams s : regressions v }
     setRaw f v = v { rawDataFile = Just f }
@@ -160,7 +166,7 @@ regressParams :: String -> ([String], String)
 regressParams m
     | null r    = optionError "no responder specified"
     | null ps   = optionError "no predictors specified"
-    | otherwise = 
+    | otherwise =
         let ret = (words . map repl . drop 1 $ ps, tidy r)
         in either optionError (const ret) $ uncurry validateAccessors ret
   where

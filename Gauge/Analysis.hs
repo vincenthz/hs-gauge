@@ -13,14 +13,18 @@
 --
 -- Analysis code for benchmarks.
 
+-- XXX Do we really want to expose this module to users? This is all internal.
+-- Most of the exports are not even used by Gauge itself outside of this
+-- module.
+
 module Gauge.Analysis
-    (
-      Outliers(..)
+    ( Outliers(..)
     , OutlierEffect(..)
     , OutlierVariance(..)
     , SampleAnalysis(..)
     , analyseSample
     , scale
+    , analyseBenchmark
     , analyseMean
     , countOutliers
     , classifyOutliers
@@ -32,11 +36,11 @@ module Gauge.Analysis
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
-import Data.Monoid 
+import Data.Monoid
 
 import Control.Arrow (second)
-import Control.Monad (unless, when)
-import Gauge.IO.Printf (note, prolix)
+import Control.Monad (forM_, unless, when)
+import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
 import Gauge.Measurement (secs, threshold)
 import Gauge.Monad (Gauge, getGen, getOverhead, askConfig, gaugeIO)
 import Gauge.Types
@@ -48,8 +52,10 @@ import Statistics.Regression (bootstrapRegress, olsRegress)
 import Statistics.Resampling (Estimator(..),resample)
 import Statistics.Sample (mean)
 import Statistics.Sample.KernelDensity (kde)
-import Statistics.Types (Sample)
+import Statistics.Types (Sample, Estimate(..),ConfInt(..),confidenceInterval
+                        ,cl95,confidenceLevel)
 import System.Random.MWC (GenIO)
+import Text.Printf (printf)
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Vector as V
@@ -136,11 +142,10 @@ scale f s@SampleAnalysis{..} = s {
                                }
 
 -- | Perform an analysis of a measurement.
-analyseSample :: Int            -- ^ Experiment number.
-              -> String         -- ^ Experiment name.
+analyseSample :: String            -- ^ Experiment name.
               -> V.Vector Measured -- ^ Sample data.
               -> Gauge (Either String Report)
-analyseSample i name meas = do
+analyseSample name meas = do
   Config{..} <- askConfig
   overhead <- getOverhead
   let ests      = [Mean,StdDev]
@@ -172,8 +177,7 @@ analyseSample i name meas = do
                  , anOutlierVar = ov
                  }
       return $ Right $ Report
-        { reportNumber   = i
-        , reportName     = name
+        { reportName     = name
         , reportKeys     = measureKeys
         , reportMeasured = meas
         , reportAnalysis = an
@@ -261,3 +265,69 @@ noteOutliers o = do
     check (lowMild o) 1 "low mild"
     check (highMild o) 1 "high mild"
     check (highSevere o) 0 "high severe"
+
+-- | Analyse a single benchmark.
+analyseBenchmark :: String -> V.Vector Measured -> Gauge Report
+analyseBenchmark desc meas = do
+  Config{..} <- askConfig
+  _ <- prolix "analysing with %d resamples\n" resamples
+  erp <- analyseSample desc meas
+  case erp of
+    Left err -> printError "*** Error: %s\n" err
+    Right rpt@Report{..} -> do
+        let SampleAnalysis{..} = reportAnalysis
+            OutlierVariance{..} = anOutlierVar
+            wibble = printOverallEffect ovEffect
+            (builtin, others) = splitAt 1 anRegress
+        case displayMode of
+            StatsTable -> do
+              _ <- note "%sbenchmarked %s\n" rewindClearLine desc
+              let r2 n = printf "%.3f R\178" n
+              forM_ builtin $ \Regression{..} ->
+                case Map.lookup "iters" regCoeffs of
+                  Nothing -> return ()
+                  Just t  -> bs secs "time" t >> bs r2 "" regRSquare
+              bs secs "mean" anMean
+              bs secs "std dev" anStdDev
+              forM_ others $ \Regression{..} -> do
+                _ <- bs r2 (regResponder ++ ":") regRSquare
+                forM_ (Map.toList regCoeffs) $ \(prd,val) ->
+                  bs (printf "%.3g") ("  " ++ prd) val
+              --writeCsv
+              --  (desc,
+              --   estPoint anMean,   fst $ confidenceInterval anMean,   snd $ confidenceInterval anMean,
+              --   estPoint anStdDev, fst $ confidenceInterval anStdDev, snd $ confidenceInterval anStdDev
+              -- )
+              when (verbosity == Verbose || (ovEffect > Slight && verbosity > Quiet)) $ do
+                when (verbosity == Verbose) $ noteOutliers reportOutliers
+                _ <- note "variance introduced by outliers: %d%% (%s)\n"
+                     (round (ovFraction * 100) :: Int) wibble
+                return ()
+              _ <- note "\n"
+              pure ()
+            Condensed -> do
+              _ <- note "%s%-40s " rewindClearLine desc
+              bsSmall secs "mean" anMean
+              bsSmall secs "( +-" anStdDev
+              _ <- note ")\n"
+              pure ()
+
+        return rpt
+      where bs :: (Double -> String) -> String -> Estimate ConfInt Double -> Gauge ()
+            bs f metric e@Estimate{..} =
+              note "%-20s %-10s (%s .. %s%s)\n" metric
+                   (f estPoint) (f $ fst $ confidenceInterval e) (f $ snd $ confidenceInterval e)
+                   (let cl = confIntCL estError
+                        str | cl == cl95 = ""
+                            | otherwise  = printf ", ci %.3f" (confidenceLevel cl)
+                    in str
+                   )
+            bsSmall :: (Double -> String) -> String -> Estimate ConfInt Double -> Gauge ()
+            bsSmall f metric Estimate{..} =
+              note "%s %-10s" metric (f estPoint)
+
+printOverallEffect :: OutlierEffect -> String
+printOverallEffect Unaffected = "unaffected"
+printOverallEffect Slight     = "slightly inflated"
+printOverallEffect Moderate   = "moderately inflated"
+printOverallEffect Severe     = "severely inflated"

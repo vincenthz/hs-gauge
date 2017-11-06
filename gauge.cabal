@@ -83,6 +83,8 @@ library
     deepseq >= 1.1.0.0,
     mwc-random >= 0.8.0.3,
     vector >= 0.7.1,
+    process,
+    directory,
 
     -- formely statistics dependency that we need
     math-functions

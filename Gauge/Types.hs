@@ -71,7 +71,6 @@ module Gauge.Types
     , KDE(..)
     , Report(..)
     , SampleAnalysis(..)
-    , DataRecord(..)
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
@@ -137,6 +136,12 @@ data Config = Config {
     , timeLimit    :: Double
       -- ^ Number of seconds to run a single benchmark.  (In practice,
       -- execution time will very slightly exceed this limit.)
+    , measureOnly  :: Maybe FilePath
+    -- ^ Just measure the given benchmark and place the raw output in this
+    -- file, do not analyse and generate a report.
+    , measureWith  :: Maybe FilePath
+    -- ^ Specify the path of the benchmarking program to use (this program
+    -- itself) for measuring the benchmarks in a separate process.
     , resamples    :: Int
       -- ^ Number of resamples to perform when bootstrapping.
     , regressions  :: [([String], String)]
@@ -702,9 +707,7 @@ instance NFData KDE where
 
 -- | Report of a sample analysis.
 data Report = Report {
-      reportNumber   :: Int
-      -- ^ A simple index indicating that this is the /n/th report.
-    , reportName     :: String
+      reportName     :: String
       -- ^ The name of this report.
     , reportKeys     :: [String]
       -- ^ See 'measureKeys'.
@@ -722,14 +725,6 @@ data Report = Report {
 
 instance NFData Report where
     rnf Report{..} =
-      rnf reportNumber `seq` rnf reportName `seq` rnf reportKeys `seq`
+      rnf reportName `seq` rnf reportKeys `seq`
       rnf reportMeasured `seq` rnf reportAnalysis `seq` rnf reportOutliers `seq`
       rnf reportKDEs
-
-data DataRecord = Measurement Int String (V.Vector Measured)
-                | Analysed Report
-                deriving (Eq, Read, Show, Typeable, Generic)
-
-instance NFData DataRecord where
-  rnf (Measurement i n v) = rnf i `seq` rnf n `seq` rnf v
-  rnf (Analysed r)        = rnf r
