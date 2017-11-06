@@ -216,6 +216,11 @@ data Measured = Measured {
     , measIters              :: !Int64
       -- ^ Number of loop iterations measured.
 
+    , measNvcsw              :: !Int64
+    -- ^ Number of voluntary context switches
+    , measNivcsw             :: !Int64
+    -- ^ Number of involuntary context switches
+
     , measAllocated          :: !Int64
       -- ^ __(GC)__ Number of bytes allocated.  Access using 'fromInt'.
     , measNumGcs             :: !Int64
@@ -257,6 +262,10 @@ measureAccessors_ = [
                             "CPU cycles"))
   , ("iters",              (Just . fromIntegral . measIters,
                             "loop iterations"))
+  , ("nvcsw",              (Just . fromIntegral . measNvcsw,
+                            "voluntary context swicthes"))
+  , ("nivcsw",             (Just . fromIntegral . measNivcsw,
+                            "involuntary context swicthes"))
   , ("allocated",          (fmap fromIntegral . fromInt . measAllocated,
                             "(+RTS -T) bytes allocated"))
   , ("numGcs",             (fmap fromIntegral . fromInt . measNumGcs,
@@ -291,6 +300,10 @@ rescale m@Measured{..} = m {
     , measCpuTime            = d measCpuTime
     , measCycles             = i measCycles
     -- skip measIters
+
+    , measNvcsw              = i measNvcsw
+    , measNivcsw             = i measNivcsw
+
     , measNumGcs             = i measNumGcs
     , measBytesCopied        = i measBytesCopied
     , measMutatorWallSeconds = d measMutatorWallSeconds

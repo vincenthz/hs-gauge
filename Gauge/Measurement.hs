@@ -51,6 +51,8 @@ import Data.Data (Data, Typeable)
 import Data.Int (Int64)
 import Data.List (unfoldr)
 import Data.Word (Word64)
+import Foreign.C (CLong(..))
+import Foreign.Ptr (Ptr)
 import GHC.Generics (Generic)
 import GHC.Stats (GCStats(..))
 #if MIN_VERSION_base(4,10,0)
@@ -190,6 +192,7 @@ measure :: Benchmarkable        -- ^ Operation to benchmark.
         -> IO (Measured, Double)
 measure bm iters = runBenchmarkable bm iters addResults $ \act -> do
   startStats <- getGCStatistics
+  startRUsage <- getRUsage
   startTime <- getTime
   startCpuTime <- getCPUTime
   startCycles <- getCycles
@@ -197,11 +200,23 @@ measure bm iters = runBenchmarkable bm iters addResults $ \act -> do
   endTime <- getTime
   endCpuTime <- getCPUTime
   endCycles <- getCycles
+  endRUsage <- getRUsage
   endStats <- getGCStatistics
+
+  let diffRUsage f = do
+        start <- f startRUsage
+        end   <- f endRUsage
+        return $ end - start
+
+  nvcsw  <- diffRUsage getRUnvcsw
+  nivcsw <- diffRUsage getRUnivcsw
+
   let !m = applyGCStatistics endStats startStats $ measured {
              measTime    = max 0 (endTime - startTime)
            , measCpuTime = max 0 (endCpuTime - startCpuTime)
            , measCycles  = max 0 (fromIntegral (endCycles - startCycles))
+           , measNvcsw   = max 0 (fromIntegral nvcsw)
+           , measNivcsw  = max 0 (fromIntegral nivcsw)
            , measIters   = iters
            }
   return (m, endTime)
@@ -216,6 +231,9 @@ measure bm iters = runBenchmarkable bm iters addResults $ \act -> do
             , measCpuTime            = add measCpuTime
             , measCycles             = add measCycles
             , measIters              = add measIters
+
+            , measNvcsw              = add measNvcsw
+            , measNivcsw             = add measNivcsw
 
             , measAllocated          = add measAllocated
             , measNumGcs             = add measNumGcs
@@ -324,6 +342,9 @@ measured = Measured {
     , measCycles             = 0
     , measIters              = 0
 
+    , measNvcsw              = 0
+    , measNivcsw             = 0
+
     , measAllocated          = minBound
     , measNumGcs             = minBound
     , measBytesCopied        = minBound
@@ -417,3 +438,14 @@ foreign import ccall unsafe "gauge_gettime" getTime :: IO Double
 -- | Return the amount of elapsed CPU time, combining user and kernel
 -- (system) time into a single measure.
 foreign import ccall unsafe "gauge_getcputime" getCPUTime :: IO Double
+
+-- rusage accessor functions
+data RUsageStruct
+type RUsage = Ptr RUsageStruct
+
+-- XXX All fields of rusage may not be available on MinGW
+foreign import ccall unsafe "gauge_getrusage" getRUsage :: IO RUsage
+foreign import ccall unsafe "gauge_getrusage_nivcsw" getRUnivcsw
+    :: RUsage -> IO CLong
+foreign import ccall unsafe "gauge_getrusage_nvcsw" getRUnvcsw
+    :: RUsage -> IO CLong

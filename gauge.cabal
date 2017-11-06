@@ -62,7 +62,7 @@ library
 
   hs-source-dirs: . statistics
 
-  c-sources: cbits/cycles.c
+  c-sources: cbits/cycles.c, cbits/rusage.c
   if os(darwin)
     c-sources: cbits/time-osx.c
   else {

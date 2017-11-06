@@ -303,6 +303,21 @@ analyseBenchmark desc meas = do
                 _ <- note "variance introduced by outliers: %d%% (%s)\n"
                      (round (ovFraction * 100) :: Int) wibble
                 return ()
+
+              -- Always report involuntary context switches, may indicate too
+              -- much load on the system when measuring.
+              let nivcsw = toInteger (V.sum (V.map measNivcsw meas))
+              when (nivcsw > 0) $ do
+                _ <- note "Total involuntary context switches: %d\n"
+                     (fromInteger nivcsw :: Int)
+                return ()
+
+              let nvcsw = toInteger (V.sum (V.map measNvcsw meas))
+              when (verbosity == Verbose && nvcsw > 0) $ do
+                _ <- note "Total voluntary context switches: %d\n"
+                     (fromInteger nvcsw :: Int)
+                return ()
+
               _ <- note "\n"
               pure ()
             Condensed -> do
