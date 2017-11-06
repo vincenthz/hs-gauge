@@ -49,7 +49,7 @@ histogram_ numBins lo hi xs0 = G.create (GM.replicate numBins 0 >>= bin xs0)
              b = truncate $ (x - lo) / d
          write' bins b . (+1) =<< GM.read bins b
          go (i+1)
-       write' bins b !e = GM.write bins b e
+       write' bs b !e = GM.write bs b e
        len = G.length xs
        d = ((hi - lo) * (1 + realToFrac m_epsilon)) / fromIntegral numBins
 {-# INLINE histogram_ #-}
