@@ -33,8 +33,10 @@ void gauge_record(struct gauge_time *tr)
 
     tr->clock_nanosecs = scale64(mach_absolute_time(), timebase_info.numer, timebase_info.denom);
 
-    tr->cpu_nanosecs = (((uint64_t) thread_info_data.seconds) * ref_second) +
-                       (((uint64_t) thread_info_data.microseconds) * ref_microsecond)
+    tr->cpu_nanosecs = (((uint64_t) thread_info_data.user_time.seconds) * ref_second) +
+                       (((uint64_t) thread_info_data.user_time.microseconds) * ref_microsecond) +
+                       (((uint64_t) thread_info_data.system_time.seconds) * ref_second) +
+                       (((uint64_t) thread_info_data.system_time.microseconds) * ref_microsecond)
     tr->rdtsc = 0;
 }
 
