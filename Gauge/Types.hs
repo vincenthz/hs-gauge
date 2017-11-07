@@ -323,8 +323,7 @@ rescale m@Measured{..} = m {
 
     , measUtime              = i measUtime
     , measStime              = i measStime
-    -- maxrss gets averaged out
-    , measMaxrss             = i measMaxrss
+    -- skip measMaxrss
     , measMinflt             = i measMinflt
     , measMajflt             = i measMajflt
     , measNvcsw              = i measNvcsw

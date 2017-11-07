@@ -304,15 +304,12 @@ analyseBenchmark desc meas = do
                      (round (ovFraction * 100) :: Int) wibble
                 return ()
 
-              reportStat Verbose measUtime (secs . (/ 1000000)) "User time"
-              reportStat Verbose measStime (secs . (/ 1000000)) "System time"
-              reportStat Verbose measMaxrss show "Maximum resident set size"
-              reportStat Verbose measMinflt show "Minor page faults"
-              reportStat Verbose measMajflt show "Major page faults"
-              reportStat Verbose measNvcsw show "Total voluntary context switches"
-              -- Always report involuntary context switches, may indicate too
-              -- much load on the system when measuring.
-              reportStat Quiet measNivcsw show "Total involuntary context switches"
+              reportStat Verbose measUtime (secs . (/ 1000000)) "utime"
+              reportStat Verbose measStime (secs . (/ 1000000)) "stime"
+              reportStat Verbose measMinflt (show . round) "minflt"
+              reportStat Verbose measMajflt (show . round) "majflt"
+              reportStat Verbose measNvcsw (show . round) "vcsw"
+              reportStat Quiet measNivcsw (show . round) "nivcsw"
 
               _ <- note "\n"
               pure ()

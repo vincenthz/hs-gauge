@@ -242,7 +242,7 @@ measure bm iters = runBenchmarkable bm iters addResults $ \act -> do
 
             , measUtime              = add measUtime
             , measStime              = add measStime
-            , measMaxrss             = add measMaxrss
+            , measMaxrss             = max (measMaxrss m1) (measMaxrss m2)
             , measMinflt             = add measMinflt
             , measMajflt             = add measMajflt
             , measNvcsw              = add measNvcsw
