@@ -308,10 +308,11 @@ analyseBenchmark desc meas = do
                          (secs .  (/1000000)) "time"
               reportStat Verbose measUtime (secs . (/ 1000000)) "utime"
               reportStat Verbose measStime (secs . (/ 1000000)) "stime"
-              reportStat Verbose measMinflt (show . round) "minflt"
-              reportStat Verbose measMajflt (show . round) "majflt"
-              reportStat Verbose measNvcsw (show . round) "vcsw"
-              reportStat Quiet measNivcsw (show . round) "nivcsw"
+              let rnd = round :: Double -> Int64
+              reportStat Verbose measMinflt (show . rnd) "minflt"
+              reportStat Verbose measMajflt (show . rnd) "majflt"
+              reportStat Verbose measNvcsw (show . rnd) "vcsw"
+              reportStat Quiet measNivcsw (show . rnd) "nivcsw"
 
               _ <- note "\n"
               pure ()
