@@ -108,6 +108,23 @@ test-suite sanity
     tasty,
     tasty-hunit
 
+test-suite verbose
+  type:                 exitcode-stdio-1.0
+  hs-source-dirs:       tests
+  main-is:              Sanity.hs
+  default-language:     Haskell2010
+  ghc-options:          -O2 -Wall -with-rtsopts "-T"
+  cpp-options:          -DVERBOSE
+
+  build-depends:
+    HUnit,
+    base,
+    bytestring,
+    gauge,
+    deepseq,
+    tasty,
+    tasty-hunit
+
 test-suite cleanup
   type:                 exitcode-stdio-1.0
   hs-source-dirs:       tests
