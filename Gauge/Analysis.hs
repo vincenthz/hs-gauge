@@ -304,6 +304,8 @@ analyseBenchmark desc meas = do
                      (round (ovFraction * 100) :: Int) wibble
                 return ()
 
+              reportStat Verbose (round . (*1000000) . measTime)
+                         (secs .  (/1000000)) "time"
               reportStat Verbose measUtime (secs . (/ 1000000)) "utime"
               reportStat Verbose measStime (secs . (/ 1000000)) "stime"
               reportStat Verbose measMinflt (show . round) "minflt"
