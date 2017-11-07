@@ -46,6 +46,7 @@ module Gauge.Types
     , fromDouble
     , toDouble
     , measureAccessors
+    , measureAccessors_
     , measureKeys
     , measure
     , rescale
@@ -297,24 +298,24 @@ measureAccessors_ :: [(String, (Measured -> Maybe Double
                                , String)
                      )]
 measureAccessors_ = [
-    ("time",               ( Just . measTime
+    ("iters",              ( Just . fromIntegral . measIters
+                           , show . rnd
+                           , "loop iterations"))
+  , ("time",               ( Just . measTime
                            , secs
                            , "wall-clock time"))
   , ("cpuTime",            ( Just . measCpuTime
                            , secs
                            , "CPU time"))
-  , ("cycles",             ( Just . fromIntegral . measCycles
-                           , show . rnd
-                           , "CPU cycles"))
-  , ("iters",              ( Just . fromIntegral . measIters
-                           , show . rnd
-                           , "loop iterations"))
   , ("utime",              ( Just . fromIntegral . measUtime
                            , secs . (/1000000)
                            , "user time"))
   , ("stime",              ( Just . fromIntegral . measStime
                            , secs . (/1000000)
                            , "system time"))
+  , ("cycles",             ( Just . fromIntegral . measCycles
+                           , show . rnd
+                           , "CPU cycles"))
   , ("maxrss",             ( Just . fromIntegral . measMaxrss
                            , show . rnd
                            , "maximum resident set size"))

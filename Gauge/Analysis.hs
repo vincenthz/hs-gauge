@@ -304,16 +304,9 @@ analyseBenchmark desc meas = do
                      (round (ovFraction * 100) :: Int) wibble
                 return ()
 
-              reportStat Verbose (round . (*1000000) . measTime)
-                         (secs .  (/1000000)) "time"
-              reportStat Verbose measUtime (secs . (/ 1000000)) "utime"
-              reportStat Verbose measStime (secs . (/ 1000000)) "stime"
-              let rnd = round :: Double -> Int64
-              reportStat Verbose measMinflt (show . rnd) "minflt"
-              reportStat Verbose measMajflt (show . rnd) "majflt"
-              reportStat Verbose measNvcsw (show . rnd) "vcsw"
-              reportStat Quiet measNivcsw (show . rnd) "nivcsw"
-
+              _ <- traverse
+                    (\(k, (a, s, _)) -> reportStat Verbose a s k)
+                    measureAccessors_
               _ <- note "\n"
               pure ()
             Condensed -> do
@@ -337,17 +330,18 @@ analyseBenchmark desc meas = do
             bsSmall f metric Estimate{..} =
               note "%s %-10s" metric (f estPoint)
 
-            reportStat :: Verbosity -> (Measured -> Int64) -> (Double -> String)
+            reportStat :: Verbosity
+                       -> (Measured -> Maybe Double)
+                       -> (Double -> String)
                        -> String -> Gauge ()
             reportStat lvl accessor sh msg = do
-              let v = V.map (accessor . rescale) meas
-                  total = V.sum (V.map (accessor . rescale) meas)
+              let v = V.mapMaybe (accessor . rescale) meas
+                  total = V.sum v
                   len = V.length v
-                  avg = (fromIntegral total) / (fromIntegral len)
+                  avg = total / (fromIntegral len)
               when (verbosity >= lvl && avg > 0.0) $ do
                 note "%-20s %-10s (%s .. %s)\n" msg (sh avg)
-                  (sh (fromIntegral (V.minimum v)))
-                  (sh (fromIntegral (V.maximum v)))
+                  (sh (V.minimum v)) (sh (V.maximum v))
 
 
 printOverallEffect :: OutlierEffect -> String
