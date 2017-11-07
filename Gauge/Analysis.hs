@@ -304,8 +304,8 @@ analyseBenchmark desc meas = do
                      (round (ovFraction * 100) :: Int) wibble
                 return ()
 
-              reportStat Verbose measUtime (secs . (/ 1000000) . fromIntegral) "User time"
-              reportStat Verbose measStime (secs . (/ 1000000) . fromIntegral) "System time"
+              reportStat Verbose measUtime (secs . (/ 1000000)) "User time"
+              reportStat Verbose measStime (secs . (/ 1000000)) "System time"
               reportStat Verbose measMaxrss show "Maximum resident set size"
               reportStat Verbose measMinflt show "Minor page faults"
               reportStat Verbose measMajflt show "Major page faults"
@@ -337,13 +337,17 @@ analyseBenchmark desc meas = do
             bsSmall f metric Estimate{..} =
               note "%s %-10s" metric (f estPoint)
 
-            reportStat :: Verbosity -> (Measured -> Int64) -> (Int64 -> String)
+            reportStat :: Verbosity -> (Measured -> Int64) -> (Double -> String)
                        -> String -> Gauge ()
             reportStat lvl accessor sh msg = do
-              let val = V.sum (V.map accessor meas)
-              when (verbosity >= lvl && val > 0) $ do
-                _ <- note (msg ++ ": %s\n") (sh val)
-                return ()
+              let v = V.map (accessor . rescale) meas
+                  total = V.sum (V.map (accessor . rescale) meas)
+                  len = V.length v
+                  avg = (fromIntegral total) / (fromIntegral len)
+              when (verbosity >= lvl && avg > 0.0) $ do
+                note "%-20s %-10s (%s .. %s)\n" msg (sh avg)
+                  (sh (fromIntegral (V.minimum v)))
+                  (sh (fromIntegral (V.maximum v)))
 
 
 printOverallEffect :: OutlierEffect -> String
