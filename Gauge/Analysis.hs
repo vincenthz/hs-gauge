@@ -45,7 +45,7 @@ import Gauge.Measurement (threshold)
 import Gauge.Monad (Gauge, getGen, getOverhead, askConfig, gaugeIO)
 import Gauge.Types
 import Data.Int (Int64)
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isJust)
 import Statistics.Function (sort)
 import Statistics.Quantile (weightedAvg, Sorted(..))
 import Statistics.Regression (bootstrapRegress, olsRegress)
@@ -335,7 +335,8 @@ analyseBenchmark desc meas = do
                        -> (Double -> String)
                        -> String -> Gauge ()
             reportStat lvl accessor sh msg = do
-              let v = V.mapMaybe (accessor . rescale) meas
+              let v = V.map fromJust $ V.filter isJust
+                                     $ V.map (accessor . rescale) meas
                   total = V.sum v
                   len = V.length v
                   avg = total / (fromIntegral len)
