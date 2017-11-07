@@ -210,17 +210,17 @@ toBenchmarkable f = Benchmarkable noop (const noop) (const f) False
 -- with \"__GC__\" below, use 'fromInt' and 'fromDouble' to safely
 -- convert to \"real\" values.
 data Measured = Measured {
-      measTime               :: !Double
+      measIters              :: !Int64
+      -- ^ Number of loop iterations measured.
+    , measTime               :: !Double
       -- ^ Total wall-clock time elapsed, in seconds.
-    , measCpuTime            :: !Double
-      -- ^ Total CPU time elapsed, in seconds.  Includes both user and
-      -- kernel (system) time.
     , measCycles             :: !Int64
       -- ^ Cycles, in unspecified units that may be CPU cycles.  (On
       -- i386 and x86_64, this is measured using the @rdtsc@
       -- instruction.)
-    , measIters              :: !Int64
-      -- ^ Number of loop iterations measured.
+    , measCpuTime            :: !Double
+      -- ^ Total CPU time elapsed, in seconds.  Includes both user and
+      -- kernel (system) time.
 
     , measUtime              :: !Int64
     -- ^ User time
@@ -304,6 +304,9 @@ measureAccessors_ = [
   , ("time",               ( Just . measTime
                            , secs
                            , "wall-clock time"))
+  , ("cycles",             ( Just . fromIntegral . measCycles
+                           , show . rnd
+                           , "CPU cycles"))
   , ("cpuTime",            ( Just . measCpuTime
                            , secs
                            , "CPU time"))
@@ -313,22 +316,19 @@ measureAccessors_ = [
   , ("stime",              ( Just . fromIntegral . measStime
                            , secs . (/1000000)
                            , "system time"))
-  , ("cycles",             ( Just . fromIntegral . measCycles
-                           , show . rnd
-                           , "CPU cycles"))
-  , ("maxrss",             ( Just . fromIntegral . measMaxrss
+  , ("maxrss",             ( fmap fromIntegral . fromInt . measMaxrss
                            , show . rnd
                            , "maximum resident set size"))
-  , ("minflt",             ( Just . fromIntegral . measMinflt
+  , ("minflt",             ( fmap fromIntegral . fromInt . measMinflt
                            , show . rnd
                            , "minor page faults"))
-  , ("majflt",             ( Just . fromIntegral . measMajflt
+  , ("majflt",             ( fmap fromIntegral . fromInt . measMajflt
                            , show . rnd
                            , "major page faults"))
-  , ("nvcsw",              ( Just . fromIntegral . measNvcsw
+  , ("nvcsw",              ( fmap fromIntegral . fromInt . measNvcsw
                            , show . rnd
                            , "voluntary context switches"))
-  , ("nivcsw",             ( Just . fromIntegral . measNivcsw
+  , ("nivcsw",             ( fmap fromIntegral . fromInt . measNivcsw
                            , show . rnd
                            , "involuntary context switches"))
   , ("allocated",          ( fmap fromIntegral . fromInt . measAllocated
@@ -372,10 +372,10 @@ measureAccessors = fromList measureAccessors_
 -- ('measIters' itself is left unaffected.)
 rescale :: Measured -> Measured
 rescale m@Measured{..} = m {
-      measTime               = d measTime
-    , measCpuTime            = d measCpuTime
-    , measCycles             = i measCycles
     -- skip measIters
+      measTime               = d measTime
+    , measCycles             = i measCycles
+    , measCpuTime            = d measCpuTime
 
     , measUtime              = i measUtime
     , measStime              = i measStime

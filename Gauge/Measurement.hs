@@ -194,6 +194,32 @@ data RUsage = RUsage
     , ruNivcsw :: Int64
     }
 
+getRUsage :: IO (Maybe RUsage)
+getRUsage = do
+#ifdef mingw32_HOST_OS
+    return Nothing
+#else
+    ru <- c_getRUsage
+    -- ru points to static memory, copy it over
+    utime  <- c_getRUutime ru
+    stime  <- c_getRUstime ru
+    maxrss <- c_getRUmaxrss ru
+    minflt <- c_getRUminflt ru
+    majflt <- c_getRUmajflt ru
+    nvcsw  <- c_getRUnvcsw ru
+    nivcsw <- c_getRUnivcsw ru
+
+    return $ Just $ RUsage
+        { ruUtime  = (fromInteger . toInteger) utime
+        , ruStime  = (fromInteger . toInteger) stime
+        , ruMaxrss = (fromInteger . toInteger) maxrss
+        , ruMinflt = (fromInteger . toInteger) minflt
+        , ruMajflt = (fromInteger . toInteger) majflt
+        , ruNvcsw  = (fromInteger . toInteger) nvcsw
+        , ruNivcsw = (fromInteger . toInteger) nivcsw
+        }
+#endif
+
 -- | Measure the execution of a benchmark a given number of times.
 measure :: Benchmarkable        -- ^ Operation to benchmark.
         -> Int64                -- ^ Number of iterations.
@@ -211,18 +237,11 @@ measure bm iters = runBenchmarkable bm iters addResults $ \act -> do
   endRUsage <- getRUsage
   endStats <- getGCStatistics
 
-  let diffRUsage f = f endRUsage - f startRUsage
-  let !m = applyGCStatistics endStats startStats $ measured {
+  let !m = applyGCStatistics endStats startStats $
+           applyRUStatistics endRUsage startRUsage $ measured {
              measTime    = max 0 (endTime - startTime)
            , measCpuTime = max 0 (endCpuTime - startCpuTime)
            , measCycles  = max 0 (fromIntegral (endCycles - startCycles))
-           , measUtime   = max 0 (diffRUsage ruUtime)
-           , measStime   = max 0 (diffRUsage ruStime)
-           , measMaxrss  = ruMaxrss endRUsage
-           , measMinflt  = max 0 (diffRUsage ruMinflt)
-           , measMajflt  = max 0 (diffRUsage ruMajflt)
-           , measNvcsw   = max 0 (diffRUsage ruNvcsw)
-           , measNivcsw  = max 0 (diffRUsage ruNivcsw)
            , measIters   = iters
            }
   return (m, endTime)
@@ -353,13 +372,13 @@ measured = Measured {
     , measCycles             = 0
     , measIters              = 0
 
-    , measUtime              = 0
-    , measStime              = 0
-    , measMaxrss             = 0
-    , measMinflt             = 0
-    , measMajflt             = 0
-    , measNvcsw              = 0
-    , measNivcsw             = 0
+    , measUtime              = minBound
+    , measStime              = minBound
+    , measMaxrss             = minBound
+    , measMinflt             = minBound
+    , measMajflt             = minBound
+    , measNvcsw              = minBound
+    , measNivcsw             = minBound
 
     , measAllocated          = minBound
     , measNumGcs             = minBound
@@ -414,6 +433,26 @@ applyGCStatistics (Just end) (Just start) m = m {
   } where diff f = f end - f start
 applyGCStatistics _ _ m = m
 
+-- | Apply the difference between two sets of rusage statistics to a
+-- measurement.
+applyRUStatistics :: Maybe RUsage
+                  -- ^ Statistics gathered at the __end__ of a run.
+                  -> Maybe RUsage
+                  -- ^ Statistics gathered at the __beginning__ of a run.
+                  -> Measured
+                  -- ^ Value to \"modify\".
+                  -> Measured
+applyRUStatistics (Just end) (Just start) m = m {
+    measUtime   = diff ruUtime
+  , measStime   = diff ruStime
+  , measMaxrss  = ruMaxrss end
+  , measMinflt  = diff ruMinflt
+  , measMajflt  = diff ruMajflt
+  , measNvcsw   = diff ruNvcsw
+  , measNivcsw  = diff ruNivcsw
+  } where diff f = f end - f start
+applyRUStatistics _ _ m = m
+
 -- | Set up time measurement.
 foreign import ccall unsafe "gauge_inittime" initializeTime :: IO ()
 
@@ -430,6 +469,7 @@ foreign import ccall unsafe "gauge_gettime" getTime :: IO Double
 -- (system) time into a single measure.
 foreign import ccall unsafe "gauge_getcputime" getCPUTime :: IO Double
 
+#ifndef mingw32_HOST_OS
 -- rusage accessor functions
 -- XXX All fields of rusage may not be available on MinGW
 foreign import ccall unsafe "gauge_getrusage" c_getRUsage :: IO (Ptr RUsage)
@@ -448,25 +488,4 @@ foreign import ccall unsafe "gauge_getrusage_nvcsw" c_getRUnvcsw
     :: Ptr RUsage -> IO CLong
 foreign import ccall unsafe "gauge_getrusage_nivcsw" c_getRUnivcsw
     :: Ptr RUsage -> IO CLong
-
-getRUsage :: IO RUsage
-getRUsage = do
-    ru <- c_getRUsage
-    -- ru points to static memory, copy it over
-    utime  <- c_getRUutime ru
-    stime  <- c_getRUstime ru
-    maxrss <- c_getRUmaxrss ru
-    minflt <- c_getRUminflt ru
-    majflt <- c_getRUmajflt ru
-    nvcsw  <- c_getRUnvcsw ru
-    nivcsw <- c_getRUnivcsw ru
-
-    return RUsage
-        { ruUtime  = (fromInteger . toInteger) utime
-        , ruStime  = (fromInteger . toInteger) stime
-        , ruMaxrss = (fromInteger . toInteger) maxrss
-        , ruMinflt = (fromInteger . toInteger) minflt
-        , ruMajflt = (fromInteger . toInteger) majflt
-        , ruNvcsw  = (fromInteger . toInteger) nvcsw
-        , ruNivcsw = (fromInteger . toInteger) nivcsw
-        }
+#endif
