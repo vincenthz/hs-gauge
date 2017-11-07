@@ -10,6 +10,10 @@
 -- and applyGCStats for good
 {-# OPTIONS_GHC -Wno-deprecations #-}
 #endif
+#ifdef mingw32_HOST_OS
+-- Disable warning about RUsage being unused on Windows
+{-# OPTIONS_GHC -fno-warn-unused-binds #-}
+#endif
 
 -- |
 -- Module      : Gauge.Measurement
@@ -50,8 +54,10 @@ import Data.Data (Data, Typeable)
 import Data.Int (Int64)
 import Data.List (unfoldr)
 import Data.Word (Word64)
+#ifndef mingw32_HOST_OS
 import Foreign.C (CLong(..))
 import Foreign.Ptr (Ptr)
+#endif
 import GHC.Generics (Generic)
 import GHC.Stats (GCStats(..))
 #if MIN_VERSION_base(4,10,0)
