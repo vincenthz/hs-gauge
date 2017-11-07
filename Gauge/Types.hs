@@ -341,16 +341,16 @@ measureAccessors_ = [
                            , show . rnd
                            , "(+RTS -T) number of bytes copied during GC"))
   , ("mutatorWallSeconds", ( fromDouble . measMutatorWallSeconds
-                           , show . rnd
+                           , secs
                            , "(+RTS -T) wall-clock time for mutator threads"))
   , ("mutatorCpuSeconds",  ( fromDouble . measMutatorCpuSeconds
-                           , show . rnd
+                           , secs
                            , "(+RTS -T) CPU time spent running mutator threads"))
   , ("gcWallSeconds",      ( fromDouble . measGcWallSeconds
-                           , show . rnd
+                           , secs
                            , "(+RTS -T) wall-clock time spent doing GC"))
   , ("gcCpuSeconds",       ( fromDouble . measGcCpuSeconds
-                           , show . rnd
+                           , secs
                            , "(+RTS -T) CPU time spent doing GC"))
   ]
   where rnd = round :: Double -> Int64
