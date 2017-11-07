@@ -41,7 +41,7 @@ import Data.Monoid
 import Control.Arrow (second)
 import Control.Monad (forM_, unless, when)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
-import Gauge.Measurement (secs, threshold)
+import Gauge.Measurement (threshold)
 import Gauge.Monad (Gauge, getGen, getOverhead, askConfig, gaugeIO)
 import Gauge.Types
 import Data.Int (Int64)
@@ -226,7 +226,7 @@ resolveAccessors :: [String]
                  -> Either String [(String, Measured -> Maybe Double)]
 resolveAccessors names =
   case unresolved of
-    [] -> Right [(n, a) | (n, Just (a,_)) <- accessors]
+    [] -> Right [(n, a) | (n, Just (a,_,_)) <- accessors]
     _  -> Left $ "unknown metric " ++ renderNames unresolved
   where
     unresolved = [n | (n, Nothing) <- accessors]
