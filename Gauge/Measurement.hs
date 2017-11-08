@@ -410,7 +410,8 @@ runBenchmark bm minDuration minSamples timeLimit = do
   start <- performGC >> getTime
   let loop [] !_ _ = error "unpossible!"
       loop (iters:niters) samples acc = do
-        (m, endTime) <- measure bm iters
+        m <- measure bm iters
+        endTime <- getTime
         if samples >= minSamples &&
            measTime m >= fromIntegral minDuration / 1000 &&
            endTime - start >= timeLimit
