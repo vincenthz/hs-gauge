@@ -51,8 +51,8 @@ withSystemTempFile template action = do
 runBench :: Benchmarkable -> Double -> IO (V.Vector Measured, Double)
 runBench bm tlimit = runBenchmark bm threshold 10 tlimit
 
-runOnly :: (String -> Bool) -> Benchmark -> Double -> FilePath -> Gauge ()
-runOnly select bs tlimit outfile =
+runOnly :: Double -> FilePath -> (String -> Bool) -> Benchmark -> Gauge ()
+runOnly tlimit outfile select bs =
   for select bs $ \_ _ bm -> gaugeIO $ do
     output <- runBench bm tlimit
     writeFile outfile $ show output

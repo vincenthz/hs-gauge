@@ -142,31 +142,26 @@ defaultMainWith defCfg bs = withCP65001 $ do
 -- one in your benchmark driver's command-line parser).
 runMode :: Mode -> Config -> [String] -> [Benchmark] -> IO ()
 runMode wat cfg benches bs =
+  -- TBD: This has become messy. We use mode as well as on cfg options for the
+  -- same purpose It is possible to specify multiple exclusive options.  We
+  -- need to handle the exclusive options in a better way.
   case wat of
     List    -> mapM_ putStrLn . sort . concatMap benchNames $ bs
     Version -> putStrLn versionInfo
     Help    -> putStrLn describe
     DefaultMode ->
         case measureOnly cfg of
-            Just outfile -> do
-                shouldRun <- selectBenches (match cfg) benches bsgroup
-                withConfig cfg $ do
-                    gaugeIO initializeTime
-                    runOnly shouldRun bsgroup (timeLimit cfg) outfile
+            Just outfile -> runWithConfig $ runOnly (timeLimit cfg) outfile
             Nothing ->
                 case iters cfg of
-                    Just nbIters -> do
-                        shouldRun <- selectBenches (match cfg) benches bsgroup
-                        withConfig cfg $
-                            runFixedIters nbIters shouldRun bsgroup
-                    Nothing -> do
-                        shouldRun <- selectBenches (match cfg) benches bsgroup
-                        withConfig cfg $ do
-                            --writeCsv ("Name","Mean","MeanLB","MeanUB","Stddev","StddevLB",
-                            --          "StddevUB")
-                            gaugeIO initializeTime
-                            runAndAnalyse shouldRun bsgroup
+                    Just nbIters -> runWithConfig $ runFixedIters nbIters
+                    Nothing -> runWithConfig runAndAnalyse
   where bsgroup = BenchGroup "" bs
+        runWithConfig f = do
+          shouldRun <- selectBenches (match cfg) benches bsgroup
+          withConfig cfg $ do
+            gaugeIO initializeTime
+            f shouldRun bsgroup
 
 -- | Display an error message from a command line parsing failure, and
 -- exit.
