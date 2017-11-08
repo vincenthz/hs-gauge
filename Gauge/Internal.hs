@@ -22,11 +22,11 @@ import Control.DeepSeq (rnf)
 import Control.Exception (bracket, catch, evaluate)
 import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
-import Gauge.Analysis (analyseBenchmark)
+import Gauge.Analysis (analyseBenchmark, threshold)
 import Gauge.IO.Printf (note, prolix)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_)
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
-import Gauge.Types hiding (measure)
+import Gauge.Types
 import System.Directory (canonicalizePath, getTemporaryDirectory, removeFile)
 import System.IO (hClose, hSetBuffering, BufferMode(..), openTempFile, stdout)
 import qualified Data.Vector as V
@@ -46,10 +46,15 @@ withSystemTempFile template action = do
     (action)
   ignoringIOErrors act = act `catch` (\e -> const (return ()) (e :: IOError))
 
+-- We should have a minimum number of samples (10) above the threshold for a
+-- meaningful statistical analysis.
+runBench :: Benchmarkable -> Double -> IO (V.Vector Measured, Double)
+runBench bm tlimit = runBenchmark bm threshold 10 tlimit
+
 runOnly :: (String -> Bool) -> Benchmark -> Double -> FilePath -> Gauge ()
 runOnly select bs tlimit outfile =
   for select bs $ \_ _ bm -> gaugeIO $ do
-    output <- runBenchmark bm tlimit
+    output <- runBench bm tlimit
     writeFile outfile $ show output
 
 -- | Run a single benchmark measurement only in a separate process.
@@ -68,7 +73,7 @@ runAndAnalyseOne desc bm = do
   (meas, timeTaken) <-
     case measureWith of
       Just prog -> gaugeIO $ runBenchmarkWith prog desc timeLimit
-      Nothing -> gaugeIO $ runBenchmark bm timeLimit
+      Nothing -> gaugeIO $ runBench bm timeLimit
   when (timeTaken > timeLimit * 1.25) .
     void $ prolix "measurement took %s\n" (secs timeTaken)
   analyseBenchmark desc meas

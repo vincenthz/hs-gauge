@@ -33,6 +33,7 @@ module Gauge.Analysis
     , resolveAccessors
     , validateAccessors
     , regress
+    , threshold
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
@@ -41,10 +42,12 @@ import Data.Monoid
 import Control.Arrow (second)
 import Control.Monad (forM_, unless, when)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
-import Gauge.Measurement (threshold)
-import Gauge.Monad (Gauge, getGen, getOverhead, askConfig, gaugeIO)
+import Gauge.Measurement (measure, runBenchmark)
+import Gauge.Monad (Gauge, askConfig, gaugeIO)
+import Gauge.Monad.Internal (Crit(..), askCrit)
 import Gauge.Types
 import Data.Int (Int64)
+import Data.IORef (IORef, readIORef, writeIORef)
 import Data.Maybe (fromJust, isJust)
 import Statistics.Function (sort)
 import Statistics.Quantile (weightedAvg, Sorted(..))
@@ -54,7 +57,7 @@ import Statistics.Sample (mean)
 import Statistics.Sample.KernelDensity (kde)
 import Statistics.Types (Sample, Estimate(..),ConfInt(..),confidenceInterval
                         ,cl95,confidenceLevel)
-import System.Random.MWC (GenIO)
+import System.Random.MWC (GenIO, createSystemRandom)
 import Text.Printf (printf)
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -141,6 +144,53 @@ scale f s@SampleAnalysis{..} = s {
                                , anStdDev = B.scale f anStdDev
                                }
 
+-- | The amount of time in milliseconds a benchmark must run for in order for
+-- us to have some trust in the raw measurement. We must take minimum 10
+-- samples above this threshold to perform a meaningful statistical analysis.
+threshold :: Int
+threshold = 30
+
+-- | Return a random number generator, creating one if necessary.
+--
+-- This is not currently thread-safe, but in a harmless way (we might
+-- call 'createSystemRandom' more than once if multiple threads race).
+getGen :: Gauge GenIO
+getGen = memoise gen createSystemRandom
+
+-- | Return an estimate of the measurement overhead.
+getOverhead :: Gauge Double
+getOverhead = do
+  verbose <- ((== Verbose) . verbosity) <$> askConfig
+  memoise overhead $ do
+    (meas,_) <- runBenchmark (whnfIO $ measure (whnfIO $ return ()) 1)
+                             threshold 10 1
+    let metric get = G.convert . G.map get $ meas
+    let o = G.head . fst $
+            olsRegress [metric (fromIntegral . measIters)] (metric measTime)
+    when verbose $
+      putStrLn $ "measurement overhead " ++ secs o
+    return o
+
+getMeasurement :: (U.Unbox a) => (Measured -> a) -> V.Vector Measured -> U.Vector a
+getMeasurement f v = U.convert . V.map f $ v
+
+-- | Memoise the result of an 'IO' action.
+--
+-- This is not currently thread-safe, but hopefully in a harmless way.
+-- We might call the given action more than once if multiple threads
+-- race, so our caller's job is to write actions that can be run
+-- multiple times safely.
+memoise :: (Crit -> IORef (Maybe a)) -> IO a -> Gauge a
+memoise ref generate = do
+  r <- ref <$> askCrit
+  gaugeIO $ do
+    mv <- readIORef r
+    case mv of
+      Just rv -> return rv
+      Nothing -> do
+        rv <- generate
+        writeIORef r (Just rv)
+        return rv
 -- | Perform an analysis of a measurement.
 analyseSample :: String            -- ^ Experiment name.
               -> V.Vector Measured -- ^ Sample data.
@@ -153,8 +203,8 @@ analyseSample name meas = do
       -- measurements when bootstrapping the mean and standard
       -- deviations.  Without this, the numbers look nonsensical when
       -- very brief actions are measured.
-      stime     = measure (measTime . rescale) .
-                  G.filter ((>= threshold) . measTime) . G.map fixTime .
+      stime     = getMeasurement (measTime . rescale) .
+                  G.filter ((>= fromIntegral threshold / 1000) . measTime) . G.map fixTime .
                   G.tail $ meas
       fixTime m = m { measTime = measTime m - overhead / 2 }
       n         = G.length meas
@@ -206,7 +256,7 @@ regress gen predNames respName meas
             if not (null unmeasured)
                 then pure $ Left $ "no data available for " ++ renderNames unmeasured
                 else do
-                    let (r:ps) = map ((`measure` meas) . (fromJust .) . snd) accs
+                    let (r:ps) = map ((`getMeasurement` meas) . (fromJust .) . snd) accs
                     Config{..} <- askConfig
                     (coeffs,r2) <- gaugeIO $ bootstrapRegress gen resamples confInterval olsRegress ps r
                     pure $ Right $ Regression

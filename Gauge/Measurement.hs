@@ -46,7 +46,6 @@ module Gauge.Measurement
     , runBenchmarkable_
     , measured
     , applyGCStatistics
-    , threshold
       -- * Deprecated
     , getGCStats
     , applyGCStats
@@ -361,19 +360,6 @@ measure bm iters = runBenchmarkable bm iters addResults $ \act -> do
             }
 {-# INLINE measure #-}
 
--- | The amount of time a benchmark must run for in order for us to
--- have some trust in the raw measurement.
---
--- We set this threshold so that we can generate enough data to later
--- perform meaningful statistical analyses.
---
--- The threshold is 40 milliseconds. One use of 'runBenchmark' must
--- accumulate more than 400 milliseconds of total measurements above
--- this threshold before it will finish.
-threshold :: Double
-threshold = 0.04
-{-# INLINE threshold #-}
-
 runBenchmarkable :: Benchmarkable
                  -> Int64
                  -> (a -> a -> a)
@@ -405,41 +391,37 @@ runBenchmarkable_ :: Benchmarkable -> Int64 -> IO ()
 runBenchmarkable_ bm i = runBenchmarkable bm i (\() () -> ()) id
 {-# INLINE runBenchmarkable_ #-}
 
--- | Run a single benchmark, and return measurements collected while
--- executing it, along with the amount of time the measurement process
--- took.
+-- | Run a single benchmark, and return measurements collected while executing
+-- it, along with the amount of time the measurement process took. The
+-- benchmark will not terminate until we reach all the minimum bounds
+-- specified. If the minimum bounds are satisfied, the benchmark will terminate
+-- as soon as we reach any of the maximums.
 runBenchmark :: Benchmarkable
+             -> Int
+             -- ^ Minimum sample duration to reach in ms.
+             -> Int
+             -- ^ Minimum number of samples above minimum duration.
              -> Double
-             -- ^ Lower bound on how long the benchmarking process
-             -- should take.  In practice, this time limit may be
-             -- exceeded in order to generate enough data to perform
-             -- meaningful statistical analyses.
+             -- ^ Upper bound on how long the benchmarking process
+             -- should take.
              -> IO (V.Vector Measured, Double)
-runBenchmark bm timeLimit = do
+runBenchmark bm minDuration minSamples timeLimit = do
   runBenchmarkable_ bm 1
   start <- performGC >> getTime
-  let loop [] !_ !_ _ = error "unpossible!"
-      loop (iters:niters) prev count acc = do
-        m <- measure bm iters
-        endTime <- getTime
-        let overThresh = max 0 (measTime m - threshold) + prev
-        -- We try to honour the time limit, but we also have more
-        -- important constraints:
-        --
-        -- We must generate enough data that bootstrapping won't
-        -- simply crash.
-        --
-        -- We need to generate enough measurements that have long
-        -- spans of execution to outweigh the (rather high) cost of
-        -- measurement.
-        if endTime - start >= timeLimit &&
-           overThresh > threshold * 10 &&
-           count >= (4 :: Int)
+  let loop [] !_ _ = error "unpossible!"
+      loop (iters:niters) samples acc = do
+        (m, endTime) <- measure bm iters
+        if samples >= minSamples &&
+           measTime m >= fromIntegral minDuration / 1000 &&
+           endTime - start >= timeLimit
           then do
             let !v = V.reverse (V.fromList acc)
             return (v, endTime - start)
-          else loop niters overThresh (count+1) (m:acc)
-  loop (squish (unfoldr series 1)) 0 0 []
+          else let n = if measTime m > fromIntegral minDuration / 1000
+                       then samples + 1
+                       else samples
+                in loop niters n (m:acc)
+  loop (squish (unfoldr series 1)) 0 []
 
 -- Our series starts its growth very slowly when we begin at 1, so we
 -- eliminate repeated values.
