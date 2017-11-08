@@ -24,7 +24,11 @@ fib = sum . go
 -- Additional arguments to include along with the ARGS environment variable.
 extraArgs :: [String]
 extraArgs = [ "--raw=sanity.dat", "--json=sanity.json", "--csv=sanity.csv"
-            , "--output=sanity.html", "--junit=sanity.junit" ]
+            , "--output=sanity.html", "--junit=sanity.junit"
+#ifdef VERBOSE
+            , "-v 2"
+#endif
+            ]
 
 sanity :: Assertion
 sanity = do

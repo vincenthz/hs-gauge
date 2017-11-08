@@ -1,6 +1,9 @@
+{-# LANGUAGE CPP         #-}
 {-# LANGUAGE Trustworthy #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes  #-}
 {-# LANGUAGE DeriveDataTypeable, DeriveGeneric, GADTs, RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 
 -- |
@@ -43,9 +46,11 @@ module Gauge.Types
     , fromDouble
     , toDouble
     , measureAccessors
+    , measureAccessors_
     , measureKeys
     , measure
     , rescale
+    , secs
     -- * Benchmark construction
     , env
     , envWithCleanup
@@ -83,6 +88,7 @@ import Data.Data (Data, Typeable)
 import Data.Int (Int64)
 import Data.Map (Map, fromList)
 import GHC.Generics (Generic)
+import Text.Printf (printf)
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 import qualified Statistics.Types as St
@@ -204,17 +210,32 @@ toBenchmarkable f = Benchmarkable noop (const noop) (const f) False
 -- with \"__GC__\" below, use 'fromInt' and 'fromDouble' to safely
 -- convert to \"real\" values.
 data Measured = Measured {
-      measTime               :: !Double
+      measIters              :: !Int64
+      -- ^ Number of loop iterations measured.
+    , measTime               :: !Double
       -- ^ Total wall-clock time elapsed, in seconds.
-    , measCpuTime            :: !Double
-      -- ^ Total CPU time elapsed, in seconds.  Includes both user and
-      -- kernel (system) time.
     , measCycles             :: !Int64
       -- ^ Cycles, in unspecified units that may be CPU cycles.  (On
       -- i386 and x86_64, this is measured using the @rdtsc@
       -- instruction.)
-    , measIters              :: !Int64
-      -- ^ Number of loop iterations measured.
+    , measCpuTime            :: !Double
+      -- ^ Total CPU time elapsed, in seconds.  Includes both user and
+      -- kernel (system) time.
+
+    , measUtime              :: !Int64
+    -- ^ User time
+    , measStime              :: !Int64
+    -- ^ System time
+    , measMaxrss             :: !Int64
+    -- ^ Maximum resident set size
+    , measMinflt             :: !Int64
+    -- ^ Minor page faults
+    , measMajflt             :: !Int64
+    -- ^ Major page faults
+    , measNvcsw              :: !Int64
+    -- ^ Number of voluntary context switches
+    , measNivcsw             :: !Int64
+    -- ^ Number of involuntary context switches
 
     , measAllocated          :: !Int64
       -- ^ __(GC)__ Number of bytes allocated.  Access using 'fromInt'.
@@ -242,36 +263,97 @@ data Measured = Measured {
 instance NFData Measured where
     rnf Measured{} = ()
 
+-- | Convert a number of seconds to a string.  The string will consist
+-- of four decimal places, followed by a short description of the time
+-- units.
+secs :: Double -> String
+secs k
+    | k < 0      = '-' : secs (-k)
+    | k >= 1     = k        `with` "s"
+    | k >= 1e-3  = (k*1e3)  `with` "ms"
+#ifdef mingw32_HOST_OS
+    | k >= 1e-6  = (k*1e6)  `with` "us"
+#else
+    | k >= 1e-6  = (k*1e6)  `with` "μs"
+#endif
+    | k >= 1e-9  = (k*1e9)  `with` "ns"
+    | k >= 1e-12 = (k*1e12) `with` "ps"
+    | k >= 1e-15 = (k*1e15) `with` "fs"
+    | k >= 1e-18 = (k*1e18) `with` "as"
+    | otherwise  = printf "%g s" k
+     where with (t :: Double) (u :: String)
+               | t >= 1e9  = printf "%.4g %s" t u
+               | t >= 1e3  = printf "%.0f %s" t u
+               | t >= 1e2  = printf "%.1f %s" t u
+               | t >= 1e1  = printf "%.2f %s" t u
+               | otherwise = printf "%.3f %s" t u
+
 -- THIS MUST REFLECT THE ORDER OF FIELDS IN THE DATA TYPE.
 --
 -- The ordering is used by Javascript code to pick out the correct
 -- index into the vector that represents a Measured value in that
 -- world.
-measureAccessors_ :: [(String, (Measured -> Maybe Double, String))]
+measureAccessors_ :: [(String, (Measured -> Maybe Double
+                               , Double -> String
+                               , String)
+                     )]
 measureAccessors_ = [
-    ("time",               (Just . measTime,
-                            "wall-clock time"))
-  , ("cpuTime",            (Just . measCpuTime,
-                            "CPU time"))
-  , ("cycles",             (Just . fromIntegral . measCycles,
-                            "CPU cycles"))
-  , ("iters",              (Just . fromIntegral . measIters,
-                            "loop iterations"))
-  , ("allocated",          (fmap fromIntegral . fromInt . measAllocated,
-                            "(+RTS -T) bytes allocated"))
-  , ("numGcs",             (fmap fromIntegral . fromInt . measNumGcs,
-                            "(+RTS -T) number of garbage collections"))
-  , ("bytesCopied",        (fmap fromIntegral . fromInt . measBytesCopied,
-                            "(+RTS -T) number of bytes copied during GC"))
-  , ("mutatorWallSeconds", (fromDouble . measMutatorWallSeconds,
-                            "(+RTS -T) wall-clock time for mutator threads"))
-  , ("mutatorCpuSeconds",  (fromDouble . measMutatorCpuSeconds,
-                            "(+RTS -T) CPU time spent running mutator threads"))
-  , ("gcWallSeconds",      (fromDouble . measGcWallSeconds,
-                            "(+RTS -T) wall-clock time spent doing GC"))
-  , ("gcCpuSeconds",       (fromDouble . measGcCpuSeconds,
-                            "(+RTS -T) CPU time spent doing GC"))
+    ("iters",              ( Just . fromIntegral . measIters
+                           , show . rnd
+                           , "loop iterations"))
+  , ("time",               ( Just . measTime
+                           , secs
+                           , "wall-clock time"))
+  , ("cycles",             ( Just . fromIntegral . measCycles
+                           , show . rnd
+                           , "CPU cycles"))
+  , ("cpuTime",            ( Just . measCpuTime
+                           , secs
+                           , "CPU time"))
+  , ("utime",              ( Just . fromIntegral . measUtime
+                           , secs . (/1000000)
+                           , "user time"))
+  , ("stime",              ( Just . fromIntegral . measStime
+                           , secs . (/1000000)
+                           , "system time"))
+  , ("maxrss",             ( fmap fromIntegral . fromInt . measMaxrss
+                           , show . rnd
+                           , "maximum resident set size"))
+  , ("minflt",             ( fmap fromIntegral . fromInt . measMinflt
+                           , show . rnd
+                           , "minor page faults"))
+  , ("majflt",             ( fmap fromIntegral . fromInt . measMajflt
+                           , show . rnd
+                           , "major page faults"))
+  , ("nvcsw",              ( fmap fromIntegral . fromInt . measNvcsw
+                           , show . rnd
+                           , "voluntary context switches"))
+  , ("nivcsw",             ( fmap fromIntegral . fromInt . measNivcsw
+                           , show . rnd
+                           , "involuntary context switches"))
+  , ("allocated",          ( fmap fromIntegral . fromInt . measAllocated
+                           , show . rnd
+                           , "(+RTS -T) bytes allocated"))
+  , ("numGcs",             ( fmap fromIntegral . fromInt . measNumGcs
+                           , show . rnd
+                           , "(+RTS -T) number of garbage collections"))
+  , ("bytesCopied",        ( fmap fromIntegral . fromInt . measBytesCopied
+                           , show . rnd
+                           , "(+RTS -T) number of bytes copied during GC"))
+  , ("mutatorWallSeconds", ( fromDouble . measMutatorWallSeconds
+                           , secs
+                           , "(+RTS -T) wall-clock time for mutator threads"))
+  , ("mutatorCpuSeconds",  ( fromDouble . measMutatorCpuSeconds
+                           , secs
+                           , "(+RTS -T) CPU time spent running mutator threads"))
+  , ("gcWallSeconds",      ( fromDouble . measGcWallSeconds
+                           , secs
+                           , "(+RTS -T) wall-clock time spent doing GC"))
+  , ("gcCpuSeconds",       ( fromDouble . measGcCpuSeconds
+                           , secs
+                           , "(+RTS -T) CPU time spent doing GC"))
   ]
+  where rnd = round :: Double -> Int64
 
 -- | Field names in a 'Measured' record, in the order in which they
 -- appear.
@@ -279,7 +361,10 @@ measureKeys :: [String]
 measureKeys = map fst measureAccessors_
 
 -- | Field names and accessors for a 'Measured' record.
-measureAccessors :: Map String (Measured -> Maybe Double, String)
+measureAccessors :: Map String ( Measured -> Maybe Double
+                               , Double -> String
+                               , String
+                               )
 measureAccessors = fromList measureAccessors_
 
 -- | Normalise every measurement as if 'measIters' was 1.
@@ -287,10 +372,19 @@ measureAccessors = fromList measureAccessors_
 -- ('measIters' itself is left unaffected.)
 rescale :: Measured -> Measured
 rescale m@Measured{..} = m {
-      measTime               = d measTime
-    , measCpuTime            = d measCpuTime
-    , measCycles             = i measCycles
     -- skip measIters
+      measTime               = d measTime
+    , measCycles             = i measCycles
+    , measCpuTime            = d measCpuTime
+
+    , measUtime              = i measUtime
+    , measStime              = i measStime
+    -- skip measMaxrss
+    , measMinflt             = i measMinflt
+    , measMajflt             = i measMajflt
+    , measNvcsw              = i measNvcsw
+    , measNivcsw             = i measNivcsw
+
     , measNumGcs             = i measNumGcs
     , measBytesCopied        = i measBytesCopied
     , measMutatorWallSeconds = d measMutatorWallSeconds

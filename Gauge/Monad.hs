@@ -22,7 +22,7 @@ module Gauge.Monad
     ) where
 
 import Control.Monad (when)
-import Gauge.Measurement (measure, runBenchmark, secs)
+import Gauge.Measurement (measure, runBenchmark)
 import Gauge.Monad.Internal (Gauge(..), Crit(..), finallyGauge, askConfig, askCrit, gaugeIO)
 import Gauge.Types hiding (measure)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)

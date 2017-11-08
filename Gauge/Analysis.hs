@@ -41,11 +41,11 @@ import Data.Monoid
 import Control.Arrow (second)
 import Control.Monad (forM_, unless, when)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
-import Gauge.Measurement (secs, threshold)
+import Gauge.Measurement (threshold)
 import Gauge.Monad (Gauge, getGen, getOverhead, askConfig, gaugeIO)
 import Gauge.Types
 import Data.Int (Int64)
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isJust)
 import Statistics.Function (sort)
 import Statistics.Quantile (weightedAvg, Sorted(..))
 import Statistics.Regression (bootstrapRegress, olsRegress)
@@ -226,7 +226,7 @@ resolveAccessors :: [String]
                  -> Either String [(String, Measured -> Maybe Double)]
 resolveAccessors names =
   case unresolved of
-    [] -> Right [(n, a) | (n, Just (a,_)) <- accessors]
+    [] -> Right [(n, a) | (n, Just (a,_,_)) <- accessors]
     _  -> Left $ "unknown metric " ++ renderNames unresolved
   where
     unresolved = [n | (n, Nothing) <- accessors]
@@ -303,6 +303,10 @@ analyseBenchmark desc meas = do
                 _ <- note "variance introduced by outliers: %d%% (%s)\n"
                      (round (ovFraction * 100) :: Int) wibble
                 return ()
+
+              _ <- traverse
+                    (\(k, (a, s, _)) -> reportStat Verbose a s k)
+                    measureAccessors_
               _ <- note "\n"
               pure ()
             Condensed -> do
@@ -325,6 +329,21 @@ analyseBenchmark desc meas = do
             bsSmall :: (Double -> String) -> String -> Estimate ConfInt Double -> Gauge ()
             bsSmall f metric Estimate{..} =
               note "%s %-10s" metric (f estPoint)
+
+            reportStat :: Verbosity
+                       -> (Measured -> Maybe Double)
+                       -> (Double -> String)
+                       -> String -> Gauge ()
+            reportStat lvl accessor sh msg = do
+              let v = V.map fromJust $ V.filter isJust
+                                     $ V.map (accessor . rescale) meas
+                  total = V.sum v
+                  len = V.length v
+                  avg = total / (fromIntegral len)
+              when (verbosity >= lvl && avg > 0.0) $ do
+                note "%-20s %-10s (%s .. %s)\n" msg (sh avg)
+                  (sh (V.minimum v)) (sh (V.maximum v))
+
 
 printOverallEffect :: OutlierEffect -> String
 printOverallEffect Unaffected = "unaffected"
