@@ -15,33 +15,14 @@
 
 #include <windows.h>
 
-#if 0
+#include "gauge-time.h"
 
-void gauge_inittime(void)
-{
-}
-
-double gauge_gettime(void)
-{
-    FILETIME ft;
-    ULARGE_INTEGER li;
-
-    GetSystemTimeAsFileTime(&ft);
-    li.LowPart = ft.dwLowDateTime;
-    li.HighPart = ft.dwHighDateTime;
-
-    return (li.QuadPart - 130000000000000000ull) * 1e-7;
-}
-
-#else
-
+static LARGE_INTEGER freq;
 static double freq_recip;
 static LARGE_INTEGER firstClock;
 
 void gauge_inittime(void)
 {
-    LARGE_INTEGER freq;
-
     if (freq_recip == 0) {
 	QueryPerformanceFrequency(&freq);
 	QueryPerformanceCounter(&firstClock);
@@ -57,8 +38,6 @@ double gauge_gettime(void)
 
     return ((double) (li.QuadPart - firstClock.QuadPart)) * freq_recip;
 }
-
-#endif
 
 static ULONGLONG to_quad_100ns(FILETIME ft)
 {
@@ -77,4 +56,21 @@ double gauge_getcputime(void)
 
     time = to_quad_100ns(user) + to_quad_100ns(kernel);
     return time / 1e7;
+}
+
+void gauge_record(struct gauge_time *tr)
+{
+    LARGE_INTEGER li;
+    FILETIME creation, exit, kernel, user;
+    ULONGLONG time;
+
+    QueryPerformanceCounter(&li);
+    GetProcessTimes(GetCurrentProcess(), &creation, &exit, &kernel, &user);
+
+    time = to_quad_100ns(user) + to_quad_100ns(kernel);
+
+    tr->clock_nanosecs = (li.QuadPart / freq.QuadPart * ref_second) +
+                         ((li.QuadPart % freq.QuadPart) * ref_second) / freq.QuadPart;
+    tr->cpu_nanosecs = time * ref_100nanosecond;
+    tr->rdtsc = 0;
 }

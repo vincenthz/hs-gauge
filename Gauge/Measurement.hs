@@ -26,6 +26,8 @@
 --
 -- Benchmark measurement code.
 
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 module Gauge.Measurement
     (
       initializeTime
@@ -34,6 +36,10 @@ module Gauge.Measurement
     , getCycles
     , getGCStatistics
     , GCStatistics(..)
+    , ClockTime(..)
+    , CpuTime(..)
+    , Cycles(..)
+    , MeasureDiff(..)
     , measure
     , runBenchmark
     , runBenchmarkable
@@ -53,7 +59,7 @@ import Control.Exception (finally,evaluate)
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
 import Data.List (unfoldr)
-import Data.Word (Word64)
+import Data.Word (Word64, Word8)
 #ifndef mingw32_HOST_OS
 import Foreign.C (CLong(..))
 import Foreign.Ptr (Ptr)
@@ -64,9 +70,52 @@ import GHC.Stats (GCStats(..))
 import GHC.Stats (RTSStats(..), GCDetails(..))
 #endif
 import System.Mem (performGC)
+import Foreign.Ptr
+import Foreign.Marshal.Alloc (allocaBytes)
+import Foreign.Storable
 import qualified Control.Exception as Exc
 import qualified Data.Vector as V
 import qualified GHC.Stats as Stats
+
+#define GAUGE_MEASURE_TIME_NEW
+
+data MeasurementType = Differential | Absolute
+
+newtype ClockTime (ty :: MeasurementType) = ClockTime Word64
+    deriving (Eq)
+newtype CpuTime (ty :: MeasurementType) = CpuTime Word64
+    deriving (Eq)
+newtype Cycles (ty :: MeasurementType) = Cycles Word64
+    deriving (Eq)
+
+data TimeRecord w = TimeRecord
+    {-# UNPACK #-} !(ClockTime w)
+    {-# UNPACK #-} !(CpuTime w)
+    {-# UNPACK #-} !(Cycles w)
+
+class MeasureDiff w where
+    measureDiff :: w 'Absolute -> w 'Absolute -> w 'Differential
+
+instance MeasureDiff ClockTime where
+    measureDiff (ClockTime end) (ClockTime start)
+        | end > start = ClockTime d
+        | otherwise   = ClockTime 0
+      where d = end - start
+instance MeasureDiff CpuTime where
+    measureDiff (CpuTime end) (CpuTime start)
+        | end > start = CpuTime d
+        | otherwise   = CpuTime 0
+      where d = end - start
+instance MeasureDiff Cycles where
+    measureDiff (Cycles end) (Cycles start)
+        | end > start = Cycles d
+        | otherwise   = Cycles 0
+      where d = end - start
+instance MeasureDiff TimeRecord where
+    measureDiff (TimeRecord a1 b1 c1) (TimeRecord a2 b2 c2) =
+        TimeRecord (measureDiff a1 a2)
+                   (measureDiff b1 b2)
+                   (measureDiff c1 c2)
 
 -- | Statistics about memory usage and the garbage collector. Apart from
 -- 'gcStatsCurrentBytesUsed' and 'gcStatsCurrentBytesSlop' all are cumulative values since
@@ -226,34 +275,65 @@ getRUsage = do
         }
 #endif
 
+#ifdef GAUGE_MEASURE_TIME_NEW
+measureTime :: IO () -> IO (TimeRecord 'Differential)
+measureTime f = allocaBytes 64 $ \ptr -> do
+    getRecordPtr ptr
+    f
+    getRecordPtr (ptr `plusPtr` 32)
+    start <- ptrToTimeRecord ptr
+    end   <- ptrToTimeRecord (ptr `plusPtr` 32)
+    pure $! measureDiff end start
+#else
+measureTime :: IO () -> IO (Double, Double, Word64)
+measureTime f = do
+    startTime  <- getTime
+    startCpu   <- getCPUTime
+    startCycle <- getCycles
+    f
+    endTime  <- getTime
+    endCpu   <- getCPUTime
+    endCycle <- getCycles
+    pure ( max 0 (endTime - startTime)
+         , max 0 (endCpu - startCpu)
+         , max 0 (endCycle - startCycle))
+#endif
+{-# INLINE measureTime #-}
+
 -- | Measure the execution of a benchmark a given number of times.
-measure :: Benchmarkable        -- ^ Operation to benchmark.
-        -> Int64                -- ^ Number of iterations.
-        -> IO (Measured, Double)
+measure :: Benchmarkable -- ^ Operation to benchmark.
+        -> Int64         -- ^ Number of iterations.
+        -> IO Measured
 measure bm iters = runBenchmarkable bm iters addResults $ \act -> do
   startStats <- getGCStatistics
   startRUsage <- getRUsage
-  startTime <- getTime
-  startCpuTime <- getCPUTime
-  startCycles <- getCycles
-  act
-  endTime <- getTime
-  endCpuTime <- getCPUTime
-  endCycles <- getCycles
+#ifdef GAUGE_MEASURE_TIME_NEW
+  TimeRecord time cpuTime cycles <- measureTime act
+#else
+  (time, cpuTime, cycles) <- measureTime act
+#endif
   endRUsage <- getRUsage
   endStats <- getGCStatistics
-
   let !m = applyGCStatistics endStats startStats $
            applyRUStatistics endRUsage startRUsage $ measured {
-             measTime    = max 0 (endTime - startTime)
-           , measCpuTime = max 0 (endCpuTime - startCpuTime)
-           , measCycles  = max 0 (fromIntegral (endCycles - startCycles))
+             measTime    = outTime time
+           , measCpuTime = outCputime cpuTime
+           , measCycles  = outCycles cycles
            , measIters   = iters
            }
-  return (m, endTime)
+  return m
   where
-    addResults :: (Measured, Double) -> (Measured, Double) -> (Measured, Double)
-    addResults (!m1, !d1) (!m2, !d2) = (m3, d1 + d2)
+#ifdef GAUGE_MEASURE_TIME_NEW
+    outTime (ClockTime w)  = fromIntegral w / 1.0e9
+    outCputime (CpuTime w) = fromIntegral w / 1.0e9
+    outCycles (Cycles w)   = fromIntegral w
+#else
+    outTime w = w
+    outCputime w = w
+    outCycles w = fromIntegral w
+#endif
+    addResults :: Measured -> Measured -> Measured
+    addResults !m1 !m2 = m3
       where
         add f = f m1 + f m2
 
@@ -287,11 +367,11 @@ measure bm iters = runBenchmarkable bm iters addResults $ \act -> do
 -- We set this threshold so that we can generate enough data to later
 -- perform meaningful statistical analyses.
 --
--- The threshold is 30 milliseconds. One use of 'runBenchmark' must
--- accumulate more than 300 milliseconds of total measurements above
+-- The threshold is 40 milliseconds. One use of 'runBenchmark' must
+-- accumulate more than 400 milliseconds of total measurements above
 -- this threshold before it will finish.
 threshold :: Double
-threshold = 0.03
+threshold = 0.04
 {-# INLINE threshold #-}
 
 runBenchmarkable :: Benchmarkable
@@ -340,7 +420,8 @@ runBenchmark bm timeLimit = do
   start <- performGC >> getTime
   let loop [] !_ !_ _ = error "unpossible!"
       loop (iters:niters) prev count acc = do
-        (m, endTime) <- measure bm iters
+        m <- measure bm iters
+        endTime <- getTime
         let overThresh = max 0 (measTime m - threshold) + prev
         -- We try to honour the time limit, but we also have more
         -- important constraints:
@@ -459,6 +540,13 @@ applyRUStatistics (Just end) (Just start) m = m {
   } where diff f = f end - f start
 applyRUStatistics _ _ m = m
 
+ptrToTimeRecord :: Ptr Word8 -> IO (TimeRecord 'Absolute)
+ptrToTimeRecord ptr =
+    TimeRecord <$> (ClockTime <$> peek (castPtr ptr))
+               <*> (CpuTime <$> peek (castPtr ptr `plusPtr` 8))
+               <*> (Cycles <$> peek (castPtr ptr `plusPtr` 16))
+{-# INLINE ptrToTimeRecord #-}
+
 -- | Set up time measurement.
 foreign import ccall unsafe "gauge_inittime" initializeTime :: IO ()
 
@@ -474,6 +562,9 @@ foreign import ccall unsafe "gauge_gettime" getTime :: IO Double
 -- | Return the amount of elapsed CPU time, combining user and kernel
 -- (system) time into a single measure.
 foreign import ccall unsafe "gauge_getcputime" getCPUTime :: IO Double
+
+-- | Record clock, cpu and cycles in one structure
+foreign import ccall unsafe "gauge_record" getRecordPtr :: Ptr Word8 -> IO ()
 
 #ifndef mingw32_HOST_OS
 -- rusage accessor functions
