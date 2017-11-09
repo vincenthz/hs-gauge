@@ -13,7 +13,7 @@
 module Gauge.Internal
     (
       runQuick
-    , runAndAnalyse
+    , runWithAnalysis
     , runWithAnalysisInteractive
     , runOnly
     , runFixedIters
@@ -25,7 +25,6 @@ import Control.Exception (bracket, catch, evaluate)
 import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
 import Data.Maybe (fromJust, isJust)
-import Gauge.Analysis (analyseBenchmark)
 import Gauge.IO.Printf (note, prolix, rewindClearLine)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, initializeTime)
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO, withConfig)
@@ -143,14 +142,6 @@ quickAnalyse desc meas = do
 
 runQuick :: (String -> Bool) -> Benchmark -> Gauge ()
 runQuick = runWithAnalysis quickAnalyse
-
--- | Run, and analyse, one or more benchmarks.
-runAndAnalyse :: (String -> Bool) -- ^ A predicate that chooses
-                                  -- whether to run a benchmark by its
-                                  -- name.
-              -> Benchmark
-              -> Gauge ()
-runAndAnalyse = runWithAnalysis analyseBenchmark
 
 -- XXX For consistency, this should also use a separate process when
 -- --measure-with is specified.

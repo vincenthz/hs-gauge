@@ -55,8 +55,9 @@ module Gauge.Main
     ) where
 
 import Control.Monad (unless)
+import Gauge.Analysis (analyseBenchmark)
 import Gauge.IO.Printf (printError)
-import Gauge.Internal (runAndAnalyse, runFixedIters, runOnly, runQuick)
+import Gauge.Internal (runWithAnalysis, runFixedIters, runOnly, runQuick)
 import Gauge.Main.Options (defaultConfig, versionInfo, parseWith, describe)
 import Gauge.Measurement (initializeTime)
 import Gauge.Monad (withConfig, gaugeIO)
@@ -159,7 +160,7 @@ runMode wat cfg benches bs =
           Nothing ->
             case quickMode cfg of
               True  -> runWithConfig runQuick
-              False -> runWithConfig runAndAnalyse
+              False -> runWithConfig (runWithAnalysis analyseBenchmark)
   where bsgroup = BenchGroup "" bs
         runWithConfig f = do
           shouldRun <- selectBenches (match cfg) benches bsgroup
