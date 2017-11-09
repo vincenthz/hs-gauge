@@ -116,10 +116,10 @@ quickAnalyse desc meas = do
   where
 
   reportStat accessor sh msg = do
-    let val = V.last $ V.map fromJust
-                     $ V.filter isJust
-                     $ V.map (accessor . rescale) meas
-    note "%-20s %-10s\n" msg (sh val)
+    let v = V.map fromJust
+            $ V.filter isJust
+            $ V.map (accessor . rescale) meas
+    when (not $ V.null v) $ note "%-20s %-10s\n" msg (sh (V.last v))
 
 runQuick :: (String -> Bool) -> Benchmark -> Gauge ()
 runQuick = runWithAnalysis quickAnalyse
