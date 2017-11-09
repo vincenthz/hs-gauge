@@ -185,33 +185,39 @@ getGCStatistics :: IO (Maybe GCStatistics)
 #if MIN_VERSION_base(4,10,0)
 -- Use RTSStats/GCDetails to gather GC stats
 getGCStatistics = do
-  stats <- Stats.getRTSStats
-  let gcdetails :: Stats.GCDetails
-      gcdetails = gc stats
+  hasStats <- Stats.getRTSStatsEnabled
+  if hasStats
+  then getStats >>= return . Just
+  else return Nothing
 
-      nsToSecs :: Int64 -> Double
-      nsToSecs ns = fromIntegral ns * 1.0E-9
+  where
 
-  return $ Just GCStatistics {
-      gcStatsBytesAllocated         = fromIntegral $ gcdetails_allocated_bytes gcdetails
-    , gcStatsNumGcs                 = fromIntegral $ gcs stats
-    , gcStatsMaxBytesUsed           = fromIntegral $ max_live_bytes stats
-    , gcStatsNumByteUsageSamples    = fromIntegral $ major_gcs stats
-    , gcStatsCumulativeBytesUsed    = fromIntegral $ cumulative_live_bytes stats
-    , gcStatsBytesCopied            = fromIntegral $ gcdetails_copied_bytes gcdetails
-    , gcStatsCurrentBytesUsed       = fromIntegral $ gcdetails_live_bytes gcdetails
-    , gcStatsCurrentBytesSlop       = fromIntegral $ gcdetails_slop_bytes gcdetails
-    , gcStatsMaxBytesSlop           = fromIntegral $ max_slop_bytes stats
-    , gcStatsPeakMegabytesAllocated = fromIntegral (max_mem_in_use_bytes stats) `quot` (1024*1024)
-    , gcStatsMutatorCpuSeconds      = nsToSecs $ mutator_cpu_ns stats
-    , gcStatsMutatorWallSeconds     = nsToSecs $ mutator_elapsed_ns stats
-    , gcStatsGcCpuSeconds           = nsToSecs $ gcdetails_cpu_ns gcdetails
-    , gcStatsGcWallSeconds          = nsToSecs $ gcdetails_elapsed_ns gcdetails
-    , gcStatsCpuSeconds             = nsToSecs $ cpu_ns stats
-    , gcStatsWallSeconds            = nsToSecs $ elapsed_ns stats
-    }
- `Exc.catch`
-  \(_::Exc.SomeException) -> return Nothing
+  getStats = do
+    stats <- Stats.getRTSStats
+    let gcdetails :: Stats.GCDetails
+        gcdetails = gc stats
+
+        nsToSecs :: Int64 -> Double
+        nsToSecs ns = fromIntegral ns * 1.0E-9
+
+    return $ GCStatistics {
+        gcStatsBytesAllocated         = fromIntegral $ gcdetails_allocated_bytes gcdetails
+      , gcStatsNumGcs                 = fromIntegral $ gcs stats
+      , gcStatsMaxBytesUsed           = fromIntegral $ max_live_bytes stats
+      , gcStatsNumByteUsageSamples    = fromIntegral $ major_gcs stats
+      , gcStatsCumulativeBytesUsed    = fromIntegral $ cumulative_live_bytes stats
+      , gcStatsBytesCopied            = fromIntegral $ gcdetails_copied_bytes gcdetails
+      , gcStatsCurrentBytesUsed       = fromIntegral $ gcdetails_live_bytes gcdetails
+      , gcStatsCurrentBytesSlop       = fromIntegral $ gcdetails_slop_bytes gcdetails
+      , gcStatsMaxBytesSlop           = fromIntegral $ max_slop_bytes stats
+      , gcStatsPeakMegabytesAllocated = fromIntegral (max_mem_in_use_bytes stats) `quot` (1024*1024)
+      , gcStatsMutatorCpuSeconds      = nsToSecs $ mutator_cpu_ns stats
+      , gcStatsMutatorWallSeconds     = nsToSecs $ mutator_elapsed_ns stats
+      , gcStatsGcCpuSeconds           = nsToSecs $ gcdetails_cpu_ns gcdetails
+      , gcStatsGcWallSeconds          = nsToSecs $ gcdetails_elapsed_ns gcdetails
+      , gcStatsCpuSeconds             = nsToSecs $ cpu_ns stats
+      , gcStatsWallSeconds            = nsToSecs $ elapsed_ns stats
+      }
 #else
 -- Use the old GCStats type to gather GC stats
 getGCStatistics = do
