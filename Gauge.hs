@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE RecordWildCards #-}
 -- |
 -- Module      : Gauge
@@ -33,10 +34,14 @@ module Gauge
     -- * For interactive use
     , benchmark
     , benchmarkWith
+#ifdef HAVE_ANALYSIS
     , benchmark'
     , benchmarkWith'
+#endif
     ) where
 
+#ifdef HAVE_ANALYSIS
 import Gauge.Analysis (benchmark', benchmarkWith')
+#endif
 import Gauge.Internal (benchmark, benchmarkWith)
 import Gauge.Types

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE Trustworthy     #-}
 
@@ -55,9 +56,12 @@ module Gauge.Main
     ) where
 
 import Control.Monad (unless)
+#ifdef HAVE_ANALYSIS
 import Gauge.Analysis (analyseBenchmark)
+import Gauge.Internal (runWithAnalysis)
+#endif
 import Gauge.IO.Printf (printError)
-import Gauge.Internal (runWithAnalysis, runFixedIters, runOnly, runQuick)
+import Gauge.Internal (runFixedIters, runOnly, runQuick)
 import Gauge.Main.Options (defaultConfig, versionInfo, parseWith, describe)
 import Gauge.Measurement (initializeTime)
 import Gauge.Monad (withConfig, gaugeIO)
@@ -136,7 +140,12 @@ defaultMainWith :: Config
 defaultMainWith defCfg bs = withCP65001 $ do
     args <- getArgs
     let (cfg, extra) = parseWith defCfg args
-    runMode (mode cfg) cfg extra bs
+#ifdef HAVE_ANALYSIS
+    let cfg' = cfg
+#else
+    let cfg' = cfg {quickMode = True}
+#endif
+    runMode (mode cfg') cfg' extra bs
 
 -- | Run a set of 'Benchmark's with the given 'Mode'.
 --
@@ -160,7 +169,12 @@ runMode wat cfg benches bs =
           Nothing ->
             case quickMode cfg of
               True  -> runWithConfig runQuick
-              False -> runWithConfig (runWithAnalysis analyseBenchmark)
+              False ->
+#ifdef HAVE_ANALYSIS
+                  runWithConfig (runWithAnalysis analyseBenchmark)
+#else
+                  runWithConfig runQuick
+#endif
   where bsgroup = BenchGroup "" bs
         runWithConfig f = do
           shouldRun <- selectBenches (match cfg) benches bsgroup
