@@ -344,7 +344,8 @@ analyseSample name meas = do
     Left err -> pure $ Left err
     Right rs -> do
       resamps <- gaugeIO $ resample gen ests resamples stime
-      let [estMean,estStdDev] = B.bootstrapBCA confInterval stime resamps
+      let [estMean,estStdDev] = B.bootstrapBCA (B.mkCL confInterval) stime
+                                               resamps
           ov = outlierVariance estMean estStdDev (fromIntegral n)
           an = SampleAnalysis
                  { anRegress    = rs
@@ -385,7 +386,9 @@ regress gen predNames respName meas
                 else do
                     let (r:ps) = map ((`getMeasurement` meas) . (fromJust .) . snd) accs
                     Config{..} <- askConfig
-                    (coeffs,r2) <- gaugeIO $ bootstrapRegress gen resamples confInterval olsRegress ps r
+                    (coeffs,r2) <- gaugeIO $
+                        bootstrapRegress gen resamples (B.mkCL confInterval)
+                                         olsRegress ps r
                     pure $ Right $ Regression
                         { regResponder = respName
                         , regCoeffs    = Map.fromList (zip (predNames ++ ["y"]) (G.toList coeffs))

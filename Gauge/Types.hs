@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP         #-}
-{-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE RankNTypes  #-}
 {-# LANGUAGE DeriveDataTypeable, DeriveGeneric, GADTs, RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -80,7 +79,6 @@ import Data.Map (Map, fromList)
 import GHC.Generics (Generic)
 import Text.Printf (printf)
 import Prelude
-import qualified Statistics.Types as St
 
 -- | Control the amount of information displayed.
 data Verbosity = Quiet
@@ -119,7 +117,7 @@ data DisplayMode =
 
 -- | Top-level benchmarking configuration.
 data Config = Config {
-      confInterval :: St.CL Double
+      confInterval :: Double
       -- ^ Confidence interval for bootstrap estimation (greater than
       -- 0, less than 1).
     , forceGC      :: Bool

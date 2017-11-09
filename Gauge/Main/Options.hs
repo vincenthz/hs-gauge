@@ -29,13 +29,12 @@ import Data.List (foldl')
 import Data.Version (showVersion)
 import System.Console.GetOpt
 import Paths_gauge (version)
-import Statistics.Types (mkCL,cl95)
 import Prelude
 
 -- | Default benchmarking configuration.
 defaultConfig :: Config
 defaultConfig = Config
-    { confInterval = cl95
+    { confInterval = 0.95
     , forceGC      = True
     , timeLimit    = 5
     , quickMode    = False
@@ -92,7 +91,7 @@ opts =
     ]
   where
     fileArg f = ReqArg f "FILE"
-    setCI s v = v { confInterval = mkCL (range 0.001 0.999 s) }
+    setCI s v = v { confInterval = range 0.001 0.999 s }
     setNoGC v = v { forceGC = False }
     setTimeLimit s v = v { timeLimit = range 0.1 86400 s }
     setQuickMode v = v { quickMode = True }
