@@ -416,6 +416,7 @@ analyseBenchmark :: String -> V.Vector Measured -> Gauge Report
 analyseBenchmark desc meas = do
   Config{..} <- askConfig
   _ <- prolix "analysing with %d resamples\n" resamples
+  -- XXX handle meas being empty
   erp <- analyseSample desc meas
   case erp of
     Left err -> printError "*** Error: %s\n" err
@@ -480,14 +481,16 @@ analyseBenchmark desc meas = do
                        -> (Double -> String)
                        -> String -> Gauge ()
             reportStat lvl accessor sh msg = do
-              let v = V.map fromJust $ V.filter isJust
-                                     $ V.map (accessor . rescale) meas
-                  total = V.sum v
-                  len = V.length v
-                  avg = total / (fromIntegral len)
-              when (verbosity >= lvl && avg > 0.0) $ do
-                note "%-20s %-10s (%s .. %s)\n" msg (sh avg)
-                  (sh (V.minimum v)) (sh (V.maximum v))
+              let v0 = V.map (accessor . rescale) meas
+              -- Print average only if all data points are present
+              when (V.all isJust v0) $ do
+                  let v = V.map fromJust v0
+                      total = V.sum v
+                      len = V.length v
+                      avg = total / (fromIntegral len)
+                  when (verbosity >= lvl && avg > 0.0) $ do
+                    note "%-20s %-10s (%s .. %s)\n" msg (sh avg)
+                      (sh (V.minimum v)) (sh (V.maximum v))
 
 
 printOverallEffect :: OutlierEffect -> String
