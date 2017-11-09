@@ -33,7 +33,7 @@ import Prelude
 -- | Default benchmarking configuration.
 defaultConfig :: Config
 defaultConfig = Config
-    { confInterval = 0.95
+    { confInterval = Nothing
     , forceGC      = True
     , timeLimit    = 5
     , quickMode    = False
@@ -90,7 +90,7 @@ opts =
     ]
   where
     fileArg f = ReqArg f "FILE"
-    setCI s v = v { confInterval = range 0.001 0.999 s }
+    setCI s v = v { confInterval = Just $ range 0.001 0.999 s }
     setNoGC v = v { forceGC = False }
     setTimeLimit s v = v { timeLimit = range 0.1 86400 s }
     setQuickMode v = v { quickMode = True }

@@ -122,7 +122,7 @@ data DisplayMode =
 
 -- | Top-level benchmarking configuration.
 data Config = Config {
-      confInterval :: Double
+      confInterval :: Maybe Double
       -- ^ Confidence interval for bootstrap estimation (greater than
       -- 0, less than 1).
     , forceGC      :: Bool

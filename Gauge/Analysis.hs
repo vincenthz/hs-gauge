@@ -311,6 +311,13 @@ memoise ref generate = do
         rv <- generate
         writeIORef r (Just rv)
         return rv
+
+toCL :: Maybe Double -> B.CL Double
+toCL a =
+    case a of
+        Nothing -> B.cl95
+        Just x -> B.mkCL x
+
 -- | Perform an analysis of a measurement.
 analyseSample :: String            -- ^ Experiment name.
               -> V.Vector Measured -- ^ Sample data.
@@ -337,7 +344,7 @@ analyseSample name meas = do
     Left err -> pure $ Left err
     Right rs -> do
       resamps <- gaugeIO $ resample gen ests resamples stime
-      let [estMean,estStdDev] = B.bootstrapBCA (B.mkCL confInterval) stime
+      let [estMean,estStdDev] = B.bootstrapBCA (toCL confInterval) stime
                                                resamps
           ov = outlierVariance estMean estStdDev (fromIntegral n)
           an = SampleAnalysis
@@ -380,7 +387,7 @@ regress gen predNames respName meas
                     let (r:ps) = map ((`getMeasurement` meas) . (fromJust .) . snd) accs
                     Config{..} <- askConfig
                     (coeffs,r2) <- gaugeIO $
-                        bootstrapRegress gen resamples (B.mkCL confInterval)
+                        bootstrapRegress gen resamples (toCL confInterval)
                                          olsRegress ps r
                     pure $ Right $ Regression
                         { regResponder = respName
