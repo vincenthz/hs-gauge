@@ -26,7 +26,6 @@ import Control.DeepSeq (rnf)
 import Control.Exception (bracket, catch, evaluate)
 import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
-import Data.Maybe (fromJust, isJust)
 import Gauge.IO.Printf (note, prolix, rewindClearLine)
 import Gauge.Main.Options (defaultConfig)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, initializeTime)
@@ -137,11 +136,10 @@ quickAnalyse desc meas = do
 
   where
 
-  reportStat accessor sh msg = do
-    let v = V.map fromJust
-            $ V.filter isJust
-            $ V.map (accessor . rescale) meas
-    when (not $ V.null v) $ note "%-20s %-10s\n" msg (sh (V.last v))
+  reportStat accessor sh msg =
+    when (not $ V.null meas) $
+      let val = (accessor . rescale) $ V.last meas
+       in maybe (return ()) (\x -> note "%-20s %-10s\n" msg (sh x)) val
 
 runQuick :: (String -> Bool) -> Benchmark -> Gauge ()
 runQuick = runWithAnalysis quickAnalyse
