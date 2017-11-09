@@ -67,19 +67,10 @@ module Gauge.Types
     , nf
     , nfIO
     , whnfIO
-    -- * Result types
-    , Outliers(..)
-    , OutlierEffect(..)
-    , OutlierVariance(..)
-    , Regression(..)
-    , KDE(..)
-    , Report(..)
-    , SampleAnalysis(..)
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
 import Control.Applicative
-import Data.Monoid
 
 import Control.DeepSeq (NFData(rnf))
 import Control.Exception (evaluate)
@@ -88,10 +79,8 @@ import Data.Int (Int64)
 import Data.Map (Map, fromList)
 import GHC.Generics (Generic)
 import Text.Printf (printf)
-import qualified Data.Vector as V
-import qualified Data.Vector.Unboxed as U
-import qualified Statistics.Types as St
 import Prelude
+import qualified Statistics.Types as St
 
 -- | Control the amount of information displayed.
 data Verbosity = Quiet
@@ -700,123 +689,3 @@ instance Show Benchmark where
     show (Environment _ _ b) = "Environment _ _" ++ show (b undefined)
     show (Benchmark d _)   = "Benchmark " ++ show d
     show (BenchGroup d _)  = "BenchGroup " ++ show d
-
--- | Outliers from sample data, calculated using the boxplot
--- technique.
-data Outliers = Outliers {
-      samplesSeen :: !Int64
-    , lowSevere   :: !Int64
-    -- ^ More than 3 times the interquartile range (IQR) below the
-    -- first quartile.
-    , lowMild     :: !Int64
-    -- ^ Between 1.5 and 3 times the IQR below the first quartile.
-    , highMild    :: !Int64
-    -- ^ Between 1.5 and 3 times the IQR above the third quartile.
-    , highSevere  :: !Int64
-    -- ^ More than 3 times the IQR above the third quartile.
-    } deriving (Eq, Read, Show, Typeable, Data, Generic)
-
-instance NFData Outliers
-
--- | A description of the extent to which outliers in the sample data
--- affect the sample mean and standard deviation.
-data OutlierEffect = Unaffected -- ^ Less than 1% effect.
-                   | Slight     -- ^ Between 1% and 10%.
-                   | Moderate   -- ^ Between 10% and 50%.
-                   | Severe     -- ^ Above 50% (i.e. measurements
-                                -- are useless).
-                     deriving (Eq, Ord, Read, Show, Typeable, Data, Generic)
-
-instance NFData OutlierEffect
-
-instance Monoid Outliers where
-    mempty  = Outliers 0 0 0 0 0
-    mappend = addOutliers
-
-addOutliers :: Outliers -> Outliers -> Outliers
-addOutliers (Outliers s a b c d) (Outliers t w x y z) =
-    Outliers (s+t) (a+w) (b+x) (c+y) (d+z)
-{-# INLINE addOutliers #-}
-
--- | Analysis of the extent to which outliers in a sample affect its
--- standard deviation (and to some extent, its mean).
-data OutlierVariance = OutlierVariance {
-      ovEffect   :: OutlierEffect
-    -- ^ Qualitative description of effect.
-    , ovDesc     :: String
-    -- ^ Brief textual description of effect.
-    , ovFraction :: Double
-    -- ^ Quantitative description of effect (a fraction between 0 and 1).
-    } deriving (Eq, Read, Show, Typeable, Data, Generic)
-
-instance NFData OutlierVariance where
-    rnf OutlierVariance{..} = rnf ovEffect `seq` rnf ovDesc `seq` rnf ovFraction
-
--- | Results of a linear regression.
-data Regression = Regression {
-    regResponder  :: String
-    -- ^ Name of the responding variable.
-  , regCoeffs     :: Map String (St.Estimate St.ConfInt Double)
-    -- ^ Map from name to value of predictor coefficients.
-  , regRSquare    :: St.Estimate St.ConfInt Double
-    -- ^ R&#0178; goodness-of-fit estimate.
-  } deriving (Eq, Read, Show, Typeable, Generic)
-
-instance NFData Regression where
-    rnf Regression{..} =
-      rnf regResponder `seq` rnf regCoeffs `seq` rnf regRSquare
-
--- | Result of a bootstrap analysis of a non-parametric sample.
-data SampleAnalysis = SampleAnalysis {
-      anRegress    :: [Regression]
-      -- ^ Estimates calculated via linear regression.
-    , anOverhead   :: Double
-      -- ^ Estimated measurement overhead, in seconds.  Estimation is
-      -- performed via linear regression.
-    , anMean       :: St.Estimate St.ConfInt Double
-      -- ^ Estimated mean.
-    , anStdDev     :: St.Estimate St.ConfInt Double
-      -- ^ Estimated standard deviation.
-    , anOutlierVar :: OutlierVariance
-      -- ^ Description of the effects of outliers on the estimated
-      -- variance.
-    } deriving (Eq, Read, Show, Typeable, Generic)
-
-instance NFData SampleAnalysis where
-    rnf SampleAnalysis{..} =
-        rnf anRegress `seq` rnf anOverhead `seq` rnf anMean `seq`
-        rnf anStdDev `seq` rnf anOutlierVar
-
--- | Data for a KDE chart of performance.
-data KDE = KDE {
-      kdeType   :: String
-    , kdeValues :: U.Vector Double
-    , kdePDF    :: U.Vector Double
-    } deriving (Eq, Read, Show, Typeable, Data, Generic)
-
-instance NFData KDE where
-    rnf KDE{..} = rnf kdeType `seq` rnf kdeValues `seq` rnf kdePDF
-
--- | Report of a sample analysis.
-data Report = Report {
-      reportName     :: String
-      -- ^ The name of this report.
-    , reportKeys     :: [String]
-      -- ^ See 'measureKeys'.
-    , reportMeasured :: V.Vector Measured
-      -- ^ Raw measurements. These are /not/ corrected for the
-      -- estimated measurement overhead that can be found via the
-      -- 'anOverhead' field of 'reportAnalysis'.
-    , reportAnalysis :: SampleAnalysis
-      -- ^ Report analysis.
-    , reportOutliers :: Outliers
-      -- ^ Analysis of outliers.
-    , reportKDEs     :: [KDE]
-      -- ^ Data for a KDE of times.
-    } deriving (Eq, Read, Show, Typeable, Generic)
-
-instance NFData Report where
-    rnf Report{..} =
-      rnf reportName `seq` rnf reportKeys `seq`
-      rnf reportMeasured `seq` rnf reportAnalysis `seq` rnf reportOutliers `seq`
-      rnf reportKDEs

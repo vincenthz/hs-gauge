@@ -38,6 +38,7 @@ module Gauge
     ) where
 
 import Control.Monad (void)
+import Gauge.Analysis (Report)
 import Gauge.IO.Printf (note)
 import Gauge.Internal (runAndAnalyseOne)
 import Gauge.Main.Options (defaultConfig)
