@@ -25,7 +25,7 @@ import Control.Exception (bracket, catch, evaluate)
 import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
 import Data.Maybe (fromJust, isJust)
-import Gauge.Analysis (analyseBenchmark, threshold)
+import Gauge.Analysis (analyseBenchmark)
 import Gauge.IO.Printf (note, prolix, rewindClearLine)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, initializeTime)
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO, withConfig)
@@ -71,8 +71,8 @@ runOne desc bm file = do
       Just prog -> gaugeIO $ runBenchmarkWith prog desc timeLimit quickMode
       Nothing -> gaugeIO $
         if quickMode
-        then runBenchmark bm threshold 2 0
-        else runBenchmark bm threshold 10 timeLimit
+        then runBenchmark bm 30 2 0
+        else runBenchmark bm 30 10 timeLimit
   case file of
     Just f -> gaugeIO $ writeFile f (show r)
     Nothing ->

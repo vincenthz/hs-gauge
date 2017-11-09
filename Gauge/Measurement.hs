@@ -398,9 +398,9 @@ runBenchmarkable_ bm i = runBenchmarkable bm i (\() () -> ()) id
 -- as soon as we reach any of the maximums.
 runBenchmark :: Benchmarkable
              -> Int
-             -- ^ Minimum sample duration to reach in ms.
+             -- ^ Minimum sample duration to in ms.
              -> Int
-             -- ^ Minimum number of samples above minimum duration.
+             -- ^ Minimum number of samples.
              -> Double
              -- ^ Upper bound on how long the benchmarking process
              -- should take.
@@ -418,10 +418,9 @@ runBenchmark bm minDuration minSamples timeLimit = do
           then do
             let !v = V.reverse (V.fromList acc)
             return (v, endTime - start)
-          else let n = if measTime m > fromIntegral minDuration / 1000
-                       then samples + 1
-                       else samples
-                in loop niters n (m:acc)
+          else if measTime m >= fromIntegral minDuration / 1000
+               then loop niters (samples + 1) (m:acc)
+               else loop niters samples (acc)
   loop (squish (unfoldr series 1)) 0 []
 
 -- Our series starts its growth very slowly when we begin at 1, so we

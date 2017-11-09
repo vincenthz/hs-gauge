@@ -33,7 +33,6 @@ module Gauge.Analysis
     , noteOutliers
     , outlierVariance
     , regress
-    , threshold
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
@@ -267,13 +266,6 @@ scale f s@SampleAnalysis{..} = s {
                                , anStdDev = B.scale f anStdDev
                                }
 
--- TBD: use a typed time unit
--- | The amount of time in milliseconds a benchmark must run for in order for
--- us to have some trust in the raw measurement. We must take minimum 10
--- samples above this threshold to perform a meaningful statistical analysis.
-threshold :: Int
-threshold = 30
-
 -- | Return a random number generator, creating one if necessary.
 --
 -- This is not currently thread-safe, but in a harmless way (we might
@@ -287,7 +279,7 @@ getOverhead = do
   verbose <- ((== Verbose) . verbosity) <$> askConfig
   memoise overhead $ do
     (meas,_) <- runBenchmark (whnfIO $ measure (whnfIO $ return ()) 1)
-                             threshold 10 1
+                             30 10 1
     let metric get = G.convert . G.map get $ meas
     let o = G.head . fst $
             olsRegress [metric (fromIntegral . measIters)] (metric measTime)
@@ -328,7 +320,7 @@ analyseSample name meas = do
       -- deviations.  Without this, the numbers look nonsensical when
       -- very brief actions are measured.
       stime     = getMeasurement (measTime . rescale) .
-                  G.filter ((>= fromIntegral threshold / 1000) . measTime) . G.map fixTime .
+                  G.map fixTime .
                   G.tail $ meas
       fixTime m = m { measTime = measTime m - overhead / 2 }
       n         = G.length meas
