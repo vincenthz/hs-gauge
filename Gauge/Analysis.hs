@@ -33,6 +33,8 @@ module Gauge.Analysis
     , noteOutliers
     , outlierVariance
     , regress
+    , benchmark'
+    , benchmarkWith'
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
@@ -41,7 +43,9 @@ import Data.Monoid
 import Control.Arrow (second)
 import Control.DeepSeq (NFData(rnf))
 import Control.Monad (forM_, when)
+import Gauge.Internal (runWithAnalysisInteractive)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
+import Gauge.Main.Options (defaultConfig)
 import Gauge.Measurement (measure, runBenchmark)
 import Gauge.Monad (Gauge, askConfig, gaugeIO)
 import Gauge.Monad.Internal (Crit(..), askCrit)
@@ -484,3 +488,13 @@ printOverallEffect Unaffected = "unaffected"
 printOverallEffect Slight     = "slightly inflated"
 printOverallEffect Moderate   = "moderately inflated"
 printOverallEffect Severe     = "severely inflated"
+
+-- | Run a benchmark interactively, analyse its performance, and
+-- return the analysis.
+benchmark' :: Benchmarkable -> IO Report
+benchmark' = benchmarkWith' defaultConfig
+
+-- | Run a benchmark interactively, analyse its performance, and
+-- return the analysis.
+benchmarkWith' :: Config -> Benchmarkable -> IO Report
+benchmarkWith' = runWithAnalysisInteractive analyseBenchmark

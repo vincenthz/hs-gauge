@@ -37,25 +37,6 @@ module Gauge
     , benchmarkWith'
     ) where
 
-import Gauge.Analysis (Report, analyseBenchmark)
-import Gauge.Internal (quickAnalyse, runWithAnalysisInteractive)
-import Gauge.Main.Options (defaultConfig)
+import Gauge.Analysis (benchmark', benchmarkWith')
+import Gauge.Internal (benchmark, benchmarkWith)
 import Gauge.Types
-
--- | Run a benchmark interactively, and analyse its performance.
-benchmark :: Benchmarkable -> IO ()
-benchmark = benchmarkWith defaultConfig
-
--- | Run a benchmark interactively, analyse its performance, and
--- return the analysis.
-benchmark' :: Benchmarkable -> IO Report
-benchmark' = benchmarkWith' defaultConfig
-
--- | Run a benchmark interactively, and analyse its performance.
-benchmarkWith :: Config -> Benchmarkable -> IO ()
-benchmarkWith = runWithAnalysisInteractive quickAnalyse
-
--- | Run a benchmark interactively, analyse its performance, and
--- return the analysis.
-benchmarkWith' :: Config -> Benchmarkable -> IO Report
-benchmarkWith' = runWithAnalysisInteractive analyseBenchmark

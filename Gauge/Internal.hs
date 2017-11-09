@@ -18,6 +18,8 @@ module Gauge.Internal
     , runOnly
     , runFixedIters
     , quickAnalyse
+    , benchmark
+    , benchmarkWith
     ) where
 
 import Control.DeepSeq (rnf)
@@ -26,6 +28,7 @@ import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
 import Data.Maybe (fromJust, isJust)
 import Gauge.IO.Printf (note, prolix, rewindClearLine)
+import Gauge.Main.Options (defaultConfig)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_, initializeTime)
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO, withConfig)
 import Gauge.Types
@@ -142,6 +145,14 @@ quickAnalyse desc meas = do
 
 runQuick :: (String -> Bool) -> Benchmark -> Gauge ()
 runQuick = runWithAnalysis quickAnalyse
+
+-- | Run a benchmark interactively, and analyse its performance.
+benchmark :: Benchmarkable -> IO ()
+benchmark = benchmarkWith defaultConfig
+
+-- | Run a benchmark interactively, and analyse its performance.
+benchmarkWith :: Config -> Benchmarkable -> IO ()
+benchmarkWith = runWithAnalysisInteractive quickAnalyse
 
 -- XXX For consistency, this should also use a separate process when
 -- --measure-with is specified.
