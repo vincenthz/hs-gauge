@@ -37,18 +37,14 @@ module Gauge
     , benchmarkWith'
     ) where
 
-import Control.Monad (void)
-import Gauge.Analysis (Report)
-import Gauge.IO.Printf (note)
-import Gauge.Internal (runAndAnalyseOne)
+import Gauge.Analysis (Report, analyseBenchmark)
+import Gauge.Internal (quickAnalyse, runWithAnalysisInteractive)
 import Gauge.Main.Options (defaultConfig)
-import Gauge.Measurement (initializeTime)
-import Gauge.Monad (withConfig)
 import Gauge.Types
 
 -- | Run a benchmark interactively, and analyse its performance.
 benchmark :: Benchmarkable -> IO ()
-benchmark bm = void $ benchmark' bm
+benchmark = benchmarkWith defaultConfig
 
 -- | Run a benchmark interactively, analyse its performance, and
 -- return the analysis.
@@ -57,13 +53,9 @@ benchmark' = benchmarkWith' defaultConfig
 
 -- | Run a benchmark interactively, and analyse its performance.
 benchmarkWith :: Config -> Benchmarkable -> IO ()
-benchmarkWith cfg bm = void $ benchmarkWith' cfg bm
+benchmarkWith = runWithAnalysisInteractive quickAnalyse
 
 -- | Run a benchmark interactively, analyse its performance, and
 -- return the analysis.
 benchmarkWith' :: Config -> Benchmarkable -> IO Report
-benchmarkWith' cfg bm = do
-  initializeTime
-  withConfig cfg $ do
-    _ <- note "benchmarking...\n"
-    runAndAnalyseOne "function" bm
+benchmarkWith' = runWithAnalysisInteractive analyseBenchmark

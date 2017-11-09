@@ -14,9 +14,10 @@ module Gauge.Internal
     (
       runQuick
     , runAndAnalyse
-    , runAndAnalyseOne
+    , runWithAnalysisInteractive
     , runOnly
     , runFixedIters
+    , quickAnalyse
     ) where
 
 import Control.DeepSeq (rnf)
@@ -24,10 +25,10 @@ import Control.Exception (bracket, catch, evaluate)
 import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
 import Data.Maybe (fromJust, isJust)
-import Gauge.Analysis (analyseBenchmark, threshold, Report)
+import Gauge.Analysis (analyseBenchmark, threshold)
 import Gauge.IO.Printf (note, prolix, rewindClearLine)
-import Gauge.Measurement (runBenchmark, runBenchmarkable_)
-import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
+import Gauge.Measurement (runBenchmark, runBenchmarkable_, initializeTime)
+import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO, withConfig)
 import Gauge.Types
 import System.Directory (canonicalizePath, getTemporaryDirectory, removeFile)
 import System.IO (hClose, hSetBuffering, BufferMode(..), openTempFile, stdout)
@@ -83,18 +84,37 @@ runOnly :: FilePath -> (String -> Bool) -> Benchmark -> Gauge ()
 runOnly outfile select bs =
   for select bs $ \_ desc bm -> runOne desc bm (Just outfile) >> return ()
 
+-- | Run a single benchmark and analyse its performance.
+runAndAnalyseOne
+  :: (String -> V.Vector Measured -> Gauge a)
+  -> String
+  -> Benchmarkable
+  -> Gauge a
+runAndAnalyseOne analyse desc bm = do
+  _ <- note "benchmarking %s" desc
+  runOne desc bm Nothing >>= analyse desc
+
 runWithAnalysis
-    :: (String -> V.Vector Measured -> Gauge a)
-    -> (String -> Bool)
-    -> Benchmark
-    -> Gauge ()
+  :: (String -> V.Vector Measured -> Gauge a)
+  -> (String -> Bool)
+  -> Benchmark
+  -> Gauge ()
 runWithAnalysis analyse select bs = do
   gaugeIO $ hSetBuffering stdout NoBuffering
   for select bs $ \_ desc bm -> do
-    _ <- note "benchmarking %s" desc
-    meas <- runOne desc bm Nothing
-    _ <- analyse desc meas
+    _ <- runAndAnalyseOne analyse desc bm
     return ()
+
+-- | Run a benchmark interactively, analyse its performance, and
+-- return the analysis.
+runWithAnalysisInteractive
+  :: (String -> V.Vector Measured -> Gauge a)
+  -> Config
+  -> Benchmarkable
+  -> IO a
+runWithAnalysisInteractive analyse cfg bm = do
+  initializeTime
+  withConfig cfg $ runAndAnalyseOne analyse "function" bm
 
 -- | Analyse a single benchmark.
 quickAnalyse :: String -> V.Vector Measured -> Gauge ()
@@ -131,12 +151,6 @@ runAndAnalyse :: (String -> Bool) -- ^ A predicate that chooses
               -> Benchmark
               -> Gauge ()
 runAndAnalyse = runWithAnalysis analyseBenchmark
-
--- | Run a single benchmark and analyse its performance.
-runAndAnalyseOne :: String -> Benchmarkable -> Gauge Report
-runAndAnalyseOne desc bm = do
-  meas <- runOne desc bm Nothing
-  analyseBenchmark desc meas
 
 -- XXX For consistency, this should also use a separate process when
 -- --measure-with is specified.
