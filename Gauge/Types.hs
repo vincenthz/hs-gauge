@@ -141,6 +141,8 @@ data Config = Config {
     , timeLimit    :: Double
       -- ^ Number of seconds to run a single benchmark.  (In practice,
       -- execution time will very slightly exceed this limit.)
+    , quickMode    :: Bool
+    -- ^ Quickly measure and report raw measurements.
     , measureOnly  :: Maybe FilePath
     -- ^ Just measure the given benchmark and place the raw output in this
     -- file, do not analyse and generate a report.

@@ -38,6 +38,7 @@ defaultConfig = Config
     { confInterval = cl95
     , forceGC      = True
     , timeLimit    = 5
+    , quickMode    = False
     , measureOnly  = Nothing
     , measureWith  = Nothing
     , resamples    = 1000
@@ -70,6 +71,7 @@ opts =
     [ Option "I" ["ci"]         (ReqArg setCI "CI") "Confidence interval"
     , Option "G" ["no-gc"]      (NoArg setNoGC)     "Do not collect garbage between iterations"
     , Option "L" ["time-limit"] (ReqArg setTimeLimit "SECS") "Time limit to run a benchmark"
+    , Option "q" ["quick"]      (NoArg setQuickMode) "Perform a quick measurement and report results without statistical analysis"
     , Option ""  ["measure-only"] (fileArg setMeasureOnly) "Just measure the benchmark and place the raw data in the given file"
     , Option ""  ["measure-with"] (fileArg setMeasureProg) "Perform measurements in a separate process using this program."
     , Option ""  ["resamples"]  (ReqArg setResamples "COUNT") "Number of boostrap resamples to perform"
@@ -93,6 +95,7 @@ opts =
     setCI s v = v { confInterval = mkCL (range 0.001 0.999 s) }
     setNoGC v = v { forceGC = False }
     setTimeLimit s v = v { timeLimit = range 0.1 86400 s }
+    setQuickMode v = v { quickMode = True }
     setMeasureOnly f v = v { measureOnly = Just f }
     setMeasureProg f v = v { measureWith = Just f }
     setResamples s v = v { resamples = range 1 1000000 s }

@@ -144,6 +144,7 @@ scale f s@SampleAnalysis{..} = s {
                                , anStdDev = B.scale f anStdDev
                                }
 
+-- TBD: use a typed time unit
 -- | The amount of time in milliseconds a benchmark must run for in order for
 -- us to have some trust in the raw measurement. We must take minimum 10
 -- samples above this threshold to perform a meaningful statistical analysis.

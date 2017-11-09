@@ -1,4 +1,5 @@
-{-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE Trustworthy     #-}
 
 -- |
 -- Module      : Gauge.Main
@@ -55,7 +56,7 @@ module Gauge.Main
 
 import Control.Monad (unless)
 import Gauge.IO.Printf (printError)
-import Gauge.Internal (runAndAnalyse, runFixedIters, runOnly)
+import Gauge.Internal (runAndAnalyse, runFixedIters, runOnly, runQuick)
 import Gauge.Main.Options (defaultConfig, versionInfo, parseWith, describe)
 import Gauge.Measurement (initializeTime)
 import Gauge.Monad (withConfig, gaugeIO)
@@ -142,7 +143,7 @@ defaultMainWith defCfg bs = withCP65001 $ do
 -- one in your benchmark driver's command-line parser).
 runMode :: Mode -> Config -> [String] -> [Benchmark] -> IO ()
 runMode wat cfg benches bs =
-  -- TBD: This has become messy. We use mode as well as on cfg options for the
+  -- TBD: This has become messy. We use mode as well as cfg options for the
   -- same purpose It is possible to specify multiple exclusive options.  We
   -- need to handle the exclusive options in a better way.
   case wat of
@@ -150,12 +151,15 @@ runMode wat cfg benches bs =
     Version -> putStrLn versionInfo
     Help    -> putStrLn describe
     DefaultMode ->
-        case measureOnly cfg of
-            Just outfile -> runWithConfig $ runOnly (timeLimit cfg) outfile
-            Nothing ->
-                case iters cfg of
-                    Just nbIters -> runWithConfig $ runFixedIters nbIters
-                    Nothing -> runWithConfig runAndAnalyse
+      case measureOnly cfg of
+        Just outfile -> runWithConfig $ runOnly outfile
+        Nothing ->
+          case iters cfg of
+          Just nbIters -> runWithConfig $ runFixedIters nbIters
+          Nothing ->
+            case quickMode cfg of
+              True  -> runWithConfig runQuick
+              False -> runWithConfig runAndAnalyse
   where bsgroup = BenchGroup "" bs
         runWithConfig f = do
           shouldRun <- selectBenches (match cfg) benches bsgroup

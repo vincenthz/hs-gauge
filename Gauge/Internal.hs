@@ -12,7 +12,8 @@
 
 module Gauge.Internal
     (
-      runAndAnalyse
+      runQuick
+    , runAndAnalyse
     , runAndAnalyseOne
     , runOnly
     , runFixedIters
@@ -22,8 +23,9 @@ import Control.DeepSeq (rnf)
 import Control.Exception (bracket, catch, evaluate)
 import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
+import Data.Maybe (fromJust, isJust)
 import Gauge.Analysis (analyseBenchmark, threshold)
-import Gauge.IO.Printf (note, prolix)
+import Gauge.IO.Printf (note, prolix, rewindClearLine)
 import Gauge.Measurement (runBenchmark, runBenchmarkable_)
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
 import Gauge.Types
@@ -46,37 +48,81 @@ withSystemTempFile template action = do
     (action)
   ignoringIOErrors act = act `catch` (\e -> const (return ()) (e :: IOError))
 
--- We should have a minimum number of samples (10) above the threshold for a
--- meaningful statistical analysis.
-runBench :: Benchmarkable -> Double -> IO (V.Vector Measured, Double)
-runBench bm tlimit = runBenchmark bm threshold 10 tlimit
-
-runOnly :: Double -> FilePath -> (String -> Bool) -> Benchmark -> Gauge ()
-runOnly tlimit outfile select bs =
-  for select bs $ \_ _ bm -> gaugeIO $ do
-    output <- runBench bm tlimit
-    writeFile outfile $ show output
-
 -- | Run a single benchmark measurement only in a separate process.
-runBenchmarkWith :: String -> String -> Double -> IO (V.Vector Measured, Double)
-runBenchmarkWith prog desc tlimit =
+runBenchmarkWith :: String -> String -> Double -> Bool
+                 -> IO (V.Vector Measured, Double)
+runBenchmarkWith prog desc tlimit quick =
     withSystemTempFile "gauge-quarantine" $ \file -> do
-      (callProcess prog ["--time-limit", show tlimit
+      -- XXX This is dependent on option names, if the option names change this
+      -- will break.
+      callProcess prog (["--time-limit", show tlimit
                           , "--measure-only", file, desc
-                          ])
+                         ] ++ if quick then ["--quick"] else [])
       readFile file >>= return . read
 
--- | Run a single benchmark and analyse its performance.
-runAndAnalyseOne :: String -> Benchmarkable -> Gauge Report
-runAndAnalyseOne desc bm = do
+-- | Run a single benchmark.
+runOne :: String -> Benchmarkable -> Maybe FilePath
+       -> Gauge (V.Vector Measured)
+runOne desc bm file = do
   Config{..} <- askConfig
-  (meas, timeTaken) <-
+  r@(meas, timeTaken) <-
     case measureWith of
-      Just prog -> gaugeIO $ runBenchmarkWith prog desc timeLimit
-      Nothing -> gaugeIO $ runBench bm timeLimit
-  when (timeTaken > timeLimit * 1.25) .
-    void $ prolix "measurement took %s\n" (secs timeTaken)
-  analyseBenchmark desc meas
+      Just prog -> gaugeIO $ runBenchmarkWith prog desc timeLimit quickMode
+      Nothing -> gaugeIO $
+        if quickMode
+        then runBenchmark bm threshold 2 0
+        else runBenchmark bm threshold 10 timeLimit
+  case file of
+    Just f -> gaugeIO $ writeFile f (show r)
+    Nothing ->
+      when (timeTaken > timeLimit * 1.25) .
+        void $ prolix "measurement took %s\n" (secs timeTaken)
+  return meas
+
+runOnly :: FilePath -> (String -> Bool) -> Benchmark -> Gauge ()
+runOnly outfile select bs =
+  for select bs $ \_ desc bm -> runOne desc bm (Just outfile) >> return ()
+
+runWithAnalysis
+    :: (String -> V.Vector Measured -> Gauge a)
+    -> (String -> Bool)
+    -> Benchmark
+    -> Gauge ()
+runWithAnalysis analyse select bs = do
+  gaugeIO $ hSetBuffering stdout NoBuffering
+  for select bs $ \_ desc bm -> do
+    _ <- note "benchmarking %s" desc
+    meas <- runOne desc bm Nothing
+    _ <- analyse desc meas
+    return ()
+
+-- | Analyse a single benchmark.
+quickAnalyse :: String -> V.Vector Measured -> Gauge ()
+quickAnalyse desc meas = do
+  Config{..} <- askConfig
+  let accessors =
+        if verbosity == Verbose
+        then filter (("iters" /=) . fst) measureAccessors_
+        else filter (("time" ==)  . fst) measureAccessors_
+
+  _ <- note "%s%-40s " rewindClearLine desc
+  if verbosity == Verbose then gaugeIO (putStrLn "") else return ()
+  _ <- traverse
+        (\(k, (a, s, _)) -> reportStat a s k)
+        accessors
+  _ <- note "\n"
+  pure ()
+
+  where
+
+  reportStat accessor sh msg = do
+    let val = V.last $ V.map fromJust
+                     $ V.filter isJust
+                     $ V.map (accessor . rescale) meas
+    note "%-20s %-10s\n" msg (sh val)
+
+runQuick :: (String -> Bool) -> Benchmark -> Gauge ()
+runQuick = runWithAnalysis quickAnalyse
 
 -- | Run, and analyse, one or more benchmarks.
 runAndAnalyse :: (String -> Bool) -- ^ A predicate that chooses
@@ -84,45 +130,16 @@ runAndAnalyse :: (String -> Bool) -- ^ A predicate that chooses
                                   -- name.
               -> Benchmark
               -> Gauge ()
-runAndAnalyse select bs = do
-  -- The type we write to the file is ReportFileContents, a triple.
-  -- But here we ASSUME that the tuple will become a JSON array.
-  -- This assumption lets us stream the reports to the file incrementally:
-  --liftIO $ hPutStr handle $ "[ \"" ++ headerRoot ++ "\", " ++
-  --                           "\"" ++ critVersion ++ "\", [ "
+runAndAnalyse = runWithAnalysis analyseBenchmark
 
-  gaugeIO $ hSetBuffering stdout NoBuffering
-  for select bs $ \_ desc bm -> do
-    _ <- note "benchmarking %s" desc
-    _ <- runAndAnalyseOne desc bm
-    return ()
-    --unless (idx == 0) $
-    --  liftIO $ hPutStr handle ", "
-      {-
-    liftIO $ L.hPut handle (Aeson.encode (rpt::Report))
-    -}
+-- | Run a single benchmark and analyse its performance.
+runAndAnalyseOne :: String -> Benchmarkable -> Gauge Report
+runAndAnalyseOne desc bm = do
+  meas <- runOne desc bm Nothing
+  analyseBenchmark desc meas
 
-  --liftIO $ hPutStr handle " ] ]\n"
-  --liftIO $ hClose handle
-
-  return ()
-{-
-  rpts <- liftIO $ do
-    res <- readJSONReports jsonFile
-    case res of
-      Left err -> error $ "error reading file "++jsonFile++":\n  "++show err
-      Right (_,_,rs) ->
-       case mbJsonFile of
-         Just _ -> return rs
-         _      -> removeFile jsonFile >> return rs
-
-  rawReport rpts
-  report rpts
-  json rpts
-  junit rpts
-  -}
-
-
+-- XXX For consistency, this should also use a separate process when
+-- --measure-with is specified.
 -- | Run a benchmark without analysing its performance.
 runFixedIters :: Int64            -- ^ Number of loop iterations to run.
               -> (String -> Bool) -- ^ A predicate that chooses
