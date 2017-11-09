@@ -32,8 +32,6 @@ module Gauge.Analysis
     , classifyOutliers
     , noteOutliers
     , outlierVariance
-    , resolveAccessors
-    , validateAccessors
     , regress
     , threshold
     ) where
@@ -43,7 +41,7 @@ import Data.Monoid
 
 import Control.Arrow (second)
 import Control.DeepSeq (NFData(rnf))
-import Control.Monad (forM_, unless, when)
+import Control.Monad (forM_, when)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
 import Gauge.Measurement (measure, runBenchmark)
 import Gauge.Monad (Gauge, askConfig, gaugeIO)
@@ -65,7 +63,6 @@ import Statistics.Types (Sample, Estimate(..),ConfInt(..),confidenceInterval
                         ,cl95,confidenceLevel)
 import System.Random.MWC (GenIO, createSystemRandom)
 import Text.Printf (printf)
-import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as G
@@ -394,41 +391,6 @@ regress gen predNames respName meas
                         , regCoeffs    = Map.fromList (zip (predNames ++ ["y"]) (G.toList coeffs))
                         , regRSquare   = r2
                         }
-
-singleton :: [a] -> Bool
-singleton [_] = True
-singleton _   = False
-
--- | Given a list of accessor names (see 'measureKeys'), return either
--- a mapping from accessor name to function or an error message if
--- any names are wrong.
-resolveAccessors :: [String]
-                 -> Either String [(String, Measured -> Maybe Double)]
-resolveAccessors names =
-  case unresolved of
-    [] -> Right [(n, a) | (n, Just (a,_,_)) <- accessors]
-    _  -> Left $ "unknown metric " ++ renderNames unresolved
-  where
-    unresolved = [n | (n, Nothing) <- accessors]
-    accessors = flip map names $ \n -> (n, Map.lookup n measureAccessors)
-
--- | Given predictor and responder names, do some basic validation,
--- then hand back the relevant accessors.
-validateAccessors :: [String]   -- ^ Predictor names.
-                  -> String     -- ^ Responder name.
-                  -> Either String [(String, Measured -> Maybe Double)]
-validateAccessors predNames respName = do
-  when (null predNames) $
-    Left "no predictors specified"
-  let names = respName:predNames
-      dups = map head . filter (not . singleton) .
-             List.group . List.sort $ names
-  unless (null dups) $
-    Left $ "duplicated metric " ++ renderNames dups
-  resolveAccessors names
-
-renderNames :: [String] -> String
-renderNames = List.intercalate ", " . map show
 
 -- | Display a report of the 'Outliers' present in a 'Sample'.
 noteOutliers :: Outliers -> Gauge ()

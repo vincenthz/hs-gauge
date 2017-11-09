@@ -21,9 +21,8 @@ module Gauge.Main.Options
 -- Temporary: to support pre-AMP GHC 7.8.4:
 import Data.Monoid
 
-import Gauge.Analysis (validateAccessors)
-import Gauge.Types (Config(..), Verbosity(..), Mode(..), DisplayMode(..), MatchType(..))
---import Gauge.Types (Config(..), Verbosity(..), measureAccessors, measureKeys, Mode(..), MatchType(..))
+import Gauge.Types (Config(..), Verbosity(..), Mode(..), DisplayMode(..),
+                    MatchType(..), validateAccessors)
 import Data.Char (isSpace, toLower)
 import Data.List (foldl')
 import Data.Version (showVersion)

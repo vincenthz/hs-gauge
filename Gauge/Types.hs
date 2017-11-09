@@ -46,6 +46,8 @@ module Gauge.Types
     , toDouble
     , measureAccessors
     , measureAccessors_
+    , validateAccessors
+    , renderNames
     , measureKeys
     , rescale
     , secs
@@ -73,9 +75,12 @@ import Control.Applicative
 
 import Control.DeepSeq (NFData(rnf))
 import Control.Exception (evaluate)
+import Control.Monad (when, unless)
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
+import qualified Data.List as List
 import Data.Map (Map, fromList)
+import qualified Data.Map as Map
 import GHC.Generics (Generic)
 import Text.Printf (printf)
 import Prelude
@@ -354,6 +359,41 @@ measureAccessors :: Map String ( Measured -> Maybe Double
                                , String
                                )
 measureAccessors = fromList measureAccessors_
+
+renderNames :: [String] -> String
+renderNames = List.intercalate ", " . map show
+
+-- | Given a list of accessor names (see 'measureKeys'), return either
+-- a mapping from accessor name to function or an error message if
+-- any names are wrong.
+resolveAccessors :: [String]
+                 -> Either String [(String, Measured -> Maybe Double)]
+resolveAccessors names =
+  case unresolved of
+    [] -> Right [(n, a) | (n, Just (a,_,_)) <- accessors]
+    _  -> Left $ "unknown metric " ++ renderNames unresolved
+  where
+    unresolved = [n | (n, Nothing) <- accessors]
+    accessors = flip map names $ \n -> (n, Map.lookup n measureAccessors)
+
+singleton :: [a] -> Bool
+singleton [_] = True
+singleton _   = False
+
+-- | Given predictor and responder names, do some basic validation,
+-- then hand back the relevant accessors.
+validateAccessors :: [String]   -- ^ Predictor names.
+                  -> String     -- ^ Responder name.
+                  -> Either String [(String, Measured -> Maybe Double)]
+validateAccessors predNames respName = do
+  when (null predNames) $
+    Left "no predictors specified"
+  let names = respName:predNames
+      dups = map head . filter (not . singleton) .
+             List.group . List.sort $ names
+  unless (null dups) $
+    Left $ "duplicated metric " ++ renderNames dups
+  resolveAccessors names
 
 -- | Normalise every measurement as if 'measIters' was 1.
 --
