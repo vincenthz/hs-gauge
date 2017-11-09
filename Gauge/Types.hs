@@ -311,10 +311,10 @@ measureAccessors_ = [
   , ("cpuTime",            ( Just . measCpuTime
                            , secs
                            , "CPU time"))
-  , ("utime",              ( Just . fromIntegral . measUtime
+  , ("utime",              ( fmap fromIntegral . fromInt . measUtime
                            , secs . (/1000000)
                            , "user time"))
-  , ("stime",              ( Just . fromIntegral . measStime
+  , ("stime",              ( fmap fromIntegral . fromInt . measStime
                            , secs . (/1000000)
                            , "system time"))
   , ("maxrss",             ( fmap fromIntegral . fromInt . measMaxrss
