@@ -11,8 +11,10 @@
 -- Core benchmarking code.
 
 module Gauge.Benchmark
-    (
-      runQuick
+    ( runBenchmark
+    , runBenchmarkable
+    , runBenchmarkable_
+    , runQuick
     , runWithAnalysis
     , runWithAnalysisInteractive
     , runOnly
@@ -22,19 +24,100 @@ module Gauge.Benchmark
     , benchmarkWith
     ) where
 
+import Control.Applicative ((<*))
 import Control.DeepSeq (rnf)
-import Control.Exception (bracket, catch, evaluate)
+import Control.Exception (bracket, catch, evaluate, finally)
 import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
+import Data.List (unfoldr)
 import Gauge.IO.Printf (note, prolix, rewindClearLine)
 import Gauge.Main.Options (defaultConfig)
-import Gauge.Measurement (runBenchmark, runBenchmarkable_, initializeTime)
+import Gauge.Measurement (initializeTime, measure, getTime)
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO, withConfig)
-import Gauge.Types
+import Gauge.Types (Config(..), Benchmark(..), secs, Verbosity(..),
+                    measureAccessors_, rescale, addPrefix, benchNames)
+import Gauge.Types (Benchmarkable(..), Measured(..))
 import System.Directory (canonicalizePath, getTemporaryDirectory, removeFile)
 import System.IO (hClose, hSetBuffering, BufferMode(..), openTempFile, stdout)
+import System.Mem (performGC)
 import qualified Data.Vector as V
 import System.Process (callProcess)
+
+-- | Take a 'Benchmarkable', number of iterations, a function to combine the
+-- results of multiple iterations and a measurement function to measure the
+-- stats over a number of iterations.
+runBenchmarkable :: Benchmarkable
+                 -> Int64
+                 -> (a -> a -> a)
+                 -> (IO () -> IO a)
+                 -> IO a
+runBenchmarkable Benchmarkable{..} i comb f
+    | perRun = work >>= go (i - 1)
+    | otherwise = work
+  where
+    go 0 result = return result
+    go !n !result = work >>= go (n - 1) . comb result
+
+    count | perRun = 1
+          | otherwise = i
+
+    work = do
+        env <- allocEnv count
+        let clean = cleanEnv count env
+            run = runRepeatedly env count
+
+        clean `seq` run `seq` evaluate $ rnf env
+
+        performGC
+        f run `finally` clean <* performGC
+    {-# INLINE work #-}
+{-# INLINE runBenchmarkable #-}
+
+runBenchmarkable_ :: Benchmarkable -> Int64 -> IO ()
+runBenchmarkable_ bm i = runBenchmarkable bm i (\() () -> ()) id
+{-# INLINE runBenchmarkable_ #-}
+
+series :: Double -> Maybe (Int64, Double)
+series k = Just (truncate l, l)
+  where l = k * 1.05
+
+-- Our series starts its growth very slowly when we begin at 1, so we
+-- eliminate repeated values.
+squish :: (Eq a) => [a] -> [a]
+squish ys = foldr go [] ys
+  where go x xs = x : dropWhile (==x) xs
+
+-- | Run a single benchmark, and return measurements collected while executing
+-- it, along with the amount of time the measurement process took. The
+-- benchmark will not terminate until we reach all the minimum bounds
+-- specified. If the minimum bounds are satisfied, the benchmark will terminate
+-- as soon as we reach any of the maximums.
+runBenchmark :: Benchmarkable
+             -> Int
+             -- ^ Minimum sample duration to in ms.
+             -> Int
+             -- ^ Minimum number of samples.
+             -> Double
+             -- ^ Upper bound on how long the benchmarking process
+             -- should take.
+             -> IO (V.Vector Measured, Double)
+runBenchmark bm minDuration minSamples timeLimit = do
+  runBenchmarkable_ bm 1
+  start <- performGC >> getTime
+  let loop [] !_ _ = error "unpossible!"
+      loop (iters:niters) samples acc = do
+        m <- measure (runBenchmarkable bm iters) iters
+        endTime <- getTime
+        if samples >= minSamples &&
+           measTime m >= fromIntegral minDuration / 1000 &&
+           endTime - start >= timeLimit
+          then do
+            let !v = V.reverse (V.fromList acc)
+            return (v, endTime - start)
+          else if measTime m >= fromIntegral minDuration / 1000
+               then loop niters (samples + 1) (m:acc)
+               else loop niters samples (acc)
+  loop (squish (unfoldr series 1)) 0 []
 
 withSystemTempFile
   :: String   -- ^ File name template

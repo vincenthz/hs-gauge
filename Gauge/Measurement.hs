@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE BangPatterns, CPP, ForeignFunctionInterface,
     ScopedTypeVariables #-}
@@ -41,9 +40,6 @@ module Gauge.Measurement
     , Cycles(..)
     , MeasureDiff(..)
     , measure
-    , runBenchmark
-    , runBenchmarkable
-    , runBenchmarkable_
     , measured
     , applyGCStatistics
       -- * Deprecated
@@ -51,13 +47,9 @@ module Gauge.Measurement
     , applyGCStats
     ) where
 
-import Gauge.Types (Benchmarkable(..), Measured(..))
-import Control.Applicative ((<*))
-import Control.DeepSeq (NFData(rnf))
-import Control.Exception (finally,evaluate)
+import Gauge.Types (Measured(..))
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
-import Data.List (unfoldr)
 import Data.Word (Word64, Word8)
 #ifndef mingw32_HOST_OS
 import Foreign.C (CLong(..))
@@ -68,12 +60,10 @@ import GHC.Stats (GCStats(..))
 #if MIN_VERSION_base(4,10,0)
 import GHC.Stats (RTSStats(..), GCDetails(..))
 #endif
-import System.Mem (performGC)
 import Foreign.Ptr
 import Foreign.Marshal.Alloc (allocaBytes)
 import Foreign.Storable
 import qualified Control.Exception as Exc
-import qualified Data.Vector as V
 import qualified GHC.Stats as Stats
 
 #define GAUGE_MEASURE_TIME_NEW
@@ -305,11 +295,13 @@ measureTime f = do
 #endif
 {-# INLINE measureTime #-}
 
--- | Measure the execution of a benchmark a given number of times.
-measure :: Benchmarkable -- ^ Operation to benchmark.
+-- | Invokes the supplied benchmark runner function with a combiner and a
+-- measurer that returns the measurement of a single iteration of an IO action.
+measure :: ((Measured -> Measured -> Measured)
+            -> (IO () -> IO Measured) -> IO Measured)
         -> Int64         -- ^ Number of iterations.
         -> IO Measured
-measure bm iters = runBenchmarkable bm iters addResults $ \act -> do
+measure run iters = run addResults $ \act -> do
   startStats <- getGCStatistics
   startRUsage <- getRUsage
 #ifdef GAUGE_MEASURE_TIME_NEW
@@ -365,79 +357,6 @@ measure bm iters = runBenchmarkable bm iters addResults $ \act -> do
             , measGcCpuSeconds       = add measGcCpuSeconds
             }
 {-# INLINE measure #-}
-
-runBenchmarkable :: Benchmarkable
-                 -> Int64
-                 -> (a -> a -> a)
-                 -> (IO () -> IO a)
-                 -> IO a
-runBenchmarkable Benchmarkable{..} i comb f
-    | perRun = work >>= go (i - 1)
-    | otherwise = work
-  where
-    go 0 result = return result
-    go !n !result = work >>= go (n - 1) . comb result
-
-    count | perRun = 1
-          | otherwise = i
-
-    work = do
-        env <- allocEnv count
-        let clean = cleanEnv count env
-            run = runRepeatedly env count
-
-        clean `seq` run `seq` evaluate $ rnf env
-
-        performGC
-        f run `finally` clean <* performGC
-    {-# INLINE work #-}
-{-# INLINE runBenchmarkable #-}
-
-runBenchmarkable_ :: Benchmarkable -> Int64 -> IO ()
-runBenchmarkable_ bm i = runBenchmarkable bm i (\() () -> ()) id
-{-# INLINE runBenchmarkable_ #-}
-
--- | Run a single benchmark, and return measurements collected while executing
--- it, along with the amount of time the measurement process took. The
--- benchmark will not terminate until we reach all the minimum bounds
--- specified. If the minimum bounds are satisfied, the benchmark will terminate
--- as soon as we reach any of the maximums.
-runBenchmark :: Benchmarkable
-             -> Int
-             -- ^ Minimum sample duration to in ms.
-             -> Int
-             -- ^ Minimum number of samples.
-             -> Double
-             -- ^ Upper bound on how long the benchmarking process
-             -- should take.
-             -> IO (V.Vector Measured, Double)
-runBenchmark bm minDuration minSamples timeLimit = do
-  runBenchmarkable_ bm 1
-  start <- performGC >> getTime
-  let loop [] !_ _ = error "unpossible!"
-      loop (iters:niters) samples acc = do
-        m <- measure bm iters
-        endTime <- getTime
-        if samples >= minSamples &&
-           measTime m >= fromIntegral minDuration / 1000 &&
-           endTime - start >= timeLimit
-          then do
-            let !v = V.reverse (V.fromList acc)
-            return (v, endTime - start)
-          else if measTime m >= fromIntegral minDuration / 1000
-               then loop niters (samples + 1) (m:acc)
-               else loop niters samples (acc)
-  loop (squish (unfoldr series 1)) 0 []
-
--- Our series starts its growth very slowly when we begin at 1, so we
--- eliminate repeated values.
-squish :: (Eq a) => [a] -> [a]
-squish ys = foldr go [] ys
-  where go x xs = x : dropWhile (==x) xs
-
-series :: Double -> Maybe (Int64, Double)
-series k = Just (truncate l, l)
-  where l = k * 1.05
 
 -- | An empty structure.
 measured :: Measured
