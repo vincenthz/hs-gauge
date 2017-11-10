@@ -13,15 +13,50 @@
 module Gauge.Monad
     (
       Gauge
+    , Crit (..)
+    , askCrit
     , askConfig
     , gaugeIO
     , withConfig
     , finallyGauge
     ) where
 
-import Gauge.Monad.Internal (Gauge(..), Crit(..), finallyGauge, askConfig, gaugeIO)
+import Control.Exception
+import Control.Monad (ap)
+import Data.IORef (IORef, newIORef)
 import Gauge.Types (Config)
-import Data.IORef (newIORef)
+import System.Random.MWC (GenIO)
+
+data Crit = Crit
+    { config   :: !Config
+    , gen      :: !(IORef (Maybe GenIO))
+    , overhead :: !(IORef (Maybe Double))
+    }
+
+-- | The monad in which most gauge code executes.
+newtype Gauge a = Gauge { runGauge :: Crit -> IO a }
+
+instance Functor Gauge where
+    fmap f a = Gauge $ \r -> f <$> runGauge a r
+instance Applicative Gauge where
+    pure = Gauge . const . pure
+    (<*>) = ap
+instance Monad Gauge where
+    return    = pure
+    ma >>= mb = Gauge $ \r -> runGauge ma r >>= \a -> runGauge (mb a) r
+
+askConfig :: Gauge Config
+askConfig = Gauge (pure . config)
+
+askCrit :: Gauge Crit
+askCrit = Gauge pure
+
+gaugeIO :: IO a -> Gauge a
+gaugeIO = Gauge . const
+
+finallyGauge :: Gauge a -> Gauge b -> Gauge a
+finallyGauge f g = Gauge $ \crit -> do
+    finally (runGauge f crit) (runGauge g crit)
 
 -- | Run a 'Gauge' action with the given 'Config'.
 withConfig :: Config -> Gauge a -> IO a

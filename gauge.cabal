@@ -39,7 +39,6 @@ library
   other-modules:
     Gauge.IO.Printf
     Gauge.Internal
-    Gauge.Monad.Internal
     Gauge.Main.Options
     Gauge.Measurement
     Gauge.Monad
