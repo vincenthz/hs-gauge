@@ -305,10 +305,9 @@ analyseSample :: String            -- ^ Experiment name.
 analyseSample name meas = do
   Config{..} <- askConfig
   let ests      = [Mean,StdDev]
-      stime     = getMeasurement (measTime . rescale) . G.tail $ meas
+      stime     = getMeasurement (measTime . rescale) $ meas
       n         = G.length meas
-      s         = G.length stime
-  _ <- prolix "bootstrapping with %d of %d samples (%d%%)\n" s n ((s * 100) `quot` n)
+  _ <- prolix "bootstrapping with %d samples\n" n
 
   gen <- getGen
   ers <- (sequence <$>) . mapM (\(ps,r) -> regress gen ps r meas) $ ((["iters"],"time"):regressions)
