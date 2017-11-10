@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE RecordWildCards #-}
 -- |
 -- Module      : Gauge
@@ -33,36 +34,14 @@ module Gauge
     -- * For interactive use
     , benchmark
     , benchmarkWith
+#ifdef HAVE_ANALYSIS
     , benchmark'
     , benchmarkWith'
+#endif
     ) where
 
-import Control.Monad (void)
-import Gauge.IO.Printf (note)
-import Gauge.Internal (runAndAnalyseOne)
-import Gauge.Main.Options (defaultConfig)
-import Gauge.Measurement (initializeTime)
-import Gauge.Monad (withConfig)
+#ifdef HAVE_ANALYSIS
+import Gauge.Analysis (benchmark', benchmarkWith')
+#endif
+import Gauge.Internal (benchmark, benchmarkWith)
 import Gauge.Types
-
--- | Run a benchmark interactively, and analyse its performance.
-benchmark :: Benchmarkable -> IO ()
-benchmark bm = void $ benchmark' bm
-
--- | Run a benchmark interactively, analyse its performance, and
--- return the analysis.
-benchmark' :: Benchmarkable -> IO Report
-benchmark' = benchmarkWith' defaultConfig
-
--- | Run a benchmark interactively, and analyse its performance.
-benchmarkWith :: Config -> Benchmarkable -> IO ()
-benchmarkWith cfg bm = void $ benchmarkWith' cfg bm
-
--- | Run a benchmark interactively, analyse its performance, and
--- return the analysis.
-benchmarkWith' :: Config -> Benchmarkable -> IO Report
-benchmarkWith' cfg bm = do
-  initializeTime
-  withConfig cfg $ do
-    _ <- note "benchmarking...\n"
-    runAndAnalyseOne "function" bm

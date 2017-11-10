@@ -1,4 +1,6 @@
-{-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE Trustworthy     #-}
 
 -- |
 -- Module      : Gauge.Main
@@ -54,8 +56,12 @@ module Gauge.Main
     ) where
 
 import Control.Monad (unless)
+#ifdef HAVE_ANALYSIS
+import Gauge.Analysis (analyseBenchmark)
+import Gauge.Internal (runWithAnalysis)
+#endif
 import Gauge.IO.Printf (printError)
-import Gauge.Internal (runAndAnalyse, runFixedIters, runOnly)
+import Gauge.Internal (runFixedIters, runOnly, runQuick)
 import Gauge.Main.Options (defaultConfig, versionInfo, parseWith, describe)
 import Gauge.Measurement (initializeTime)
 import Gauge.Monad (withConfig, gaugeIO)
@@ -134,7 +140,12 @@ defaultMainWith :: Config
 defaultMainWith defCfg bs = withCP65001 $ do
     args <- getArgs
     let (cfg, extra) = parseWith defCfg args
-    runMode (mode cfg) cfg extra bs
+#ifdef HAVE_ANALYSIS
+    let cfg' = cfg
+#else
+    let cfg' = cfg {quickMode = True}
+#endif
+    runMode (mode cfg') cfg' extra bs
 
 -- | Run a set of 'Benchmark's with the given 'Mode'.
 --
@@ -142,31 +153,34 @@ defaultMainWith defCfg bs = withCP65001 $ do
 -- one in your benchmark driver's command-line parser).
 runMode :: Mode -> Config -> [String] -> [Benchmark] -> IO ()
 runMode wat cfg benches bs =
+  -- TBD: This has become messy. We use mode as well as cfg options for the
+  -- same purpose It is possible to specify multiple exclusive options.  We
+  -- need to handle the exclusive options in a better way.
   case wat of
     List    -> mapM_ putStrLn . sort . concatMap benchNames $ bs
     Version -> putStrLn versionInfo
     Help    -> putStrLn describe
     DefaultMode ->
-        case measureOnly cfg of
-            Just outfile -> do
-                shouldRun <- selectBenches (match cfg) benches bsgroup
-                withConfig cfg $ do
-                    gaugeIO initializeTime
-                    runOnly shouldRun bsgroup (timeLimit cfg) outfile
-            Nothing ->
-                case iters cfg of
-                    Just nbIters -> do
-                        shouldRun <- selectBenches (match cfg) benches bsgroup
-                        withConfig cfg $
-                            runFixedIters nbIters shouldRun bsgroup
-                    Nothing -> do
-                        shouldRun <- selectBenches (match cfg) benches bsgroup
-                        withConfig cfg $ do
-                            --writeCsv ("Name","Mean","MeanLB","MeanUB","Stddev","StddevLB",
-                            --          "StddevUB")
-                            gaugeIO initializeTime
-                            runAndAnalyse shouldRun bsgroup
+      case measureOnly cfg of
+        Just outfile -> runWithConfig $ runOnly outfile
+        Nothing ->
+          case iters cfg of
+          Just nbIters -> runWithConfig $ runFixedIters nbIters
+          Nothing ->
+            case quickMode cfg of
+              True  -> runWithConfig runQuick
+              False ->
+#ifdef HAVE_ANALYSIS
+                  runWithConfig (runWithAnalysis analyseBenchmark)
+#else
+                  runWithConfig runQuick
+#endif
   where bsgroup = BenchGroup "" bs
+        runWithConfig f = do
+          shouldRun <- selectBenches (match cfg) benches bsgroup
+          withConfig cfg $ do
+            gaugeIO initializeTime
+            f shouldRun bsgroup
 
 -- | Display an error message from a command line parsing failure, and
 -- exit.

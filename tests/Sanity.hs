@@ -28,6 +28,9 @@ extraArgs = [ "--raw=sanity.dat", "--json=sanity.json", "--csv=sanity.csv"
 #ifdef VERBOSE
             , "-v 2"
 #endif
+#ifdef QUICK
+            , "--quick"
+#endif
             ]
 
 sanity :: Assertion

@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE BangPatterns, DeriveDataTypeable, RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -21,6 +22,7 @@ module Gauge.Analysis
     ( Outliers(..)
     , OutlierEffect(..)
     , OutlierVariance(..)
+    , Report
     , SampleAnalysis(..)
     , analyseSample
     , scale
@@ -30,22 +32,30 @@ module Gauge.Analysis
     , classifyOutliers
     , noteOutliers
     , outlierVariance
-    , resolveAccessors
-    , validateAccessors
     , regress
+    , benchmark'
+    , benchmarkWith'
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
 import Data.Monoid
 
 import Control.Arrow (second)
-import Control.Monad (forM_, unless, when)
+import Control.DeepSeq (NFData(rnf))
+import Control.Monad (forM_, when)
+import Gauge.Internal (runWithAnalysisInteractive)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
-import Gauge.Measurement (threshold)
-import Gauge.Monad (Gauge, getGen, getOverhead, askConfig, gaugeIO)
+import Gauge.Main.Options (defaultConfig)
+import Gauge.Measurement (measure, runBenchmark)
+import Gauge.Monad (Gauge, askConfig, gaugeIO)
+import Gauge.Monad.Internal (Crit(..), askCrit)
 import Gauge.Types
+import Data.Data (Data, Typeable)
 import Data.Int (Int64)
+import Data.IORef (IORef, readIORef, writeIORef)
+import Data.Map (Map)
 import Data.Maybe (fromJust, isJust)
+import GHC.Generics (Generic)
 import Statistics.Function (sort)
 import Statistics.Quantile (weightedAvg, Sorted(..))
 import Statistics.Regression (bootstrapRegress, olsRegress)
@@ -54,17 +64,136 @@ import Statistics.Sample (mean)
 import Statistics.Sample.KernelDensity (kde)
 import Statistics.Types (Sample, Estimate(..),ConfInt(..),confidenceInterval
                         ,cl95,confidenceLevel)
-import System.Random.MWC (GenIO)
+import System.Random.MWC (GenIO, createSystemRandom)
 import Text.Printf (printf)
-import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as G
 import qualified Data.Vector.Unboxed as U
 import qualified Statistics.Resampling.Bootstrap as B
 import qualified Statistics.Types                as B
+import qualified Statistics.Types as St
 import Prelude
 
+-- | Outliers from sample data, calculated using the boxplot
+-- technique.
+data Outliers = Outliers {
+      samplesSeen :: !Int64
+    , lowSevere   :: !Int64
+    -- ^ More than 3 times the interquartile range (IQR) below the
+    -- first quartile.
+    , lowMild     :: !Int64
+    -- ^ Between 1.5 and 3 times the IQR below the first quartile.
+    , highMild    :: !Int64
+    -- ^ Between 1.5 and 3 times the IQR above the third quartile.
+    , highSevere  :: !Int64
+    -- ^ More than 3 times the IQR above the third quartile.
+    } deriving (Eq, Read, Show, Typeable, Data, Generic)
+
+instance NFData Outliers
+
+-- | A description of the extent to which outliers in the sample data
+-- affect the sample mean and standard deviation.
+data OutlierEffect = Unaffected -- ^ Less than 1% effect.
+                   | Slight     -- ^ Between 1% and 10%.
+                   | Moderate   -- ^ Between 10% and 50%.
+                   | Severe     -- ^ Above 50% (i.e. measurements
+                                -- are useless).
+                     deriving (Eq, Ord, Read, Show, Typeable, Data, Generic)
+
+instance NFData OutlierEffect
+
+instance Monoid Outliers where
+    mempty  = Outliers 0 0 0 0 0
+    mappend = addOutliers
+
+addOutliers :: Outliers -> Outliers -> Outliers
+addOutliers (Outliers s a b c d) (Outliers t w x y z) =
+    Outliers (s+t) (a+w) (b+x) (c+y) (d+z)
+{-# INLINE addOutliers #-}
+
+-- | Analysis of the extent to which outliers in a sample affect its
+-- standard deviation (and to some extent, its mean).
+data OutlierVariance = OutlierVariance {
+      ovEffect   :: OutlierEffect
+    -- ^ Qualitative description of effect.
+    , ovDesc     :: String
+    -- ^ Brief textual description of effect.
+    , ovFraction :: Double
+    -- ^ Quantitative description of effect (a fraction between 0 and 1).
+    } deriving (Eq, Read, Show, Typeable, Data, Generic)
+
+instance NFData OutlierVariance where
+    rnf OutlierVariance{..} = rnf ovEffect `seq` rnf ovDesc `seq` rnf ovFraction
+
+-- | Results of a linear regression.
+data Regression = Regression {
+    regResponder  :: String
+    -- ^ Name of the responding variable.
+  , regCoeffs     :: Map String (St.Estimate St.ConfInt Double)
+    -- ^ Map from name to value of predictor coefficients.
+  , regRSquare    :: St.Estimate St.ConfInt Double
+    -- ^ R&#0178; goodness-of-fit estimate.
+  } deriving (Eq, Read, Show, Typeable, Generic)
+
+instance NFData Regression where
+    rnf Regression{..} =
+      rnf regResponder `seq` rnf regCoeffs `seq` rnf regRSquare
+
+-- | Result of a bootstrap analysis of a non-parametric sample.
+data SampleAnalysis = SampleAnalysis {
+      anRegress    :: [Regression]
+      -- ^ Estimates calculated via linear regression.
+    , anOverhead   :: Double
+      -- ^ Estimated measurement overhead, in seconds.  Estimation is
+      -- performed via linear regression.
+    , anMean       :: St.Estimate St.ConfInt Double
+      -- ^ Estimated mean.
+    , anStdDev     :: St.Estimate St.ConfInt Double
+      -- ^ Estimated standard deviation.
+    , anOutlierVar :: OutlierVariance
+      -- ^ Description of the effects of outliers on the estimated
+      -- variance.
+    } deriving (Eq, Read, Show, Typeable, Generic)
+
+instance NFData SampleAnalysis where
+    rnf SampleAnalysis{..} =
+        rnf anRegress `seq` rnf anOverhead `seq` rnf anMean `seq`
+        rnf anStdDev `seq` rnf anOutlierVar
+
+-- | Data for a KDE chart of performance.
+data KDE = KDE {
+      kdeType   :: String
+    , kdeValues :: U.Vector Double
+    , kdePDF    :: U.Vector Double
+    } deriving (Eq, Read, Show, Typeable, Data, Generic)
+
+instance NFData KDE where
+    rnf KDE{..} = rnf kdeType `seq` rnf kdeValues `seq` rnf kdePDF
+
+-- | Report of a sample analysis.
+data Report = Report {
+      reportName     :: String
+      -- ^ The name of this report.
+    , reportKeys     :: [String]
+      -- ^ See 'measureKeys'.
+    , reportMeasured :: V.Vector Measured
+      -- ^ Raw measurements. These are /not/ corrected for the
+      -- estimated measurement overhead that can be found via the
+      -- 'anOverhead' field of 'reportAnalysis'.
+    , reportAnalysis :: SampleAnalysis
+      -- ^ Report analysis.
+    , reportOutliers :: Outliers
+      -- ^ Analysis of outliers.
+    , reportKDEs     :: [KDE]
+      -- ^ Data for a KDE of times.
+    } deriving (Eq, Read, Show, Typeable, Generic)
+
+instance NFData Report where
+    rnf Report{..} =
+      rnf reportName `seq` rnf reportKeys `seq`
+      rnf reportMeasured `seq` rnf reportAnalysis `seq` rnf reportOutliers `seq`
+      rnf reportKDEs
 -- | Classify outliers in a data set, using the boxplot technique.
 classifyOutliers :: Sample -> Outliers
 classifyOutliers sa = U.foldl' ((. outlier) . mappend) mempty ssa
@@ -141,6 +270,54 @@ scale f s@SampleAnalysis{..} = s {
                                , anStdDev = B.scale f anStdDev
                                }
 
+-- | Return a random number generator, creating one if necessary.
+--
+-- This is not currently thread-safe, but in a harmless way (we might
+-- call 'createSystemRandom' more than once if multiple threads race).
+getGen :: Gauge GenIO
+getGen = memoise gen createSystemRandom
+
+-- | Return an estimate of the measurement overhead.
+getOverhead :: Gauge Double
+getOverhead = do
+  verbose <- ((== Verbose) . verbosity) <$> askConfig
+  memoise overhead $ do
+    (meas,_) <- runBenchmark (whnfIO $ measure (whnfIO $ return ()) 1)
+                             30 10 1
+    let metric get = G.convert . G.map get $ meas
+    let o = G.head . fst $
+            olsRegress [metric (fromIntegral . measIters)] (metric measTime)
+    when verbose $
+      putStrLn $ "measurement overhead " ++ secs o
+    return o
+
+getMeasurement :: (U.Unbox a) => (Measured -> a) -> V.Vector Measured -> U.Vector a
+getMeasurement f v = U.convert . V.map f $ v
+
+-- | Memoise the result of an 'IO' action.
+--
+-- This is not currently thread-safe, but hopefully in a harmless way.
+-- We might call the given action more than once if multiple threads
+-- race, so our caller's job is to write actions that can be run
+-- multiple times safely.
+memoise :: (Crit -> IORef (Maybe a)) -> IO a -> Gauge a
+memoise ref generate = do
+  r <- ref <$> askCrit
+  gaugeIO $ do
+    mv <- readIORef r
+    case mv of
+      Just rv -> return rv
+      Nothing -> do
+        rv <- generate
+        writeIORef r (Just rv)
+        return rv
+
+toCL :: Maybe Double -> B.CL Double
+toCL a =
+    case a of
+        Nothing -> B.cl95
+        Just x -> B.mkCL x
+
 -- | Perform an analysis of a measurement.
 analyseSample :: String            -- ^ Experiment name.
               -> V.Vector Measured -- ^ Sample data.
@@ -153,8 +330,8 @@ analyseSample name meas = do
       -- measurements when bootstrapping the mean and standard
       -- deviations.  Without this, the numbers look nonsensical when
       -- very brief actions are measured.
-      stime     = measure (measTime . rescale) .
-                  G.filter ((>= threshold) . measTime) . G.map fixTime .
+      stime     = getMeasurement (measTime . rescale) .
+                  G.map fixTime .
                   G.tail $ meas
       fixTime m = m { measTime = measTime m - overhead / 2 }
       n         = G.length meas
@@ -167,7 +344,8 @@ analyseSample name meas = do
     Left err -> pure $ Left err
     Right rs -> do
       resamps <- gaugeIO $ resample gen ests resamples stime
-      let [estMean,estStdDev] = B.bootstrapBCA confInterval stime resamps
+      let [estMean,estStdDev] = B.bootstrapBCA (toCL confInterval) stime
+                                               resamps
           ov = outlierVariance estMean estStdDev (fromIntegral n)
           an = SampleAnalysis
                  { anRegress    = rs
@@ -206,49 +384,16 @@ regress gen predNames respName meas
             if not (null unmeasured)
                 then pure $ Left $ "no data available for " ++ renderNames unmeasured
                 else do
-                    let (r:ps) = map ((`measure` meas) . (fromJust .) . snd) accs
+                    let (r:ps) = map ((`getMeasurement` meas) . (fromJust .) . snd) accs
                     Config{..} <- askConfig
-                    (coeffs,r2) <- gaugeIO $ bootstrapRegress gen resamples confInterval olsRegress ps r
+                    (coeffs,r2) <- gaugeIO $
+                        bootstrapRegress gen resamples (toCL confInterval)
+                                         olsRegress ps r
                     pure $ Right $ Regression
                         { regResponder = respName
                         , regCoeffs    = Map.fromList (zip (predNames ++ ["y"]) (G.toList coeffs))
                         , regRSquare   = r2
                         }
-
-singleton :: [a] -> Bool
-singleton [_] = True
-singleton _   = False
-
--- | Given a list of accessor names (see 'measureKeys'), return either
--- a mapping from accessor name to function or an error message if
--- any names are wrong.
-resolveAccessors :: [String]
-                 -> Either String [(String, Measured -> Maybe Double)]
-resolveAccessors names =
-  case unresolved of
-    [] -> Right [(n, a) | (n, Just (a,_,_)) <- accessors]
-    _  -> Left $ "unknown metric " ++ renderNames unresolved
-  where
-    unresolved = [n | (n, Nothing) <- accessors]
-    accessors = flip map names $ \n -> (n, Map.lookup n measureAccessors)
-
--- | Given predictor and responder names, do some basic validation,
--- then hand back the relevant accessors.
-validateAccessors :: [String]   -- ^ Predictor names.
-                  -> String     -- ^ Responder name.
-                  -> Either String [(String, Measured -> Maybe Double)]
-validateAccessors predNames respName = do
-  when (null predNames) $
-    Left "no predictors specified"
-  let names = respName:predNames
-      dups = map head . filter (not . singleton) .
-             List.group . List.sort $ names
-  unless (null dups) $
-    Left $ "duplicated metric " ++ renderNames dups
-  resolveAccessors names
-
-renderNames :: [String] -> String
-renderNames = List.intercalate ", " . map show
 
 -- | Display a report of the 'Outliers' present in a 'Sample'.
 noteOutliers :: Outliers -> Gauge ()
@@ -271,6 +416,7 @@ analyseBenchmark :: String -> V.Vector Measured -> Gauge Report
 analyseBenchmark desc meas = do
   Config{..} <- askConfig
   _ <- prolix "analysing with %d resamples\n" resamples
+  -- XXX handle meas being empty
   erp <- analyseSample desc meas
   case erp of
     Left err -> printError "*** Error: %s\n" err
@@ -335,14 +481,16 @@ analyseBenchmark desc meas = do
                        -> (Double -> String)
                        -> String -> Gauge ()
             reportStat lvl accessor sh msg = do
-              let v = V.map fromJust $ V.filter isJust
-                                     $ V.map (accessor . rescale) meas
-                  total = V.sum v
-                  len = V.length v
-                  avg = total / (fromIntegral len)
-              when (verbosity >= lvl && avg > 0.0) $ do
-                note "%-20s %-10s (%s .. %s)\n" msg (sh avg)
-                  (sh (V.minimum v)) (sh (V.maximum v))
+              let v0 = V.map (accessor . rescale) meas
+              -- Print average only if all data points are present
+              when (V.all isJust v0) $ do
+                  let v = V.map fromJust v0
+                      total = V.sum v
+                      len = V.length v
+                      avg = total / (fromIntegral len)
+                  when (verbosity >= lvl && avg > 0.0) $ do
+                    note "%-20s %-10s (%s .. %s)\n" msg (sh avg)
+                      (sh (V.minimum v)) (sh (V.maximum v))
 
 
 printOverallEffect :: OutlierEffect -> String
@@ -350,3 +498,13 @@ printOverallEffect Unaffected = "unaffected"
 printOverallEffect Slight     = "slightly inflated"
 printOverallEffect Moderate   = "moderately inflated"
 printOverallEffect Severe     = "severely inflated"
+
+-- | Run a benchmark interactively, analyse its performance, and
+-- return the analysis.
+benchmark' :: Benchmarkable -> IO Report
+benchmark' = benchmarkWith' defaultConfig
+
+-- | Run a benchmark interactively, analyse its performance, and
+-- return the analysis.
+benchmarkWith' :: Config -> Benchmarkable -> IO Report
+benchmarkWith' = runWithAnalysisInteractive analyseBenchmark
