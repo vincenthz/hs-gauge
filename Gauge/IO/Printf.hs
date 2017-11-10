@@ -21,7 +21,7 @@ module Gauge.IO.Printf
 
 import Control.Monad (when)
 import Gauge.Monad (Gauge, askConfig, gaugeIO)
-import Gauge.Types (Config(verbosity), Verbosity(..))
+import Gauge.Main.Options (Config(verbosity), Verbosity(..))
 import System.IO (Handle, hFlush, stderr, stdout)
 import Text.Printf (PrintfArg)
 import qualified Text.Printf (HPrintfType, hPrintf)

@@ -24,7 +24,7 @@ module Gauge.Monad
 import Control.Exception
 import Control.Monad (ap)
 import Data.IORef (IORef, newIORef)
-import Gauge.Types (Config)
+import Gauge.Main.Options (Config)
 import System.Random.MWC (GenIO)
 
 data Crit = Crit

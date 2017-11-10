@@ -62,10 +62,9 @@ import Gauge.Benchmark (runWithAnalysis)
 #endif
 import Gauge.IO.Printf (printError)
 import Gauge.Benchmark
-import Gauge.Main.Options (defaultConfig, versionInfo, parseWith, describe)
+import Gauge.Main.Options
 import Gauge.Measurement (initializeTime)
 import Gauge.Monad (withConfig, gaugeIO)
-import Gauge.Types
 import Data.Char (toLower)
 import Data.List (isInfixOf, isPrefixOf, sort)
 import System.Environment (getProgName, getArgs)

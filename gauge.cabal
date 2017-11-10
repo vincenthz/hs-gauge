@@ -35,11 +35,10 @@ library
   exposed-modules:
     Gauge
     Gauge.Main
-    Gauge.Types
+    Gauge.Main.Options
   other-modules:
     Gauge.IO.Printf
     Gauge.Benchmark
-    Gauge.Main.Options
     Gauge.Measurement
     Gauge.Monad
 
