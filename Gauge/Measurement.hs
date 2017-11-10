@@ -54,6 +54,7 @@ module Gauge.Measurement
     , applyGCStats
     ) where
 
+import Gauge.Time (MicroSeconds(..), microSecondsToDouble)
 import Control.DeepSeq (NFData(rnf))
 import Control.Monad (when, unless)
 import Data.Data (Data, Typeable)
@@ -61,7 +62,6 @@ import Data.Int (Int64)
 import Data.Map (Map, fromList)
 import Data.Word (Word64, Word8)
 #ifndef mingw32_HOST_OS
-import Foreign.C (CLong(..))
 import Foreign.Ptr (Ptr)
 #endif
 import GHC.Generics (Generic)
@@ -77,6 +77,9 @@ import qualified Control.Exception as Exc
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified GHC.Stats as Stats
+
+import           Gauge.Source.RUsage (RUsage)
+import qualified Gauge.Source.RUsage as RUsage
 
 -- | A collection of measurements made while benchmarking.
 --
@@ -101,19 +104,19 @@ data Measured = Measured {
       -- ^ Total CPU time elapsed, in seconds.  Includes both user and
       -- kernel (system) time.
 
-    , measUtime              :: !Int64
+    , measUtime              :: !MicroSeconds
     -- ^ User time
-    , measStime              :: !Int64
+    , measStime              :: !MicroSeconds
     -- ^ System time
-    , measMaxrss             :: !Int64
+    , measMaxrss             :: !Word64
     -- ^ Maximum resident set size
-    , measMinflt             :: !Int64
+    , measMinflt             :: !Word64
     -- ^ Minor page faults
-    , measMajflt             :: !Int64
+    , measMajflt             :: !Word64
     -- ^ Major page faults
-    , measNvcsw              :: !Int64
+    , measNvcsw              :: !Word64
     -- ^ Number of voluntary context switches
-    , measNivcsw             :: !Int64
+    , measNivcsw             :: !Word64
     -- ^ Number of involuntary context switches
 
     , measAllocated          :: !Int64
@@ -189,25 +192,25 @@ measureAccessors_ = [
   , ("cpuTime",            ( Just . measCpuTime
                            , secs
                            , "CPU time"))
-  , ("utime",              ( fmap fromIntegral . fromInt . measUtime
-                           , secs . (/1000000)
+  , ("utime",              ( Just . microSecondsToDouble . measUtime
+                           , secs
                            , "user time"))
-  , ("stime",              ( fmap fromIntegral . fromInt . measStime
-                           , secs . (/1000000)
+  , ("stime",              ( Just . microSecondsToDouble . measStime
+                           , secs
                            , "system time"))
-  , ("maxrss",             ( fmap fromIntegral . fromInt . measMaxrss
+  , ("maxrss",             ( fmap fromIntegral . fromWord . measMaxrss
                            , show . rnd
                            , "maximum resident set size"))
-  , ("minflt",             ( fmap fromIntegral . fromInt . measMinflt
+  , ("minflt",             ( fmap fromIntegral . fromWord . measMinflt
                            , show . rnd
                            , "minor page faults"))
-  , ("majflt",             ( fmap fromIntegral . fromInt . measMajflt
+  , ("majflt",             ( fmap fromIntegral . fromWord . measMajflt
                            , show . rnd
                            , "major page faults"))
-  , ("nvcsw",              ( fmap fromIntegral . fromInt . measNvcsw
+  , ("nvcsw",              ( fmap fromIntegral . fromWord . measNvcsw
                            , show . rnd
                            , "voluntary context switches"))
-  , ("nivcsw",             ( fmap fromIntegral . fromInt . measNivcsw
+  , ("nivcsw",             ( fmap fromIntegral . fromWord . measNivcsw
                            , show . rnd
                            , "involuntary context switches"))
   , ("allocated",          ( fmap fromIntegral . fromInt . measAllocated
@@ -291,13 +294,13 @@ rescale m@Measured{..} = m {
     , measCycles             = i measCycles
     , measCpuTime            = d measCpuTime
 
-    , measUtime              = i measUtime
-    , measStime              = i measStime
+    , measUtime              = ts measUtime
+    , measStime              = ts measStime
     -- skip measMaxrss
-    , measMinflt             = i measMinflt
-    , measMajflt             = i measMajflt
-    , measNvcsw              = i measNvcsw
-    , measNivcsw             = i measNivcsw
+    , measMinflt             = w measMinflt
+    , measMajflt             = w measMajflt
+    , measNvcsw              = w measNvcsw
+    , measNivcsw             = w measNivcsw
 
     , measNumGcs             = i measNumGcs
     , measBytesCopied        = i measBytesCopied
@@ -308,6 +311,8 @@ rescale m@Measured{..} = m {
     } where
         d k = maybe k (/ iters) (fromDouble k)
         i k = maybe k (round . (/ iters)) (fromIntegral <$> fromInt k)
+        w k = maybe k (round . (/ iters)) (fromIntegral <$> fromWord k)
+        ts (MicroSeconds k) = MicroSeconds $ maybe k (round . (/ iters)) (fromIntegral <$> fromWord k)
         iters               = fromIntegral measIters :: Double
 
 -- | Convert a (possibly unavailable) GC measurement to a true value.
@@ -316,6 +321,13 @@ rescale m@Measured{..} = m {
 fromInt :: Int64 -> Maybe Int64
 fromInt i | i == minBound = Nothing
           | otherwise     = Just i
+
+-- | Convert a (possibly unavailable) GC measurement to a true value.
+-- If the measurement is a huge negative number that corresponds to
+-- \"no data\", this will return 'Nothing'.
+fromWord :: Word64 -> Maybe Word64
+fromWord i | i == minBound = Nothing
+           | otherwise     = Just i
 
 {-
 -- | Convert from a true value back to the packed representation used
@@ -508,42 +520,6 @@ getGCStatistics = do
   \(_::Exc.SomeException) -> return Nothing
 #endif
 
-data RUsage = RUsage
-    { ruUtime  :: Int64
-    , ruStime  :: Int64
-    , ruMaxrss :: Int64
-    , ruMinflt :: Int64
-    , ruMajflt :: Int64
-    , ruNvcsw  :: Int64
-    , ruNivcsw :: Int64
-    }
-
-getRUsage :: IO (Maybe RUsage)
-getRUsage = do
-#ifdef mingw32_HOST_OS
-    return Nothing
-#else
-    ru <- c_getRUsage
-    -- ru points to static memory, copy it over
-    utime  <- c_getRUutime ru
-    stime  <- c_getRUstime ru
-    maxrss <- c_getRUmaxrss ru
-    minflt <- c_getRUminflt ru
-    majflt <- c_getRUmajflt ru
-    nvcsw  <- c_getRUnvcsw ru
-    nivcsw <- c_getRUnivcsw ru
-
-    return $ Just $ RUsage
-        { ruUtime  = (fromInteger . toInteger) utime
-        , ruStime  = (fromInteger . toInteger) stime
-        , ruMaxrss = (fromInteger . toInteger) maxrss
-        , ruMinflt = (fromInteger . toInteger) minflt
-        , ruMajflt = (fromInteger . toInteger) majflt
-        , ruNvcsw  = (fromInteger . toInteger) nvcsw
-        , ruNivcsw = (fromInteger . toInteger) nivcsw
-        }
-#endif
-
 #ifdef GAUGE_MEASURE_TIME_NEW
 measureTime :: IO () -> IO (TimeRecord 'Differential)
 measureTime f = allocaBytes 64 $ \ptr -> do
@@ -577,13 +553,13 @@ measure :: ((Measured -> Measured -> Measured)
         -> IO Measured
 measure run iters = run addResults $ \act -> do
   startStats <- getGCStatistics
-  startRUsage <- getRUsage
+
 #ifdef GAUGE_MEASURE_TIME_NEW
-  TimeRecord time cpuTime cycles <- measureTime act
+  (TimeRecord time cpuTime cycles, startRUsage, endRUsage) <- RUsage.with RUsage.Self $ measureTime act
 #else
-  (time, cpuTime, cycles) <- measureTime act
+  ((time, cpuTime, cycles), startRUsage, endRUsage) <- RUsage.with RUsage.Self $ measureTime act
 #endif
-  endRUsage <- getRUsage
+
   endStats <- getGCStatistics
   let !m = applyGCStatistics endStats startStats $
            applyRUStatistics endRUsage startRUsage $ measured {
@@ -703,23 +679,28 @@ applyGCStatistics _ _ m = m
 
 -- | Apply the difference between two sets of rusage statistics to a
 -- measurement.
-applyRUStatistics :: Maybe RUsage
+applyRUStatistics :: RUsage
                   -- ^ Statistics gathered at the __end__ of a run.
-                  -> Maybe RUsage
+                  -> RUsage
                   -- ^ Statistics gathered at the __beginning__ of a run.
                   -> Measured
                   -- ^ Value to \"modify\".
                   -> Measured
-applyRUStatistics (Just end) (Just start) m = m {
-    measUtime   = diff ruUtime
-  , measStime   = diff ruStime
-  , measMaxrss  = ruMaxrss end
-  , measMinflt  = diff ruMinflt
-  , measMajflt  = diff ruMajflt
-  , measNvcsw   = diff ruNvcsw
-  , measNivcsw  = diff ruNivcsw
-  } where diff f = f end - f start
-applyRUStatistics _ _ m = m
+applyRUStatistics end start m
+    | RUsage.supported = m { measUtime   = diffTV RUsage.userCpuTime
+                           , measStime   = diffTV RUsage.systemCpuTime
+                           , measMaxrss  = RUsage.maxResidentSetSize end
+                           , measMinflt  = diff RUsage.minorFault
+                           , measMajflt  = diff RUsage.majorFault
+                           , measNvcsw   = diff RUsage.nVolutaryContextSwitch
+                           , measNivcsw  = diff RUsage.nInvolutaryContextSwitch
+                           }
+    | otherwise        = m
+ where diff f = f end - f start
+       diffTV f =
+            let RUsage.TimeVal (MicroSeconds endms) = f end
+                RUsage.TimeVal (MicroSeconds startms) = f start
+             in MicroSeconds (if endms > startms then endms - startms else 0)
 
 ptrToTimeRecord :: Ptr Word8 -> IO (TimeRecord 'Absolute)
 ptrToTimeRecord ptr =
@@ -746,24 +727,3 @@ foreign import ccall unsafe "gauge_getcputime" getCPUTime :: IO Double
 
 -- | Record clock, cpu and cycles in one structure
 foreign import ccall unsafe "gauge_record" getRecordPtr :: Ptr Word8 -> IO ()
-
-#ifndef mingw32_HOST_OS
--- rusage accessor functions
--- XXX All fields of rusage may not be available on MinGW
-foreign import ccall unsafe "gauge_getrusage" c_getRUsage :: IO (Ptr RUsage)
-
-foreign import ccall unsafe "gauge_getrusage_utime" c_getRUutime
-    :: Ptr RUsage -> IO CLong
-foreign import ccall unsafe "gauge_getrusage_stime" c_getRUstime
-    :: Ptr RUsage -> IO CLong
-foreign import ccall unsafe "gauge_getrusage_maxrss" c_getRUmaxrss
-    :: Ptr RUsage -> IO CLong
-foreign import ccall unsafe "gauge_getrusage_minflt" c_getRUminflt
-    :: Ptr RUsage -> IO CLong
-foreign import ccall unsafe "gauge_getrusage_majflt" c_getRUmajflt
-    :: Ptr RUsage -> IO CLong
-foreign import ccall unsafe "gauge_getrusage_nvcsw" c_getRUnvcsw
-    :: Ptr RUsage -> IO CLong
-foreign import ccall unsafe "gauge_getrusage_nivcsw" c_getRUnivcsw
-    :: Ptr RUsage -> IO CLong
-#endif
