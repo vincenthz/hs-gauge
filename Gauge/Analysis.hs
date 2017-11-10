@@ -46,7 +46,6 @@ import Control.Monad (forM_, when)
 import Gauge.Internal (runWithAnalysisInteractive)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
 import Gauge.Main.Options (defaultConfig)
-import Gauge.Measurement (measure, runBenchmark)
 import Gauge.Monad (Gauge, askConfig, gaugeIO)
 import Gauge.Monad.Internal (Crit(..), askCrit)
 import Gauge.Types
@@ -144,9 +143,6 @@ instance NFData Regression where
 data SampleAnalysis = SampleAnalysis {
       anRegress    :: [Regression]
       -- ^ Estimates calculated via linear regression.
-    , anOverhead   :: Double
-      -- ^ Estimated measurement overhead, in seconds.  Estimation is
-      -- performed via linear regression.
     , anMean       :: St.Estimate St.ConfInt Double
       -- ^ Estimated mean.
     , anStdDev     :: St.Estimate St.ConfInt Double
@@ -158,7 +154,7 @@ data SampleAnalysis = SampleAnalysis {
 
 instance NFData SampleAnalysis where
     rnf SampleAnalysis{..} =
-        rnf anRegress `seq` rnf anOverhead `seq` rnf anMean `seq`
+        rnf anRegress `seq` rnf anMean `seq`
         rnf anStdDev `seq` rnf anOutlierVar
 
 -- | Data for a KDE chart of performance.
@@ -178,9 +174,7 @@ data Report = Report {
     , reportKeys     :: [String]
       -- ^ See 'measureKeys'.
     , reportMeasured :: V.Vector Measured
-      -- ^ Raw measurements. These are /not/ corrected for the
-      -- estimated measurement overhead that can be found via the
-      -- 'anOverhead' field of 'reportAnalysis'.
+      -- ^ Raw measurements.
     , reportAnalysis :: SampleAnalysis
       -- ^ Report analysis.
     , reportOutliers :: Outliers
@@ -277,20 +271,6 @@ scale f s@SampleAnalysis{..} = s {
 getGen :: Gauge GenIO
 getGen = memoise gen createSystemRandom
 
--- | Return an estimate of the measurement overhead.
-getOverhead :: Gauge Double
-getOverhead = do
-  verbose <- ((== Verbose) . verbosity) <$> askConfig
-  memoise overhead $ do
-    (meas,_) <- runBenchmark (whnfIO $ measure (whnfIO $ return ()) 1)
-                             30 10 1
-    let metric get = G.convert . G.map get $ meas
-    let o = G.head . fst $
-            olsRegress [metric (fromIntegral . measIters)] (metric measTime)
-    when verbose $
-      putStrLn $ "measurement overhead " ++ secs o
-    return o
-
 getMeasurement :: (U.Unbox a) => (Measured -> a) -> V.Vector Measured -> U.Vector a
 getMeasurement f v = U.convert . V.map f $ v
 
@@ -324,19 +304,10 @@ analyseSample :: String            -- ^ Experiment name.
               -> Gauge (Either String Report)
 analyseSample name meas = do
   Config{..} <- askConfig
-  overhead <- getOverhead
   let ests      = [Mean,StdDev]
-      -- The use of filter here throws away very-low-quality
-      -- measurements when bootstrapping the mean and standard
-      -- deviations.  Without this, the numbers look nonsensical when
-      -- very brief actions are measured.
-      stime     = getMeasurement (measTime . rescale) .
-                  G.map fixTime .
-                  G.tail $ meas
-      fixTime m = m { measTime = measTime m - overhead / 2 }
+      stime     = getMeasurement (measTime . rescale) $ meas
       n         = G.length meas
-      s         = G.length stime
-  _ <- prolix "bootstrapping with %d of %d samples (%d%%)\n" s n ((s * 100) `quot` n)
+  _ <- prolix "bootstrapping with %d samples\n" n
 
   gen <- getGen
   ers <- (sequence <$>) . mapM (\(ps,r) -> regress gen ps r meas) $ ((["iters"],"time"):regressions)
@@ -349,7 +320,6 @@ analyseSample name meas = do
           ov = outlierVariance estMean estStdDev (fromIntegral n)
           an = SampleAnalysis
                  { anRegress    = rs
-                 , anOverhead   = overhead
                  , anMean       = estMean
                  , anStdDev     = estStdDev
                  , anOutlierVar = ov

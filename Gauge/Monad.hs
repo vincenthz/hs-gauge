@@ -27,5 +27,4 @@ import Data.IORef (newIORef)
 withConfig :: Config -> Gauge a -> IO a
 withConfig cfg act = do
   g <- newIORef Nothing
-  o <- newIORef Nothing
-  runGauge act (Crit cfg g o)
+  runGauge act (Crit cfg g)

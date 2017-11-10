@@ -35,7 +35,6 @@ import Prelude
 data Crit = Crit
     { config   :: !Config
     , gen      :: !(IORef (Maybe GenIO))
-    , overhead :: !(IORef (Maybe Double))
     }
 
 -- | The monad in which most gauge code executes.
