@@ -43,5 +43,5 @@ module Gauge
 #ifdef HAVE_ANALYSIS
 import Gauge.Analysis (benchmark', benchmarkWith')
 #endif
-import Gauge.Internal (benchmark, benchmarkWith)
+import Gauge.Benchmark (benchmark, benchmarkWith)
 import Gauge.Types

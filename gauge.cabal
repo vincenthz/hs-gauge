@@ -38,7 +38,7 @@ library
     Gauge.Types
   other-modules:
     Gauge.IO.Printf
-    Gauge.Internal
+    Gauge.Benchmark
     Gauge.Main.Options
     Gauge.Measurement
     Gauge.Monad

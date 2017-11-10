@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns, RecordWildCards #-}
 -- |
--- Module      : Gauge.Internal
+-- Module      : Gauge.Benchmark
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
 --
 -- License     : BSD-style
@@ -10,7 +10,7 @@
 --
 -- Core benchmarking code.
 
-module Gauge.Internal
+module Gauge.Benchmark
     (
       runQuick
     , runWithAnalysis
