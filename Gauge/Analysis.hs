@@ -43,7 +43,7 @@ import Data.Monoid
 import Control.Arrow (second)
 import Control.DeepSeq (NFData(rnf))
 import Control.Monad (forM_, when)
-import Gauge.Benchmark (runWithAnalysisInteractive)
+import Gauge.Benchmark (Benchmarkable, runWithAnalysisInteractive)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
 import Gauge.Main.Options (defaultConfig)
 import Gauge.Monad (Gauge, askConfig, gaugeIO, Crit(..), askCrit)
