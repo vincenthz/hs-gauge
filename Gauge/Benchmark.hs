@@ -1,7 +1,7 @@
-{-# LANGUAGE BangPatterns #-}
-{-# RecordWildCards       #-}
-{-# LANGUAGE GADTs        #-}
-{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE BangPatterns     #-}
+{-# LANGUAGE RecordWildCards  #-}
+{-# LANGUAGE GADTs            #-}
+{-# LANGUAGE RankNTypes       #-}
 -- |
 -- Module      : Gauge.Benchmark
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
@@ -58,10 +58,10 @@ import Data.Int (Int64)
 import Data.List (unfoldr)
 import Gauge.IO.Printf (note, prolix, rewindClearLine)
 import Gauge.Main.Options (defaultConfig)
-import Gauge.Measurement (initializeTime, measure, getTime)
+import Gauge.Measurement (initializeTime, measure, getTime, secs,
+                          measureAccessors_, rescale, Measured(..))
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO, withConfig)
-import Gauge.Types (Config(..), secs, Verbosity(..), measureAccessors_,
-                    rescale, Measured(..))
+import Gauge.Types (Config(..), Verbosity(..))
 import System.Directory (canonicalizePath, getTemporaryDirectory, removeFile)
 import System.IO (hClose, hSetBuffering, BufferMode(..), openTempFile, stdout)
 import System.Mem (performGC)

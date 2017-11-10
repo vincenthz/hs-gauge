@@ -46,6 +46,8 @@ import Control.Monad (forM_, when)
 import Gauge.Benchmark (Benchmarkable, runWithAnalysisInteractive)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
 import Gauge.Main.Options (defaultConfig)
+import Gauge.Measurement (Measured(measTime), secs, rescale, measureKeys,
+                          measureAccessors_, validateAccessors, renderNames)
 import Gauge.Monad (Gauge, askConfig, gaugeIO, Crit(..), askCrit)
 import Gauge.Types
 import Data.Data (Data, Typeable)

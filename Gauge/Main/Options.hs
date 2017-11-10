@@ -22,7 +22,8 @@ module Gauge.Main.Options
 import Data.Monoid
 
 import Gauge.Types (Config(..), Verbosity(..), Mode(..), DisplayMode(..),
-                    MatchType(..), validateAccessors)
+                    MatchType(..))
+import Gauge.Measurement (validateAccessors)
 import Data.Char (isSpace, toLower)
 import Data.List (foldl')
 import Data.Version (showVersion)
