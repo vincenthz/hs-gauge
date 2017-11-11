@@ -13,6 +13,7 @@
 
 module Gauge.Main.Options
     ( defaultConfig
+    , makeMatcher
     , parseWith
     , describe
     , versionInfo
@@ -34,6 +35,7 @@ import System.Console.GetOpt
 import Paths_gauge (version)
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
+import Data.List (isInfixOf, isPrefixOf)
 import GHC.Generics (Generic)
 
 -- | Control the amount of information displayed.
@@ -144,6 +146,18 @@ defaultConfig = Config
     , mode         = DefaultMode
     , displayMode  = StatsTable
     }
+
+-- | Create a function that can tell if a name given on the command
+-- line matches a benchmark.
+makeMatcher :: MatchType
+            -> [String]
+            -- ^ Command line arguments.
+            -> (String -> Bool)
+makeMatcher matchKind args =
+  case matchKind of
+    Prefix   -> \b -> null args || any (`isPrefixOf` b) args
+    Pattern  -> \b -> null args || any (`isInfixOf` b) args
+    IPattern -> \b -> null args || any (`isInfixOf` map toLower b) (map (map toLower) args)
 
 parseWith :: Config
             -- ^ Default configuration to use

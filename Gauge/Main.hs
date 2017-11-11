@@ -20,12 +20,9 @@ module Gauge.Main
       defaultMain
     , defaultMainWith
     , runMode
-    , defaultConfig
     -- * Running Benchmarks Interactively
     , benchmark
     , benchmarkWith
-    -- * Other useful code
-    , makeMatcher
     ) where
 
 import Control.Monad (unless, when)
@@ -37,8 +34,7 @@ import Gauge.Benchmark
 import Gauge.Main.Options
 import Gauge.Measurement (Measured, measureAccessors_, rescale)
 import Gauge.Monad (Gauge, askConfig, withConfig, gaugeIO)
-import Data.Char (toLower)
-import Data.List (isInfixOf, isPrefixOf, sort)
+import Data.List (sort)
 import System.Environment (getProgName, getArgs)
 import System.Exit (ExitCode(..), exitWith)
 -- import System.FilePath.Glob
@@ -64,20 +60,6 @@ import qualified Data.Vector as V
 defaultMain :: [Benchmark] -> IO ()
 defaultMain = defaultMainWith defaultConfig
 
--- XXX We do not need Either in the return type of this?
-
--- | Create a function that can tell if a name given on the command
--- line matches a benchmark.
-makeMatcher :: MatchType
-            -> [String]
-            -- ^ Command line arguments.
-            -> Either String (String -> Bool)
-makeMatcher matchKind args =
-  case matchKind of
-    Prefix -> Right $ \b -> null args || any (`isPrefixOf` b) args
-    Pattern -> Right $ \b -> null args || any (`isInfixOf` b) args
-    IPattern -> Right $ \b -> null args || any (`isInfixOf` map toLower b) (map (map toLower) args)
-
 -- | Display an error message from a command line parsing failure, and
 -- exit.
 parseError :: String -> IO a
@@ -88,7 +70,7 @@ parseError msg = do
 
 selectBenches :: MatchType -> [String] -> Benchmark -> IO (String -> Bool)
 selectBenches matchType benches bsgroup = do
-  toRun <- either parseError return . makeMatcher matchType $ benches
+  let toRun = makeMatcher matchType benches
   unless (null benches || any toRun (benchNames bsgroup)) $
     parseError "none of the specified names matches a benchmark"
   return toRun
