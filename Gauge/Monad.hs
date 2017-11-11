@@ -33,7 +33,8 @@ data Crit = Crit
     , gen      :: !(IORef (Maybe GenIO))
     }
 
--- | The monad in which most gauge code executes.
+-- | 'Gauge' is essentially a reader monad to make the benchmark configuration
+-- available throughout the code.
 newtype Gauge a = Gauge { runGauge :: Crit -> IO a }
 
 instance Functor Gauge where
@@ -45,12 +46,14 @@ instance Monad Gauge where
     return    = pure
     ma >>= mb = Gauge $ \r -> runGauge ma r >>= \a -> runGauge (mb a) r
 
+-- | Retrieve the configuration from the 'Gauge' monad.
 askConfig :: Gauge Config
 askConfig = Gauge (pure . config)
 
 askCrit :: Gauge Crit
 askCrit = Gauge pure
 
+-- | Lift an IO action into the 'Gauge' monad.
 gaugeIO :: IO a -> Gauge a
 gaugeIO = Gauge . const
 
