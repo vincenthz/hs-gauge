@@ -13,7 +13,7 @@
 
 module Gauge.Main.Options
     ( defaultConfig
-    , makeMatcher
+    , makeSelector
     , parseWith
     , describe
     , versionInfo
@@ -147,13 +147,13 @@ defaultConfig = Config
     , displayMode  = StatsTable
     }
 
--- | Create a function that can tell if a name given on the command
--- line matches a benchmark.
-makeMatcher :: MatchType
+-- | Create a benchmark selector function that can tell if a name given on the
+-- command line matches a defined benchmark.
+makeSelector :: MatchType
             -> [String]
             -- ^ Command line arguments.
             -> (String -> Bool)
-makeMatcher matchKind args =
+makeSelector matchKind args =
   case matchKind of
     Prefix   -> \b -> null args || any (`isPrefixOf` b) args
     Pattern  -> \b -> null args || any (`isInfixOf` b) args

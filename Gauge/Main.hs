@@ -70,7 +70,7 @@ parseError msg = do
 
 selectBenches :: MatchType -> [String] -> Benchmark -> IO (String -> Bool)
 selectBenches matchType benches bsgroup = do
-  let toRun = makeMatcher matchType benches
+  let toRun = makeSelector matchType benches
   unless (null benches || any toRun (benchNames bsgroup)) $
     parseError "none of the specified names matches a benchmark"
   return toRun
