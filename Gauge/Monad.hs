@@ -25,6 +25,7 @@ import Control.Exception
 import Control.Monad (ap)
 import Data.IORef (IORef, newIORef)
 import Gauge.Main.Options (Config)
+import Gauge.Measurement (initializeTime)
 import System.Random.MWC (GenIO)
 
 data Crit = Crit
@@ -60,5 +61,6 @@ finallyGauge f g = Gauge $ \crit -> do
 -- | Run a 'Gauge' action with the given 'Config'.
 withConfig :: Config -> Gauge a -> IO a
 withConfig cfg act = do
+  initializeTime
   g <- newIORef Nothing
   runGauge act (Crit cfg g)

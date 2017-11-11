@@ -37,9 +37,9 @@ library
     Gauge
     Gauge.Main
     Gauge.Main.Options
+    Gauge.Benchmark
   other-modules:
     Gauge.IO.Printf
-    Gauge.Benchmark
     Gauge.Measurement
     Gauge.Monad
     Gauge.Time

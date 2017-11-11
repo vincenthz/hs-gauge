@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP             #-}
-{-# LANGUAGE RecordWildCards #-}
 -- |
 -- Module      : Gauge
 -- Copyright   : (c) 2009-2014 Bryan O'Sullivan
@@ -9,38 +8,14 @@
 -- Stability   : experimental
 -- Portability : GHC
 --
--- Core benchmarking code.
+-- Fast and reliable micro benchmarking.
 
 module Gauge
-    (
-    -- * Benchmarkable code
-      Benchmarkable
-    -- * Creating a benchmark suite
-    , Benchmark
-    , env
-    , envWithCleanup
-    , perBatchEnv
-    , perBatchEnvWithCleanup
-    , perRunEnv
-    , perRunEnvWithCleanup
-    , toBenchmarkable
-    , bench
-    , bgroup
-    -- ** Running a benchmark
-    , nf
-    , whnf
-    , nfIO
-    , whnfIO
-    -- * For interactive use
-    , benchmark
-    , benchmarkWith
-#ifdef HAVE_ANALYSIS
-    , benchmark'
-    , benchmarkWith'
-#endif
+    ( module Gauge.Benchmark
+    , module Gauge.Main
+    , module Gauge.Main.Options
     ) where
 
-#ifdef HAVE_ANALYSIS
-import Gauge.Analysis (benchmark', benchmarkWith')
-#endif
 import Gauge.Benchmark
+import Gauge.Main
+import Gauge.Main.Options
