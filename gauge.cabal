@@ -41,6 +41,7 @@ library
     Gauge.Benchmark
     Gauge.Measurement
     Gauge.Monad
+    Gauge.Time
 
   if flag(analysis)
       exposed-modules:
