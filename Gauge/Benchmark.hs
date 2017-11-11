@@ -15,7 +15,7 @@
 
 module Gauge.Benchmark
     (
-    -- * How to write benchmarks
+    -- * Benchmarkable
     -- $bench
 
     -- ** Benchmarking IO actions
@@ -27,25 +27,35 @@ module Gauge.Benchmark
     -- ** Fully evaluating a result
     -- $rnf
 
-    -- * Benchmark descriptions
       Benchmarkable(..)
-    , Benchmark(..)
-    -- * Benchmark construction
-    , env
-    , envWithCleanup
-    , perBatchEnv
-    , perBatchEnvWithCleanup
-    , perRunEnv
-    , perRunEnvWithCleanup
+
+    -- ** Constructing Benchmarkable
     , toBenchmarkable
-    , bench
-    , bgroup
-    , benchNames
-    -- ** Evaluation control
     , whnf
     , nf
     , nfIO
     , whnfIO
+
+    -- ** Constructing Benchmarkable with Environment
+    , perBatchEnv
+    , perBatchEnvWithCleanup
+    , perRunEnv
+    , perRunEnvWithCleanup
+
+    -- * Benchmarks
+    , Benchmark(..)
+
+    -- ** Constructing Benchmarks
+    , bench
+    , bgroup
+
+    -- ** Constructing Benchmarks with Environment
+    , env
+    , envWithCleanup
+
+    -- * Listing benchmarks
+    , benchNames
+
     -- * Running Benchmarks
     , runBenchmark
     , runBenchmarkIters
@@ -69,10 +79,10 @@ import System.Process (callProcess)
 
 -- $bench
 --
--- The 'Benchmarkable' type is a container for code that can be
--- benchmarked.  The value inside must run a benchmark the given
--- number of times.  We are most interested in benchmarking two
--- things:
+-- The 'Benchmarkable' type is a container for code that can be benchmarked.
+-- 'Benchmarkable' is the leaf to construct a 'Benchmark'. The value inside
+-- must run a benchmark the given number of times.  We are most interested in
+-- benchmarking two things:
 --
 -- * 'IO' actions.  Any 'IO' action can be benchmarked directly.
 --
@@ -84,8 +94,8 @@ import System.Process (callProcess)
 
 -- $io
 --
--- Any 'IO' action can be benchmarked easily if its type resembles
--- this:
+-- Any 'IO' action can be benchmarked easily (e.g. using 'nfIO' or 'whnfIO') if
+-- its type resembles this:
 --
 -- @
 -- 'IO' a
