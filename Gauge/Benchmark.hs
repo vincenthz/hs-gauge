@@ -171,9 +171,11 @@ import System.Process (callProcess)
 -- Constructing benchmarkable
 -------------------------------------------------------------------------------
 
--- | A pure function or impure action that can be benchmarked. The
--- 'Int64' parameter indicates the number of times to run the given
--- function or action.
+-- | A pure function or impure action that can be benchmarked. The function to
+-- be benchmarked is wrapped into a function that takes an 'Int64' parameter
+-- which indicates the number of times to run the given function or action.
+-- `runRepeatedly` is the wrapper.  The wrapper is constructed automatically by
+-- the APIs provided in this library to construct 'Benchmarkable'.
 data Benchmarkable = forall a . NFData a =>
     Benchmarkable
       { allocEnv :: Int64 -> IO a
@@ -186,8 +188,9 @@ noop :: Monad m => a -> m ()
 noop = const $ return ()
 {-# INLINE noop #-}
 
--- | Construct a 'Benchmarkable' value from an impure action, where the 'Int64'
--- parameter indicates the number of times to run the action.
+-- | Construct a 'Benchmarkable' value from an impure wrapper action, where the
+-- 'Int64' parameter dictates the number of times the action wrapped inside
+-- would run.
 toBenchmarkable :: (Int64 -> IO ()) -> Benchmarkable
 toBenchmarkable f = Benchmarkable noop (const noop) (const f) False
 {-# INLINE toBenchmarkable #-}
