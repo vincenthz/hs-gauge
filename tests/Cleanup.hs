@@ -5,7 +5,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import Gauge.Main (Benchmark, bench, nfIO)
-import Gauge.Types (Config(..), Verbosity(Quiet))
+import Gauge.Main.Options (Config(..), Verbosity(Quiet))
 import Control.Applicative (pure)
 import Control.DeepSeq (NFData(..))
 import Control.Exception (Exception, try, throwIO)

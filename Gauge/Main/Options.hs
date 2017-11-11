@@ -16,19 +16,110 @@ module Gauge.Main.Options
     , parseWith
     , describe
     , versionInfo
+    , Config (..)
+    , Verbosity (..)
+    , DisplayMode (..)
+    , MatchType (..)
+    , Mode (..)
     ) where
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
 import Data.Monoid
 
-import Gauge.Types (Config(..), Verbosity(..), Mode(..), DisplayMode(..),
-                    MatchType(..), validateAccessors)
+import Gauge.Measurement (validateAccessors)
 import Data.Char (isSpace, toLower)
 import Data.List (foldl')
 import Data.Version (showVersion)
 import System.Console.GetOpt
 import Paths_gauge (version)
-import Prelude
+import Data.Data (Data, Typeable)
+import Data.Int (Int64)
+import GHC.Generics (Generic)
+
+-- | Control the amount of information displayed.
+data Verbosity = Quiet
+               | Normal
+               | Verbose
+                 deriving (Eq, Ord, Bounded, Enum, Read, Show, Typeable, Data,
+                           Generic)
+
+-- | How to match a benchmark name.
+data MatchType = Prefix
+                 -- ^ Match by prefix. For example, a prefix of
+                 -- @\"foo\"@ will match @\"foobar\"@.
+               | Pattern
+                 -- ^ Match by searching given substring in benchmark
+                 -- paths.
+               | IPattern
+                 -- ^ Same as 'Pattern', but case insensitive.
+               deriving (Eq, Ord, Bounded, Enum, Read, Show, Typeable, Data,
+                         Generic)
+
+-- | Execution mode for a benchmark program.
+data Mode = List
+            -- ^ List all benchmarks.
+          | Version
+            -- ^ Print the version.
+          | Help
+            -- ^ Print help
+          | DefaultMode
+            -- ^ Default Benchmark mode
+          deriving (Eq, Read, Show, Typeable, Data, Generic)
+
+data DisplayMode =
+      Condensed
+    | StatsTable
+    deriving (Eq, Read, Show, Typeable, Data, Generic)
+
+-- | Top-level benchmarking configuration.
+data Config = Config {
+      confInterval :: Maybe Double
+      -- ^ Confidence interval for bootstrap estimation (greater than
+      -- 0, less than 1).
+    , forceGC      :: Bool
+      -- ^ /Obsolete, unused/.  This option used to force garbage
+      -- collection between every benchmark run, but it no longer has
+      -- an effect (we now unconditionally force garbage collection).
+      -- This option remains solely for backwards API compatibility.
+    , timeLimit    :: Double
+      -- ^ Number of seconds to run a single benchmark.  (In practice,
+      -- execution time will very slightly exceed this limit.)
+    , quickMode    :: Bool
+    -- ^ Quickly measure and report raw measurements.
+    , measureOnly  :: Maybe FilePath
+    -- ^ Just measure the given benchmark and place the raw output in this
+    -- file, do not analyse and generate a report.
+    , measureWith  :: Maybe FilePath
+    -- ^ Specify the path of the benchmarking program to use (this program
+    -- itself) for measuring the benchmarks in a separate process.
+    , resamples    :: Int
+      -- ^ Number of resamples to perform when bootstrapping.
+    , regressions  :: [([String], String)]
+      -- ^ Regressions to perform.
+    , rawDataFile  :: Maybe FilePath
+      -- ^ File to write binary measurement and analysis data to.  If
+      -- not specified, this will be a temporary file.
+    , reportFile   :: Maybe FilePath
+      -- ^ File to write report output to, with template expanded.
+    , csvFile      :: Maybe FilePath
+      -- ^ File to write CSV summary to.
+    , jsonFile     :: Maybe FilePath
+      -- ^ File to write JSON-formatted results to.
+    , junitFile    :: Maybe FilePath
+      -- ^ File to write JUnit-compatible XML results to.
+    , verbosity    :: Verbosity
+      -- ^ Verbosity level to use when running and analysing
+      -- benchmarks.
+    , template     :: FilePath
+      -- ^ Template file to use if writing a report.
+    , iters        :: Maybe Int64
+      -- ^ Number of iterations
+    , match        :: MatchType
+      -- ^ Type of matching to use, if any
+    , mode         :: Mode
+      -- ^ Mode of operation
+    , displayMode  :: DisplayMode
+    } deriving (Eq, Read, Show, Typeable, Data, Generic)
 
 -- | Default benchmarking configuration.
 defaultConfig :: Config

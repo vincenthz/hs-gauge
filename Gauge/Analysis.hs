@@ -43,12 +43,13 @@ import Data.Monoid
 import Control.Arrow (second)
 import Control.DeepSeq (NFData(rnf))
 import Control.Monad (forM_, when)
-import Gauge.Internal (runWithAnalysisInteractive)
+import Gauge.Benchmark (Benchmarkable, runWithAnalysisInteractive)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
-import Gauge.Main.Options (defaultConfig)
-import Gauge.Monad (Gauge, askConfig, gaugeIO)
-import Gauge.Monad.Internal (Crit(..), askCrit)
-import Gauge.Types
+import Gauge.Main.Options (defaultConfig, Config(..), Verbosity (..),
+                           DisplayMode (..))
+import Gauge.Measurement (Measured(measTime), secs, rescale, measureKeys,
+                          measureAccessors_, validateAccessors, renderNames)
+import Gauge.Monad (Gauge, askConfig, gaugeIO, Crit(..), askCrit)
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
 import Data.IORef (IORef, readIORef, writeIORef)
