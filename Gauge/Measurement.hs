@@ -1,8 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE BangPatterns, CPP, ForeignFunctionInterface,
-    ScopedTypeVariables #-}
+{-# LANGUAGE BangPatterns, CPP, ScopedTypeVariables #-}
 
 #if MIN_VERSION_base(4,10,0)
 -- Disable deprecation warnings for now until we remove the use of getGCStats
@@ -30,15 +29,13 @@
 module Gauge.Measurement
     (
       initializeTime
-    , getTime
-    , getCPUTime
-    , getCycles
+    , Time.getTime
+    , Time.getCPUTime
     , getGCStatistics
     , GCStatistics(..)
-    , ClockTime(..)
-    , CpuTime(..)
-    , Cycles(..)
-    , MeasureDiff(..)
+    , Time.ClockTime(..)
+    , Time.CpuTime(..)
+    , Time.Cycles(..)
     , measure
     , measured
     , applyGCStatistics
@@ -60,18 +57,12 @@ import Control.Monad (when, unless)
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
 import Data.Map (Map, fromList)
-import Data.Word (Word64, Word8)
-#ifndef mingw32_HOST_OS
-import Foreign.Ptr (Ptr)
-#endif
+import Data.Word (Word64)
 import GHC.Generics (Generic)
 import GHC.Stats (GCStats(..))
 #if MIN_VERSION_base(4,10,0)
 import GHC.Stats (RTSStats(..), GCDetails(..))
 #endif
-import Foreign.Ptr
-import Foreign.Marshal.Alloc (allocaBytes)
-import Foreign.Storable
 import Text.Printf (printf)
 import qualified Control.Exception as Exc
 import qualified Data.List as List
@@ -80,6 +71,8 @@ import qualified GHC.Stats as Stats
 
 import           Gauge.Source.RUsage (RUsage)
 import qualified Gauge.Source.RUsage as RUsage
+
+import qualified Gauge.Source.Time as Time
 
 -- | A collection of measurements made while benchmarking.
 --
@@ -237,6 +230,9 @@ measureAccessors_ = [
   ]
   where rnd = round :: Double -> Int64
 
+initializeTime :: IO ()
+initializeTime = Time.initialize
+
 -- | Field names in a 'Measured' record, in the order in which they
 -- appear.
 measureKeys :: [String]
@@ -354,43 +350,29 @@ toDouble (Just d) = d
 
 #define GAUGE_MEASURE_TIME_NEW
 
-data MeasurementType = Differential | Absolute
-
-newtype ClockTime (ty :: MeasurementType) = ClockTime Word64
-    deriving (Eq)
-newtype CpuTime (ty :: MeasurementType) = CpuTime Word64
-    deriving (Eq)
-newtype Cycles (ty :: MeasurementType) = Cycles Word64
-    deriving (Eq)
-
-data TimeRecord w = TimeRecord
-    {-# UNPACK #-} !(ClockTime w)
-    {-# UNPACK #-} !(CpuTime w)
-    {-# UNPACK #-} !(Cycles w)
-
 class MeasureDiff w where
-    measureDiff :: w 'Absolute -> w 'Absolute -> w 'Differential
+    measureDiff :: w 'Time.Absolute -> w 'Time.Absolute -> w 'Time.Differential
 
-instance MeasureDiff ClockTime where
-    measureDiff (ClockTime end) (ClockTime start)
-        | end > start = ClockTime d
-        | otherwise   = ClockTime 0
+instance MeasureDiff Time.ClockTime where
+    measureDiff (Time.ClockTime end) (Time.ClockTime start)
+        | end > start = Time.ClockTime d
+        | otherwise   = Time.ClockTime 0
       where d = end - start
-instance MeasureDiff CpuTime where
-    measureDiff (CpuTime end) (CpuTime start)
-        | end > start = CpuTime d
-        | otherwise   = CpuTime 0
+instance MeasureDiff Time.CpuTime where
+    measureDiff (Time.CpuTime end) (Time.CpuTime start)
+        | end > start = Time.CpuTime d
+        | otherwise   = Time.CpuTime 0
       where d = end - start
-instance MeasureDiff Cycles where
-    measureDiff (Cycles end) (Cycles start)
-        | end > start = Cycles d
-        | otherwise   = Cycles 0
+instance MeasureDiff Time.Cycles where
+    measureDiff (Time.Cycles end) (Time.Cycles start)
+        | end > start = Time.Cycles d
+        | otherwise   = Time.Cycles 0
       where d = end - start
-instance MeasureDiff TimeRecord where
-    measureDiff (TimeRecord a1 b1 c1) (TimeRecord a2 b2 c2) =
-        TimeRecord (measureDiff a1 a2)
-                   (measureDiff b1 b2)
-                   (measureDiff c1 c2)
+instance MeasureDiff Time.TimeRecord where
+    measureDiff (Time.TimeRecord a1 b1 c1) (Time.TimeRecord a2 b2 c2) =
+        Time.TimeRecord (measureDiff a1 a2)
+                        (measureDiff b1 b2)
+                        (measureDiff c1 c2)
 
 -- | Statistics about memory usage and the garbage collector. Apart from
 -- 'gcStatsCurrentBytesUsed' and 'gcStatsCurrentBytesSlop' all are cumulative values since
@@ -521,24 +503,20 @@ getGCStatistics = do
 #endif
 
 #ifdef GAUGE_MEASURE_TIME_NEW
-measureTime :: IO () -> IO (TimeRecord 'Differential)
-measureTime f = allocaBytes 64 $ \ptr -> do
-    getRecordPtr ptr
-    f
-    getRecordPtr (ptr `plusPtr` 32)
-    start <- ptrToTimeRecord ptr
-    end   <- ptrToTimeRecord (ptr `plusPtr` 32)
+measureTime :: IO () -> IO (Time.TimeRecord 'Time.Differential)
+measureTime f = do
+    ((), start, end) <- Time.withMetrics f
     pure $! measureDiff end start
 #else
 measureTime :: IO () -> IO (Double, Double, Word64)
 measureTime f = do
-    startTime  <- getTime
-    startCpu   <- getCPUTime
-    startCycle <- getCycles
+    startTime  <- Time.getTime
+    startCpu   <- Time.getCPUTime
+    (Time.Cycles startCycle) <- Time.getCycles
     f
-    endTime  <- getTime
-    endCpu   <- getCPUTime
-    endCycle <- getCycles
+    endTime  <- Time.getTime
+    endCpu   <- Time.getCPUTime
+    (Time.Cycles endCycle) <- Time.getCycles
     pure ( max 0 (endTime - startTime)
          , max 0 (endCpu - startCpu)
          , max 0 (endCycle - startCycle))
@@ -555,7 +533,7 @@ measure run iters = run addResults $ \act -> do
   startStats <- getGCStatistics
 
 #ifdef GAUGE_MEASURE_TIME_NEW
-  (TimeRecord time cpuTime cycles, startRUsage, endRUsage) <- RUsage.with RUsage.Self $ measureTime act
+  (Time.TimeRecord time cpuTime cycles, startRUsage, endRUsage) <- RUsage.with RUsage.Self $ measureTime act
 #else
   ((time, cpuTime, cycles), startRUsage, endRUsage) <- RUsage.with RUsage.Self $ measureTime act
 #endif
@@ -571,9 +549,9 @@ measure run iters = run addResults $ \act -> do
   return m
   where
 #ifdef GAUGE_MEASURE_TIME_NEW
-    outTime (ClockTime w)  = fromIntegral w / 1.0e9
-    outCputime (CpuTime w) = fromIntegral w / 1.0e9
-    outCycles (Cycles w)   = fromIntegral w
+    outTime (Time.ClockTime w)  = fromIntegral w / 1.0e9
+    outCputime (Time.CpuTime w) = fromIntegral w / 1.0e9
+    outCycles (Time.Cycles w)   = fromIntegral w
 #else
     outTime w = w
     outCputime w = w
@@ -701,29 +679,3 @@ applyRUStatistics end start m
             let RUsage.TimeVal (MicroSeconds endms) = f end
                 RUsage.TimeVal (MicroSeconds startms) = f start
              in MicroSeconds (if endms > startms then endms - startms else 0)
-
-ptrToTimeRecord :: Ptr Word8 -> IO (TimeRecord 'Absolute)
-ptrToTimeRecord ptr =
-    TimeRecord <$> (ClockTime <$> peek (castPtr ptr))
-               <*> (CpuTime <$> peek (castPtr ptr `plusPtr` 8))
-               <*> (Cycles <$> peek (castPtr ptr `plusPtr` 16))
-{-# INLINE ptrToTimeRecord #-}
-
--- | Set up time measurement.
-foreign import ccall unsafe "gauge_inittime" initializeTime :: IO ()
-
--- | Read the CPU cycle counter.
-foreign import ccall unsafe "gauge_rdtsc" getCycles :: IO Word64
-
--- | Return the current wallclock time, in seconds since some
--- arbitrary time.
---
--- You /must/ call 'initializeTime' once before calling this function!
-foreign import ccall unsafe "gauge_gettime" getTime :: IO Double
-
--- | Return the amount of elapsed CPU time, combining user and kernel
--- (system) time into a single measure.
-foreign import ccall unsafe "gauge_getcputime" getCPUTime :: IO Double
-
--- | Record clock, cpu and cycles in one structure
-foreign import ccall unsafe "gauge_record" getRecordPtr :: Ptr Word8 -> IO ()

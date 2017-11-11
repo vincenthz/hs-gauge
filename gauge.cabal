@@ -45,6 +45,7 @@ library
     Gauge.Time
 
     Gauge.Source.RUsage
+    Gauge.Source.Time
 
   if flag(analysis)
       exposed-modules:
@@ -73,6 +74,7 @@ library
 
   hs-source-dirs: . statistics
 
+  include-Dirs: cbits
   c-sources: cbits/cycles.c
   if os(darwin)
     c-sources: cbits/time-osx.c
