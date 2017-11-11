@@ -14,6 +14,7 @@ cabal-version:  >= 1.10
 extra-source-files:
   README.markdown
   changelog.md
+  cbits/*.h
 tested-with:
   GHC==7.8.4,
   GHC==7.10.3,
@@ -41,6 +42,10 @@ library
     Gauge.Benchmark
     Gauge.Measurement
     Gauge.Monad
+    Gauge.Time
+
+    Gauge.Source.RUsage
+    Gauge.Source.Time
 
   if flag(analysis)
       exposed-modules:
@@ -69,14 +74,15 @@ library
 
   hs-source-dirs: . statistics
 
+  include-Dirs: cbits
   c-sources: cbits/cycles.c
   if os(darwin)
-    c-sources: cbits/time-osx.c, cbits/rusage.c
+    c-sources: cbits/time-osx.c
   else {
     if os(windows)
       c-sources: cbits/time-windows.c
     else
-      c-sources: cbits/time-posix.c, cbits/rusage.c
+      c-sources: cbits/time-posix.c
   }
 
   other-modules:
