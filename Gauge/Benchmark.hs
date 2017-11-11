@@ -167,6 +167,10 @@ import System.Process (callProcess)
 -- benchmark is merely how long it takes to produce the first list
 -- element!
 
+-------------------------------------------------------------------------------
+-- Constructing benchmarkable
+-------------------------------------------------------------------------------
+
 -- | A pure function or impure action that can be benchmarked. The
 -- 'Int64' parameter indicates the number of times to run the given
 -- function or action.
@@ -228,6 +232,105 @@ whnfIO :: IO a -> Benchmarkable
 whnfIO = toBenchmarkable . impure id
 {-# INLINE whnfIO #-}
 
+-------------------------------------------------------------------------------
+-- Constructing Benchmarkable with Environment
+-------------------------------------------------------------------------------
+
+-- | Same as `perBatchEnv`, but but allows for an additional callback
+-- to clean up the environment. Resource clean up is exception safe, that is,
+-- it runs even if the 'Benchmark' throws an exception.
+perBatchEnvWithCleanup
+    :: (NFData env, NFData b)
+    => (Int64 -> IO env)
+    -- ^ Create an environment for a batch of N runs. The environment will be
+    -- evaluated to normal form before running.
+    -> (Int64 -> env -> IO ())
+    -- ^ Clean up the created environment.
+    -> (env -> IO b)
+    -- ^ Function returning the IO action that should be benchmarked with the
+    -- newly generated environment.
+    -> Benchmarkable
+perBatchEnvWithCleanup alloc clean work
+    = Benchmarkable alloc clean (impure rnf . work) False
+
+-- | Create a Benchmarkable where a fresh environment is allocated for every
+-- batch of runs of the benchmarkable.
+--
+-- The environment is evaluated to normal form before the benchmark is run.
+--
+-- When using 'whnf', 'whnfIO', etc. Gauge creates a 'Benchmarkable'
+-- whichs runs a batch of @N@ repeat runs of that expressions. Gauge may
+-- run any number of these batches to get accurate measurements. Environments
+-- created by 'env' and 'envWithCleanup', are shared across all these batches
+-- of runs.
+--
+-- This is fine for simple benchmarks on static input, but when benchmarking
+-- IO operations where these operations can modify (and especially grow) the
+-- environment this means that later batches might have their accuracy effected
+-- due to longer, for example, longer garbage collection pauses.
+--
+-- An example: Suppose we want to benchmark writing to a Chan, if we allocate
+-- the Chan using environment and our benchmark consists of @writeChan env ()@,
+-- the contents and thus size of the Chan will grow with every repeat. If
+-- Gauge runs a 1,000 batches of 1,000 repeats, the result is that the
+-- channel will have 999,000 items in it by the time the last batch is run.
+-- Since GHC GC has to copy the live set for every major GC this means our last
+-- set of writes will suffer a lot of noise of the previous repeats.
+--
+-- By allocating a fresh environment for every batch of runs this function
+-- should eliminate this effect.
+perBatchEnv
+    :: (NFData env, NFData b)
+    => (Int64 -> IO env)
+    -- ^ Create an environment for a batch of N runs. The environment will be
+    -- evaluated to normal form before running.
+    -> (env -> IO b)
+    -- ^ Function returning the IO action that should be benchmarked with the
+    -- newly generated environment.
+    -> Benchmarkable
+perBatchEnv alloc = perBatchEnvWithCleanup alloc (const noop)
+
+-- | Same as `perRunEnv`, but but allows for an additional callback
+-- to clean up the environment. Resource clean up is exception safe, that is,
+-- it runs even if the 'Benchmark' throws an exception.
+perRunEnvWithCleanup
+    :: (NFData env, NFData b)
+    => IO env
+    -- ^ Action that creates the environment for a single run.
+    -> (env -> IO ())
+    -- ^ Clean up the created environment.
+    -> (env -> IO b)
+    -- ^ Function returning the IO action that should be benchmarked with the
+    -- newly genereted environment.
+    -> Benchmarkable
+perRunEnvWithCleanup alloc clean work = bm { perRun = True }
+  where
+    bm = perBatchEnvWithCleanup (const alloc) (const clean) work
+
+-- | Create a Benchmarkable where a fresh environment is allocated for every
+-- run of the operation to benchmark. This is useful for benchmarking mutable
+-- operations that need a fresh environment, such as sorting a mutable Vector.
+--
+-- As with 'env' and 'perBatchEnv' the environment is evaluated to normal form
+-- before the benchmark is run.
+--
+-- This introduces extra noise and result in reduce accuracy compared to other
+-- Gauge benchmarks. But allows easier benchmarking for mutable operations
+-- than was previously possible.
+perRunEnv
+    :: (NFData env, NFData b)
+    => IO env
+    -- ^ Action that creates the environment for a single run.
+    -> (env -> IO b)
+    -- ^ Function returning the IO action that should be benchmarked with the
+    -- newly genereted environment.
+    -> Benchmarkable
+perRunEnv alloc = perRunEnvWithCleanup alloc noop
+
+-------------------------------------------------------------------------------
+-- Constructing benchmarks
+-------------------------------------------------------------------------------
+
 -- | Specification of a collection of benchmarks and environments. A
 -- benchmark may consist of:
 --
@@ -247,6 +350,22 @@ instance Show Benchmark where
     show (Environment _ _ b) = "Environment _ _" ++ show (b undefined)
     show (Benchmark d _)   = "Benchmark " ++ show d
     show (BenchGroup d _)  = "BenchGroup " ++ show d
+
+-- | Create a single benchmark.
+bench :: String                 -- ^ A name to identify the benchmark.
+      -> Benchmarkable          -- ^ An activity to be benchmarked.
+      -> Benchmark
+bench = Benchmark
+
+-- | Group several benchmarks together under a common name.
+bgroup :: String                -- ^ A name to identify the group of benchmarks.
+       -> [Benchmark]           -- ^ Benchmarks to group under this name.
+       -> Benchmark
+bgroup = BenchGroup
+
+-------------------------------------------------------------------------------
+-- Constructing Benchmarks with Environment
+-------------------------------------------------------------------------------
 
 -- | Run a benchmark (or collection of benchmarks) in the given
 -- environment.  The purpose of an environment is to lazily create
@@ -347,108 +466,9 @@ envWithCleanup
     -> Benchmark
 envWithCleanup = Environment
 
--- | Create a Benchmarkable where a fresh environment is allocated for every
--- batch of runs of the benchmarkable.
---
--- The environment is evaluated to normal form before the benchmark is run.
---
--- When using 'whnf', 'whnfIO', etc. Gauge creates a 'Benchmarkable'
--- whichs runs a batch of @N@ repeat runs of that expressions. Gauge may
--- run any number of these batches to get accurate measurements. Environments
--- created by 'env' and 'envWithCleanup', are shared across all these batches
--- of runs.
---
--- This is fine for simple benchmarks on static input, but when benchmarking
--- IO operations where these operations can modify (and especially grow) the
--- environment this means that later batches might have their accuracy effected
--- due to longer, for example, longer garbage collection pauses.
---
--- An example: Suppose we want to benchmark writing to a Chan, if we allocate
--- the Chan using environment and our benchmark consists of @writeChan env ()@,
--- the contents and thus size of the Chan will grow with every repeat. If
--- Gauge runs a 1,000 batches of 1,000 repeats, the result is that the
--- channel will have 999,000 items in it by the time the last batch is run.
--- Since GHC GC has to copy the live set for every major GC this means our last
--- set of writes will suffer a lot of noise of the previous repeats.
---
--- By allocating a fresh environment for every batch of runs this function
--- should eliminate this effect.
-perBatchEnv
-    :: (NFData env, NFData b)
-    => (Int64 -> IO env)
-    -- ^ Create an environment for a batch of N runs. The environment will be
-    -- evaluated to normal form before running.
-    -> (env -> IO b)
-    -- ^ Function returning the IO action that should be benchmarked with the
-    -- newly generated environment.
-    -> Benchmarkable
-perBatchEnv alloc = perBatchEnvWithCleanup alloc (const noop)
-
--- | Same as `perBatchEnv`, but but allows for an additional callback
--- to clean up the environment. Resource clean up is exception safe, that is,
--- it runs even if the 'Benchmark' throws an exception.
-perBatchEnvWithCleanup
-    :: (NFData env, NFData b)
-    => (Int64 -> IO env)
-    -- ^ Create an environment for a batch of N runs. The environment will be
-    -- evaluated to normal form before running.
-    -> (Int64 -> env -> IO ())
-    -- ^ Clean up the created environment.
-    -> (env -> IO b)
-    -- ^ Function returning the IO action that should be benchmarked with the
-    -- newly generated environment.
-    -> Benchmarkable
-perBatchEnvWithCleanup alloc clean work
-    = Benchmarkable alloc clean (impure rnf . work) False
-
--- | Create a Benchmarkable where a fresh environment is allocated for every
--- run of the operation to benchmark. This is useful for benchmarking mutable
--- operations that need a fresh environment, such as sorting a mutable Vector.
---
--- As with 'env' and 'perBatchEnv' the environment is evaluated to normal form
--- before the benchmark is run.
---
--- This introduces extra noise and result in reduce accuracy compared to other
--- Gauge benchmarks. But allows easier benchmarking for mutable operations
--- than was previously possible.
-perRunEnv
-    :: (NFData env, NFData b)
-    => IO env
-    -- ^ Action that creates the environment for a single run.
-    -> (env -> IO b)
-    -- ^ Function returning the IO action that should be benchmarked with the
-    -- newly genereted environment.
-    -> Benchmarkable
-perRunEnv alloc = perRunEnvWithCleanup alloc noop
-
--- | Same as `perRunEnv`, but but allows for an additional callback
--- to clean up the environment. Resource clean up is exception safe, that is,
--- it runs even if the 'Benchmark' throws an exception.
-perRunEnvWithCleanup
-    :: (NFData env, NFData b)
-    => IO env
-    -- ^ Action that creates the environment for a single run.
-    -> (env -> IO ())
-    -- ^ Clean up the created environment.
-    -> (env -> IO b)
-    -- ^ Function returning the IO action that should be benchmarked with the
-    -- newly genereted environment.
-    -> Benchmarkable
-perRunEnvWithCleanup alloc clean work = bm { perRun = True }
-  where
-    bm = perBatchEnvWithCleanup (const alloc) (const clean) work
-
--- | Create a single benchmark.
-bench :: String                 -- ^ A name to identify the benchmark.
-      -> Benchmarkable          -- ^ An activity to be benchmarked.
-      -> Benchmark
-bench = Benchmark
-
--- | Group several benchmarks together under a common name.
-bgroup :: String                -- ^ A name to identify the group of benchmarks.
-       -> [Benchmark]           -- ^ Benchmarks to group under this name.
-       -> Benchmark
-bgroup = BenchGroup
+-------------------------------------------------------------------------------
+-- Listing Benchmarks
+-------------------------------------------------------------------------------
 
 -- | Add the given prefix to a name.  If the prefix is empty, the name
 -- is returned unmodified.  Otherwise, the prefix and name are
@@ -467,7 +487,7 @@ benchNames (Benchmark d _)   = [d]
 benchNames (BenchGroup d bs) = map (addPrefix d) . concatMap benchNames $ bs
 
 -------------------------------------------------------------------------------
--- Running benchmarks
+-- Running benchmarkable
 -------------------------------------------------------------------------------
 
 -- | Take a 'Benchmarkable', number of iterations, a function to combine the
@@ -588,6 +608,10 @@ runBenchmarkable desc bm = do
       when (timeTaken > timeLimit * 1.25) .
         void $ prolix "measurement took %s\n" (secs timeTaken)
       return meas
+
+-------------------------------------------------------------------------------
+-- Running benchmarks
+-------------------------------------------------------------------------------
 
 -- | Run benchmarkables, selected by a given selector function, under a given
 -- benchmark and analyse the output using the given analysis function.
