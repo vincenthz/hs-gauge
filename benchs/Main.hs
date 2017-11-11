@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 module Main where
 
-import Gauge.Main
+import Gauge
 import System.IO.Unsafe
 import Control.Concurrent
 import Control.Exception
