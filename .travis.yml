@@ -23,6 +23,10 @@ matrix:
     language: generic
     compiler: ghc-8.2
     addons: { apt: { packages: [ libgmp-dev ] } }
+  - env: BUILD=stack RESOLVER=ghc-8.2 STACK_OPTIONS="--flag gauge:-analysis"
+    language: generic
+    compiler: ghc-8.2
+    addons: { apt: { packages: [ libgmp-dev ] } }
   - env: BUILD=stack RESOLVER=ghc-7.10
     language: generic
     addons: { apt: { packages: [ libgmp-dev ] } }
@@ -61,7 +65,7 @@ script:
   case "$BUILD" in
     stack)
       rm stack.yaml && ln -sv .travis/stack-${RESOLVER}.yaml stack.yaml
-      stack --no-terminal test \
+      stack --no-terminal test $STACK_OPTIONS \
           --install-ghc \
           --coverage --bench --no-run-benchmarks \
           --haddock --no-haddock-deps
