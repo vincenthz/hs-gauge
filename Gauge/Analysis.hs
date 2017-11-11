@@ -43,7 +43,7 @@ import Data.Monoid
 import Control.Arrow (second)
 import Control.DeepSeq (NFData(rnf))
 import Control.Monad (forM_, when)
-import Gauge.Benchmark (Benchmark (..), Benchmarkable, runBenchmarkWith)
+import Gauge.Benchmark (Benchmark (..), Benchmarkable, runBenchmark)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
 import Gauge.Main.Options (defaultConfig, Config(..), Verbosity (..),
                            DisplayMode (..))
@@ -480,7 +480,7 @@ printOverallEffect Severe     = "severely inflated"
 benchmarkWith' :: Config -> Benchmarkable -> IO ()
 benchmarkWith' cfg bm =
   withConfig cfg $
-    runBenchmarkWith analyseBenchmark (const True) (Benchmark "function" bm)
+    runBenchmark (const True) (Benchmark "function" bm) analyseBenchmark
 
 -- | Run a benchmark interactively and analyse its performanc.
 benchmark' :: Benchmarkable -> IO ()

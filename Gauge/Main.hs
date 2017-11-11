@@ -105,7 +105,7 @@ quickAnalyse desc meas = do
 benchmarkWith :: Config -> Benchmarkable -> IO ()
 benchmarkWith cfg bm =
   withConfig cfg $
-    runBenchmarkWith quickAnalyse (const True) (Benchmark "function" bm)
+    runBenchmark (const True) (Benchmark "function" bm) quickAnalyse
 
 -- | Run a benchmark interactively with default config, and analyse its
 -- performance.
@@ -164,22 +164,22 @@ runMode wat cfg benches bs =
     Help    -> putStrLn describe
     DefaultMode ->
       case measureOnly cfg of
-        Just outfile -> runWithConfig $ runBenchmarkWith (\_ r ->
+        Just outfile -> runWithConfig runBenchmark (\_ r ->
                           gaugeIO (writeFile outfile (show r)))
         Nothing ->
           case iters cfg of
-          Just nbIters -> runWithConfig $ runFixedIters nbIters
+          Just nbIters -> runWithConfig runBenchmarkIters nbIters
           Nothing ->
             case quickMode cfg of
-              True  -> runWithConfig (runBenchmarkWith quickAnalyse)
+              True  -> runWithConfig runBenchmark quickAnalyse
               False ->
 #ifdef HAVE_ANALYSIS
-                  runWithConfig (runBenchmarkWith analyseBenchmark)
+                  runWithConfig runBenchmark analyseBenchmark
 #else
-                  runWithConfig (runBenchmarkWith quickAnalyse)
+                  runWithConfig runBenchmark quickAnalyse
 #endif
   where bsgroup = BenchGroup "" bs
-        runWithConfig f = do
+        runWithConfig f arg = do
           hSetBuffering stdout NoBuffering
           selector <- selectBenches (match cfg) benches bsgroup
-          withConfig cfg $ f selector bsgroup
+          withConfig cfg $ f selector bsgroup arg
