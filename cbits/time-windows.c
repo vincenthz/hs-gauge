@@ -16,6 +16,7 @@
 #include <windows.h>
 
 #include "gauge-time.h"
+#include "cycles.h"
 
 static LARGE_INTEGER freq;
 static double freq_recip;
@@ -72,5 +73,5 @@ void gauge_record(struct gauge_time *tr)
     tr->clock_nanosecs = (li.QuadPart / freq.QuadPart * ref_second) +
                          ((li.QuadPart % freq.QuadPart) * ref_second) / freq.QuadPart;
     tr->cpu_nanosecs = time * ref_100nanosecond;
-    tr->rdtsc = 0;
+    tr->rdtsc = instruction_rdtsc();
 }
