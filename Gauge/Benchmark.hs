@@ -176,6 +176,13 @@ import System.Process (callProcess)
 -- which indicates the number of times to run the given function or action.
 -- `runRepeatedly` is the wrapper.  The wrapper is constructed automatically by
 -- the APIs provided in this library to construct 'Benchmarkable'.
+--
+-- When 'perRun' is not set then 'runRepeatedly' is invoked to perform all
+-- iterations in one measurement interval.  When 'perRun' is set,
+-- 'runRepeatedly' is always invoked with 1 iteration in one measurement
+-- interval, before a measurement 'allocEnv' is invoked and after the
+-- measurement 'cleanEnv' is invoked. The performance counters for each
+-- iteration are then added together for all iterations.
 data Benchmarkable = forall a . NFData a =>
     Benchmarkable
       { allocEnv :: Int64 -> IO a
@@ -544,7 +551,7 @@ squish ys = foldr go [] ys
 -- as soon as we reach any of the maximums.
 runBenchmarkable' :: Benchmarkable
              -> Int
-             -- ^ Minimum sample duration to in ms.
+             -- ^ Minimum sample duration in ms.
              -> Int
              -- ^ Minimum number of samples.
              -> Double
