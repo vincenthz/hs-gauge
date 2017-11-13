@@ -386,7 +386,7 @@ noteOutliers o = do
 analyseBenchmark :: String -> V.Vector Measured -> Gauge Report
 analyseBenchmark desc meas = do
   Config{..} <- askConfig
-  _ <- prolix "analysing with %d resamples\n" resamples
+  _ <- prolix "%sanalysing with %d resamples\n" rewindClearLine resamples
   -- XXX handle meas being empty
   erp <- analyseSample desc meas
   case erp of
