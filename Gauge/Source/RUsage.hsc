@@ -61,22 +61,22 @@ long   ru_nivcsw;        /* involuntary context switches */
 -}
 
 data RUsage = RUsage
-    { userCpuTime              :: {-# UNPACK #-} !TimeVal
-    , systemCpuTime            :: {-# UNPACK #-} !TimeVal
-    , maxResidentSetSize       :: {-# UNPACK #-} !Word64
-    , iSharedMemorySize        :: {-# UNPACK #-} !Word64
-    , iUnsharedDataSize        :: {-# UNPACK #-} !Word64
-    , iUnsharedStackSize       :: {-# UNPACK #-} !Word64
-    , minorFault               :: {-# UNPACK #-} !Word64
-    , majorFault               :: {-# UNPACK #-} !Word64
-    , nSwap                    :: {-# UNPACK #-} !Word64
-    , inBlock                  :: {-# UNPACK #-} !Word64
-    , outBlock                 :: {-# UNPACK #-} !Word64
-    , msgSend                  :: {-# UNPACK #-} !Word64
-    , msgRecv                  :: {-# UNPACK #-} !Word64
-    , nSignals                 :: {-# UNPACK #-} !Word64
-    , nVolutaryContextSwitch   :: {-# UNPACK #-} !Word64
-    , nInvolutaryContextSwitch :: {-# UNPACK #-} !Word64
+    { userCpuTime               :: {-# UNPACK #-} !TimeVal
+    , systemCpuTime             :: {-# UNPACK #-} !TimeVal
+    , maxResidentSetSize        :: {-# UNPACK #-} !Word64
+    , iSharedMemorySize         :: {-# UNPACK #-} !Word64
+    , iUnsharedDataSize         :: {-# UNPACK #-} !Word64
+    , iUnsharedStackSize        :: {-# UNPACK #-} !Word64
+    , minorFault                :: {-# UNPACK #-} !Word64
+    , majorFault                :: {-# UNPACK #-} !Word64
+    , nSwap                     :: {-# UNPACK #-} !Word64
+    , inBlock                   :: {-# UNPACK #-} !Word64
+    , outBlock                  :: {-# UNPACK #-} !Word64
+    , msgSend                   :: {-# UNPACK #-} !Word64
+    , msgRecv                   :: {-# UNPACK #-} !Word64
+    , nSignals                  :: {-# UNPACK #-} !Word64
+    , nVoluntaryContextSwitch   :: {-# UNPACK #-} !Word64
+    , nInvoluntaryContextSwitch :: {-# UNPACK #-} !Word64
     } deriving (Show, Eq)
 
 newtype TimeVal = TimeVal MicroSeconds
