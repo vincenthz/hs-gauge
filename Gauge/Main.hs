@@ -82,7 +82,7 @@ quickAnalyse desc meas = do
   Config{..} <- askConfig
   let accessors =
         if verbosity == Verbose
-        then filter (("iters" /=) . fst) measureAccessors_
+        then measureAccessors_
         else filter (("time" ==)  . fst) measureAccessors_
 
   _ <- note "%s%-40s " rewindClearLine desc
