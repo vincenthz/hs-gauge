@@ -558,23 +558,23 @@ runBenchmarkable' :: Benchmarkable
              -> Double
              -- ^ Upper bound on how long the benchmarking process
              -- should take.
-             -> IO (V.Vector Measured, Double)
+             -> IO (V.Vector Measured, Double, Int64)
 runBenchmarkable' bm minDuration minSamples timeLimit = do
   iterateBenchmarkable_ bm 1
   start <- performGC >> getTime
   let loop [] !_ _ = error "unpossible!"
-      loop (iters:niters) samples acc = do
-        m <- measure (iterateBenchmarkable bm iters) iters
+      loop (iters:niters) iTotal acc = do
         endTime <- getTime
-        if samples >= minSamples &&
-           measTime m >= milliSecondsToDouble minDuration &&
+        if length acc >= minSamples &&
            endTime - start >= timeLimit
           then do
             let !v = V.reverse (V.fromList acc)
-            return (v, endTime - start)
-          else if measTime m >= milliSecondsToDouble minDuration
-               then loop niters (samples + 1) (m:acc)
-               else loop niters samples (acc)
+            return (v, endTime - start, iTotal)
+          else do
+               m <- measure (iterateBenchmarkable bm iters) iters
+               if measTime m >= milliSecondsToDouble minDuration
+               then loop niters (iTotal + iters) (m:acc)
+               else loop niters (iTotal + iters) (acc)
   loop (squish (unfoldr series 1)) 0 []
 
 withSystemTempFile
@@ -621,10 +621,10 @@ runBenchmarkable desc bm = do
     Nothing -> gaugeIO $ do
       _ <- note "benchmarking %s ... " desc
       let limit = bmTimeLimit cfg
-      (meas, timeTaken) <-
+      (meas, timeTaken, i) <-
         runBenchmarkable' bm minDuration (bmMinSamples cfg) limit
       when (timeTaken > limit * 1.25) .
-        void $ prolix "measurement took %s\n" (secs timeTaken)
+        void $ prolix "took %s, total %d iterations\n" (secs timeTaken) i
       return meas
 
 -------------------------------------------------------------------------------
