@@ -619,7 +619,7 @@ runBenchmarkable desc bm = do
   case measureWith of
     Just prog -> gaugeIO $ runBenchmarkIsolated cfg prog desc
     Nothing -> gaugeIO $ do
-      _ <- note "benchmarking %s" desc
+      _ <- note "benchmarking %s ... " desc
       let limit = bmTimeLimit cfg
       (meas, timeTaken) <-
         runBenchmarkable' bm minDuration (bmMinSamples cfg) limit
