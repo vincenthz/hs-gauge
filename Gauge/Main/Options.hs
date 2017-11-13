@@ -28,6 +28,7 @@ module Gauge.Main.Options
 import Data.Monoid
 
 import Gauge.Measurement (validateAccessors)
+import Gauge.Time (MilliSeconds(..))
 import Data.Char (isSpace, toLower)
 import Data.List (foldl')
 import Data.Version (showVersion)
@@ -83,9 +84,17 @@ data Config = Config {
       -- collection between every benchmark run, but it no longer has
       -- an effect (we now unconditionally force garbage collection).
       -- This option remains solely for backwards API compatibility.
-    , timeLimit    :: Double
-      -- ^ Number of seconds to run a single benchmark.  (In practice,
-      -- execution time will very slightly exceed this limit.)
+    , timeLimit    :: Maybe Double
+      -- ^ Number of seconds to run a single benchmark.  In practice, execution
+      -- time may exceed this limit to honor minimum number of samples or
+      -- minimum duration of each sample. Increased time limit allows us to
+      -- take more samples. Use 0 for a single sample benchmark.
+    , minSamples   :: Maybe Int
+      -- ^ Minimum number of samples to be taken.
+    , minDuration  :: MilliSeconds
+      -- ^ Minimum duration of each sample, increased duration allows us to
+      -- perform more iterations in each sample. To enforce a single iteration
+      -- in a sample use duration 0.
     , quickMode    :: Bool
     -- ^ Quickly measure and report raw measurements.
     , measureOnly  :: Maybe FilePath
@@ -128,7 +137,9 @@ defaultConfig :: Config
 defaultConfig = Config
     { confInterval = Nothing
     , forceGC      = True
-    , timeLimit    = 5
+    , timeLimit    = Nothing
+    , minSamples   = Nothing
+    , minDuration  = MilliSeconds 30
     , quickMode    = False
     , measureOnly  = Nothing
     , measureWith  = Nothing
@@ -173,7 +184,9 @@ opts :: [OptDescr (Config -> Config)]
 opts =
     [ Option "I" ["ci"]         (ReqArg setCI "CI") "Confidence interval"
     , Option "G" ["no-gc"]      (NoArg setNoGC)     "Do not collect garbage between iterations"
-    , Option "L" ["time-limit"] (ReqArg setTimeLimit "SECS") "Time limit to run a benchmark"
+    , Option "L" ["time-limit"] (ReqArg setTimeLimit "SECS") "Time limit to run a benchmark, use 0 to force min-samples per benchmark"
+    , Option ""  ["min-samples"] (ReqArg setMinSamples "COUNT") "Minimum number of samples to be taken"
+    , Option ""  ["min-duration"] (ReqArg setMinDuration "MILLISECS") "Minimum duration of each sample, use 0 to force one iteration per sample"
     , Option "q" ["quick"]      (NoArg setQuickMode) "Perform a quick measurement and report results without statistical analysis"
     , Option ""  ["measure-only"] (fileArg setMeasureOnly) "Just measure the benchmark and place the raw data in the given file"
     , Option ""  ["measure-with"] (fileArg setMeasureProg) "Perform measurements in a separate process using this program."
@@ -197,7 +210,9 @@ opts =
     fileArg f = ReqArg f "FILE"
     setCI s v = v { confInterval = Just $ range 0.001 0.999 s }
     setNoGC v = v { forceGC = False }
-    setTimeLimit s v = v { timeLimit = range 0.1 86400 s }
+    setTimeLimit s v = v { timeLimit = Just $ range 0.0 86400 s }
+    setMinSamples n v = v { minSamples = Just $ read n }
+    setMinDuration ms v = v { minDuration = MilliSeconds $ read ms }
     setQuickMode v = v { quickMode = True }
     setMeasureOnly f v = v { measureOnly = Just f }
     setMeasureProg f v = v { measureWith = Just f }

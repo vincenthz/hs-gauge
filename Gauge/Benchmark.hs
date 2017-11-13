@@ -71,6 +71,7 @@ import Gauge.IO.Printf (note, prolix)
 import Gauge.Main.Options (Config(..))
 import Gauge.Measurement (measure, getTime, secs, Measured(..))
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
+import Gauge.Time (MilliSeconds(..), milliSecondsToDouble)
 import System.Directory (canonicalizePath, getTemporaryDirectory, removeFile)
 import System.IO (hClose, openTempFile)
 import System.Mem (performGC)
@@ -550,7 +551,7 @@ squish ys = foldr go [] ys
 -- specified. If the minimum bounds are satisfied, the benchmark will terminate
 -- as soon as we reach any of the maximums.
 runBenchmarkable' :: Benchmarkable
-             -> Int
+             -> MilliSeconds
              -- ^ Minimum sample duration in ms.
              -> Int
              -- ^ Minimum number of samples.
@@ -566,12 +567,12 @@ runBenchmarkable' bm minDuration minSamples timeLimit = do
         m <- measure (iterateBenchmarkable bm iters) iters
         endTime <- getTime
         if samples >= minSamples &&
-           measTime m >= fromIntegral minDuration / 1000 &&
+           measTime m >= milliSecondsToDouble minDuration &&
            endTime - start >= timeLimit
           then do
             let !v = V.reverse (V.fromList acc)
             return (v, endTime - start)
-          else if measTime m >= fromIntegral minDuration / 1000
+          else if measTime m >= milliSecondsToDouble minDuration
                then loop niters (samples + 1) (m:acc)
                else loop niters samples (acc)
   loop (squish (unfoldr series 1)) 0 []
@@ -590,32 +591,39 @@ withSystemTempFile template action = do
     (action)
   ignoringIOErrors act = act `catch` (\e -> const (return ()) (e :: IOError))
 
+bmTimeLimit :: Config -> Double
+bmTimeLimit  Config {..} = maybe (if quickMode then 0 else 5) id timeLimit
+
+bmMinSamples :: Config -> Int
+bmMinSamples Config {..} = maybe (if quickMode then 1 else 10) id minSamples
+
 -- | Run a single benchmark measurement in a separate process.
-runBenchmarkIsolated :: String -> String -> Double -> Bool
-                     -> IO (V.Vector Measured)
-runBenchmarkIsolated prog desc tlimit quick =
+runBenchmarkIsolated :: Config -> String -> String -> IO (V.Vector Measured)
+runBenchmarkIsolated cfg prog desc =
     withSystemTempFile "gauge-quarantine" $ \file -> do
       -- XXX This is dependent on option names, if the option names change this
       -- will break.
-      callProcess prog (["--time-limit", show tlimit
-                          , "--measure-only", file, desc
-                         ] ++ if quick then ["--quick"] else [])
+      let MilliSeconds ms = minDuration cfg
+      callProcess prog ([ "--time-limit", show (bmTimeLimit cfg)
+                        , "--min-duration", show ms
+                        , "--min-samples", show (bmMinSamples cfg)
+                        , "--measure-only", file, desc
+                        ] ++ if (quickMode cfg) then ["--quick"] else [])
       readFile file >>= return . read
 
 -- | Run a single benchmarkable and return the result.
 runBenchmarkable :: String -> Benchmarkable
   -> Gauge (V.Vector Measured)
 runBenchmarkable desc bm = do
-  Config{..} <- askConfig
+  cfg@Config{..} <- askConfig
   case measureWith of
-    Just prog -> gaugeIO $ runBenchmarkIsolated prog desc timeLimit quickMode
+    Just prog -> gaugeIO $ runBenchmarkIsolated cfg prog desc
     Nothing -> gaugeIO $ do
       _ <- note "benchmarking %s" desc
+      let limit = bmTimeLimit cfg
       (meas, timeTaken) <-
-        if quickMode
-        then runBenchmarkable' bm 30 2 0
-        else runBenchmarkable' bm 30 10 timeLimit
-      when (timeTaken > timeLimit * 1.25) .
+        runBenchmarkable' bm minDuration (bmMinSamples cfg) limit
+      when (timeTaken > limit * 1.25) .
         void $ prolix "measurement took %s\n" (secs timeTaken)
       return meas
 
