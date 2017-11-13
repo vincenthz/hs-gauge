@@ -15,28 +15,29 @@
 
 module Gauge.Benchmark
     (
-    -- * Benchmarkable
-    -- $bench
-
-    -- ** Benchmarking IO actions
-    -- $io
-
-    -- ** Benchmarking pure code
-    -- $pure
-
-    -- ** Fully evaluating a result
+    -- * Evaluating IO Actions or Pure Functions
     -- $rnf
 
+    -- * Benchmarkable
+    -- $bench
       Benchmarkable(..)
 
     -- ** Constructing Benchmarkable
     , toBenchmarkable
-    , whnf
-    , nf
+
+    -- ** Benchmarking IO actions
+    -- $io
+
     , nfIO
     , whnfIO
 
-    -- ** Constructing Benchmarkable with Environment
+    -- ** Benchmarking pure code
+    -- $pure
+
+    , nf
+    , whnf
+
+    -- ** Benchmarking with Environment
     , perBatchEnv
     , perBatchEnvWithCleanup
     , perRunEnv
@@ -49,7 +50,7 @@ module Gauge.Benchmark
     , bench
     , bgroup
 
-    -- ** Constructing Benchmarks with Environment
+    -- ** Benchmarks with Environment
     , env
     , envWithCleanup
 
@@ -78,105 +79,53 @@ import System.Mem (performGC)
 import qualified Data.Vector as V
 import System.Process (callProcess)
 
--- $bench
+-- $rnf
 --
--- The 'Benchmarkable' type is a container for code that can be benchmarked.
--- 'Benchmarkable' is the leaf to construct a 'Benchmark'. The value inside
--- must run a benchmark the given number of times.  We are most interested in
--- benchmarking two things:
+-- To benchmark, an IO action or a pure function must be evaluated to weak head
+-- normal form (WHNF) or normal form NF. This library provides APIs to reduce
+-- IO actions or pure functions to WHNF (e.g. 'whnf' and 'whnfIO') or NF (e.g.
+-- 'nf' or 'nfIO').
 --
--- * 'IO' actions.  Any 'IO' action can be benchmarked directly.
---
--- * Pure functions.  GHC optimises aggressively when compiling with
---   @-O@, so it is easy to write innocent-looking benchmark code that
---   doesn't measure the performance of a pure function at all.  We
---   work around this by benchmarking both a function and its final
---   argument together.
-
--- $io
---
--- Any 'IO' action can be benchmarked easily (e.g. using 'nfIO' or 'whnfIO') if
--- its type resembles this:
---
--- @
--- 'IO' a
--- @
-
--- $pure
---
--- Because GHC optimises aggressively when compiling with @-O@, it is
--- potentially easy to write innocent-looking benchmark code that will
--- only be evaluated once, for which all but the first iteration of
--- the timing loop will be timing the cost of doing nothing.
---
--- To work around this, we provide two functions for benchmarking pure
--- code.
---
--- The first will cause results to be fully evaluated to normal form
--- (NF):
---
--- @
--- 'nf' :: 'NFData' b => (a -> b) -> a -> 'Benchmarkable'
--- @
---
--- The second will cause results to be evaluated to weak head normal
--- form (the Haskell default):
---
--- @
--- 'whnf' :: (a -> b) -> a -> 'Benchmarkable'
--- @
---
--- As both of these types suggest, when you want to benchmark a
--- function, you must supply two values:
---
--- * The first element is the function, saturated with all but its
---   last argument.
---
--- * The second element is the last argument to the function.
---
--- Here is an example that makes the use of these functions clearer.
--- Suppose we want to benchmark the following function:
+-- Suppose we want to benchmark the following pure function:
 --
 -- @
 -- firstN :: Int -> [Int]
 -- firstN k = take k [(0::Int)..]
 -- @
 --
--- So in the easy case, we construct a benchmark as follows:
+-- We construct a benchmark evaluating it to NF as follows:
 --
 -- @
 -- 'nf' firstN 1000
 -- @
-
--- $rnf
 --
--- The 'whnf' harness for evaluating a pure function only evaluates
--- the result to weak head normal form (WHNF).  If you need the result
--- evaluated all the way to normal form, use the 'nf' function to
--- force its complete evaluation.
---
--- Using the @firstN@ example from earlier, to naive eyes it might
--- /appear/ that the following code ought to benchmark the production
--- of the first 1000 list elements:
+-- We can also evaluate a pure function to WHNF, however we must remember that
+-- it only evaluates the result up to, well, WHNF. To naive eyes it might
+-- /appear/ that the following code ought to benchmark the production of the
+-- first 1000 list elements:
 --
 -- @
 -- 'whnf' firstN 1000
 -- @
 --
--- Since we are using 'whnf', in this case the result will only be
--- forced until it reaches WHNF, so what this would /actually/
--- benchmark is merely how long it takes to produce the first list
--- element!
+-- Since this forces the expression to only WHNF, what this would /actually/
+-- benchmark is merely how long it takes to produce the first list element!
 
 -------------------------------------------------------------------------------
 -- Constructing benchmarkable
 -------------------------------------------------------------------------------
 
+-- $bench
+--
+-- A 'Benchmarkable' is the basic type which in turn is used to construct a
+-- 'Benchmark'.  It is a container for code that can be benchmarked.  The value
+-- contained inside a 'Benchmarkable' could be an IO action or a pure function.
+
 -- | A pure function or impure action that can be benchmarked. The function to
--- be benchmarked is wrapped into a function that takes an 'Int64' parameter
--- which indicates the number of times to run the given function or action.
--- `runRepeatedly` is the wrapper.  The wrapper is constructed automatically by
--- the APIs provided in this library to construct 'Benchmarkable'.
+-- be benchmarked is wrapped into a function ('runRepeatedly') that takes an
+-- 'Int64' parameter which indicates the number of times to run the given
+-- function or action.  The wrapper is constructed automatically by the APIs
+-- provided in this library to construct 'Benchmarkable'.
 --
 -- When 'perRun' is not set then 'runRepeatedly' is invoked to perform all
 -- iterations in one measurement interval.  When 'perRun' is set,
@@ -196,12 +145,41 @@ noop :: Monad m => a -> m ()
 noop = const $ return ()
 {-# INLINE noop #-}
 
--- | Construct a 'Benchmarkable' value from an impure wrapper action, where the
--- 'Int64' parameter dictates the number of times the action wrapped inside
--- would run.
+-- | This is a low level function to construct a 'Benchmarkable' value from an
+-- impure wrapper action, where the 'Int64' parameter dictates the number of
+-- times the action wrapped inside would run. You would normally be using the
+-- other higher level APIs rather than this function to construct a
+-- benchmarkable.
 toBenchmarkable :: (Int64 -> IO ()) -> Benchmarkable
 toBenchmarkable f = Benchmarkable noop (const noop) (const f) False
 {-# INLINE toBenchmarkable #-}
+
+-- $pure
+--
+-- Benchmarking pure functions is a bit tricky.  Because GHC optimises
+-- aggressively when compiling with @-O@, it is potentially easy to write
+-- innocent-looking benchmark code that will only be evaluated once, for which
+-- all but the first iteration of the timing loop will be timing the cost of
+-- doing nothing.
+--
+-- To work around this, the benchmark applies the function to its argument and
+-- evaluates the application. Unlike an IO action we need both the function and
+-- its argument. Therefore, the types of APIs to benchmark a pure function look
+-- like this:
+--
+-- @
+-- 'nf' :: 'NFData' b => (a -> b) -> a -> 'Benchmarkable'
+-- 'whnf' :: (a -> b) -> a -> 'Benchmarkable'
+-- @
+--
+-- As both of these types suggest, when you want to benchmark a
+-- function, you must supply two values:
+--
+-- * The first element is the function, saturated with all but its
+--   last argument.
+--
+-- * The second element is the last argument to the function.
+--
 
 pureFunc :: (b -> c) -> (a -> b) -> a -> Benchmarkable
 pureFunc reduce f0 x0 = toBenchmarkable (go f0 x0)
@@ -221,6 +199,13 @@ whnf = pureFunc id
 nf :: NFData b => (a -> b) -> a -> Benchmarkable
 nf = pureFunc rnf
 {-# INLINE nf #-}
+
+-- $io
+--
+-- Benchmarking an 'IO' action is straightforward compared to benchmarking pure
+-- code. An 'IO' action resembling type @IO a@ can be turned into a
+-- 'Benchmarkable' using 'nfIO' to reduce it to normal form or using 'whnfIO'
+-- to reduce it to WHNF.
 
 impure :: (a -> b) -> IO a -> Int64 -> IO ()
 impure strategy a = go
