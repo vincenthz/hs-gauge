@@ -22,6 +22,13 @@ newtype MicroSeconds = MicroSeconds Word64
 -- | Represent a number of nanoseconds
 newtype NanoSeconds = NanoSeconds Word64
     deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num)
+
+ref_nanoseconds :: Num a => a
+ref_nanoseconds = 1000000000
+
+ref_microseconds :: Num a => a
+ref_microseconds = 1000000
+
 microSecondsToDouble :: MicroSeconds -> Double
 microSecondsToDouble (MicroSeconds w) = fromIntegral w / 1000000
 
