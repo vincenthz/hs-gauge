@@ -25,6 +25,7 @@ import Control.Exception
 import Control.Monad (ap)
 import Data.IORef (IORef, newIORef)
 import Gauge.Main.Options (Config)
+import Gauge.Measurement (initializeTime)
 import System.Random.MWC (GenIO)
 
 data Crit = Crit
@@ -32,7 +33,8 @@ data Crit = Crit
     , gen      :: !(IORef (Maybe GenIO))
     }
 
--- | The monad in which most gauge code executes.
+-- | 'Gauge' is essentially a reader monad to make the benchmark configuration
+-- available throughout the code.
 newtype Gauge a = Gauge { runGauge :: Crit -> IO a }
 
 instance Functor Gauge where
@@ -44,12 +46,14 @@ instance Monad Gauge where
     return    = pure
     ma >>= mb = Gauge $ \r -> runGauge ma r >>= \a -> runGauge (mb a) r
 
+-- | Retrieve the configuration from the 'Gauge' monad.
 askConfig :: Gauge Config
 askConfig = Gauge (pure . config)
 
 askCrit :: Gauge Crit
 askCrit = Gauge pure
 
+-- | Lift an IO action into the 'Gauge' monad.
 gaugeIO :: IO a -> Gauge a
 gaugeIO = Gauge . const
 
@@ -60,5 +64,6 @@ finallyGauge f g = Gauge $ \crit -> do
 -- | Run a 'Gauge' action with the given 'Config'.
 withConfig :: Config -> Gauge a -> IO a
 withConfig cfg act = do
+  initializeTime
   g <- newIORef Nothing
   runGauge act (Crit cfg g)

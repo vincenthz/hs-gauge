@@ -16,61 +16,31 @@
 
 module Gauge.Main
     (
-    -- * How to write benchmarks
-    -- $bench
-
-    -- ** Benchmarking IO actions
-    -- $io
-
-    -- ** Benchmarking pure code
-    -- $pure
-
-    -- ** Fully evaluating a result
-    -- $rnf
-
-    -- * Types
-      Benchmarkable
-    , Benchmark
-    -- * Creating a benchmark suite
-    , env
-    , envWithCleanup
-    , perBatchEnv
-    , perBatchEnvWithCleanup
-    , perRunEnv
-    , perRunEnvWithCleanup
-    , toBenchmarkable
-    , bench
-    , bgroup
-    -- ** Running a benchmark
-    , nf
-    , whnf
-    , nfIO
-    , whnfIO
     -- * Turning a suite of benchmarks into a program
-    , defaultMain
+      defaultMain
     , defaultMainWith
-    , defaultConfig
-    -- * Other useful code
-    , makeMatcher
     , runMode
+    -- * Running Benchmarks Interactively
+    , benchmark
+    , benchmarkWith
     ) where
 
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 #ifdef HAVE_ANALYSIS
 import Gauge.Analysis (analyseBenchmark)
-import Gauge.Benchmark (runWithAnalysis)
 #endif
-import Gauge.IO.Printf (printError)
+import Gauge.IO.Printf (note, printError, rewindClearLine)
 import Gauge.Benchmark
 import Gauge.Main.Options
-import Gauge.Measurement (initializeTime)
-import Gauge.Monad (withConfig, gaugeIO)
-import Data.Char (toLower)
-import Data.List (isInfixOf, isPrefixOf, sort)
+import Gauge.Measurement (Measured, measureAccessors_, rescale)
+import Gauge.Monad (Gauge, askConfig, withConfig, gaugeIO)
+import Data.List (sort)
 import System.Environment (getProgName, getArgs)
 import System.Exit (ExitCode(..), exitWith)
 -- import System.FilePath.Glob
+import System.IO (BufferMode(..), hSetBuffering, stdout)
 import System.IO.CodePage (withCP65001)
+import qualified Data.Vector as V
 
 -- | An entry point that can be used as a @main@ function.
 --
@@ -90,24 +60,57 @@ import System.IO.CodePage (withCP65001)
 defaultMain :: [Benchmark] -> IO ()
 defaultMain = defaultMainWith defaultConfig
 
--- | Create a function that can tell if a name given on the command
--- line matches a benchmark.
-makeMatcher :: MatchType
-            -> [String]
-            -- ^ Command line arguments.
-            -> Either String (String -> Bool)
-makeMatcher matchKind args =
-  case matchKind of
-    Prefix -> Right $ \b -> null args || any (`isPrefixOf` b) args
-    Pattern -> Right $ \b -> null args || any (`isInfixOf` b) args
-    IPattern -> Right $ \b -> null args || any (`isInfixOf` map toLower b) (map (map toLower) args)
+-- | Display an error message from a command line parsing failure, and
+-- exit.
+parseError :: String -> IO a
+parseError msg = do
+  _ <- printError "Error: %s\n" msg
+  _ <- printError "Run \"%s --help\" for usage information\n" =<< getProgName
+  exitWith (ExitFailure 64)
 
 selectBenches :: MatchType -> [String] -> Benchmark -> IO (String -> Bool)
 selectBenches matchType benches bsgroup = do
-  toRun <- either parseError return . makeMatcher matchType $ benches
+  let toRun = makeSelector matchType benches
   unless (null benches || any toRun (benchNames bsgroup)) $
     parseError "none of the specified names matches a benchmark"
   return toRun
+
+-- | Analyse a single benchmark, printing just the time by default and all
+-- stats in verbose mode.
+quickAnalyse :: String -> V.Vector Measured -> Gauge ()
+quickAnalyse desc meas = do
+  Config{..} <- askConfig
+  let accessors =
+        if verbosity == Verbose
+        then filter (("iters" /=) . fst) measureAccessors_
+        else filter (("time" ==)  . fst) measureAccessors_
+
+  _ <- note "%s%-40s " rewindClearLine desc
+  if verbosity == Verbose then gaugeIO (putStrLn "") else return ()
+  _ <- traverse
+        (\(k, (a, s, _)) -> reportStat a s k)
+        accessors
+  _ <- note "\n"
+  pure ()
+
+  where
+
+  reportStat accessor sh msg =
+    when (not $ V.null meas) $
+      let val = (accessor . rescale) $ V.last meas
+       in maybe (return ()) (\x -> note "%-20s %-10s\n" msg (sh x)) val
+
+-- | Run a benchmark interactively with supplied config, and analyse its
+-- performance.
+benchmarkWith :: Config -> Benchmarkable -> IO ()
+benchmarkWith cfg bm =
+  withConfig cfg $
+    runBenchmark (const True) (Benchmark "function" bm) quickAnalyse
+
+-- | Run a benchmark interactively with default config, and analyse its
+-- performance.
+benchmark :: Benchmarkable -> IO ()
+benchmark = benchmarkWith defaultConfig
 
 -- | An entry point that can be used as a @main@ function, with
 -- configurable defaults.
@@ -161,120 +164,22 @@ runMode wat cfg benches bs =
     Help    -> putStrLn describe
     DefaultMode ->
       case measureOnly cfg of
-        Just outfile -> runWithConfig $ runOnly outfile
+        Just outfile -> runWithConfig runBenchmark (\_ r ->
+                          gaugeIO (writeFile outfile (show r)))
         Nothing ->
           case iters cfg of
-          Just nbIters -> runWithConfig $ runFixedIters nbIters
+          Just nbIters -> runWithConfig runBenchmarkIters nbIters
           Nothing ->
             case quickMode cfg of
-              True  -> runWithConfig runQuick
+              True  -> runWithConfig runBenchmark quickAnalyse
               False ->
 #ifdef HAVE_ANALYSIS
-                  runWithConfig (runWithAnalysis analyseBenchmark)
+                  runWithConfig runBenchmark analyseBenchmark
 #else
-                  runWithConfig runQuick
+                  runWithConfig runBenchmark quickAnalyse
 #endif
   where bsgroup = BenchGroup "" bs
-        runWithConfig f = do
-          shouldRun <- selectBenches (match cfg) benches bsgroup
-          withConfig cfg $ do
-            gaugeIO initializeTime
-            f shouldRun bsgroup
-
--- | Display an error message from a command line parsing failure, and
--- exit.
-parseError :: String -> IO a
-parseError msg = do
-  _ <- printError "Error: %s\n" msg
-  _ <- printError "Run \"%s --help\" for usage information\n" =<< getProgName
-  exitWith (ExitFailure 64)
-
--- $bench
---
--- The 'Benchmarkable' type is a container for code that can be
--- benchmarked.  The value inside must run a benchmark the given
--- number of times.  We are most interested in benchmarking two
--- things:
---
--- * 'IO' actions.  Any 'IO' action can be benchmarked directly.
---
--- * Pure functions.  GHC optimises aggressively when compiling with
---   @-O@, so it is easy to write innocent-looking benchmark code that
---   doesn't measure the performance of a pure function at all.  We
---   work around this by benchmarking both a function and its final
---   argument together.
-
--- $io
---
--- Any 'IO' action can be benchmarked easily if its type resembles
--- this:
---
--- @
--- 'IO' a
--- @
-
--- $pure
---
--- Because GHC optimises aggressively when compiling with @-O@, it is
--- potentially easy to write innocent-looking benchmark code that will
--- only be evaluated once, for which all but the first iteration of
--- the timing loop will be timing the cost of doing nothing.
---
--- To work around this, we provide two functions for benchmarking pure
--- code.
---
--- The first will cause results to be fully evaluated to normal form
--- (NF):
---
--- @
--- 'nf' :: 'NFData' b => (a -> b) -> a -> 'Benchmarkable'
--- @
---
--- The second will cause results to be evaluated to weak head normal
--- form (the Haskell default):
---
--- @
--- 'whnf' :: (a -> b) -> a -> 'Benchmarkable'
--- @
---
--- As both of these types suggest, when you want to benchmark a
--- function, you must supply two values:
---
--- * The first element is the function, saturated with all but its
---   last argument.
---
--- * The second element is the last argument to the function.
---
--- Here is an example that makes the use of these functions clearer.
--- Suppose we want to benchmark the following function:
---
--- @
--- firstN :: Int -> [Int]
--- firstN k = take k [(0::Int)..]
--- @
---
--- So in the easy case, we construct a benchmark as follows:
---
--- @
--- 'nf' firstN 1000
--- @
-
--- $rnf
---
--- The 'whnf' harness for evaluating a pure function only evaluates
--- the result to weak head normal form (WHNF).  If you need the result
--- evaluated all the way to normal form, use the 'nf' function to
--- force its complete evaluation.
---
--- Using the @firstN@ example from earlier, to naive eyes it might
--- /appear/ that the following code ought to benchmark the production
--- of the first 1000 list elements:
---
--- @
--- 'whnf' firstN 1000
--- @
---
--- Since we are using 'whnf', in this case the result will only be
--- forced until it reaches WHNF, so what this would /actually/
--- benchmark is merely how long it takes to produce the first list
--- element!
+        runWithConfig f arg = do
+          hSetBuffering stdout NoBuffering
+          selector <- selectBenches (match cfg) benches bsgroup
+          withConfig cfg $ f selector bsgroup arg

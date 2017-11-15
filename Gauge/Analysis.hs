@@ -43,13 +43,13 @@ import Data.Monoid
 import Control.Arrow (second)
 import Control.DeepSeq (NFData(rnf))
 import Control.Monad (forM_, when)
-import Gauge.Benchmark (Benchmarkable, runWithAnalysisInteractive)
+import Gauge.Benchmark (Benchmark (..), Benchmarkable, runBenchmark)
 import Gauge.IO.Printf (note, printError, prolix, rewindClearLine)
 import Gauge.Main.Options (defaultConfig, Config(..), Verbosity (..),
                            DisplayMode (..))
 import Gauge.Measurement (Measured(measTime), secs, rescale, measureKeys,
                           measureAccessors_, validateAccessors, renderNames)
-import Gauge.Monad (Gauge, askConfig, gaugeIO, Crit(..), askCrit)
+import Gauge.Monad (Gauge, askConfig, gaugeIO, Crit(..), askCrit, withConfig)
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
 import Data.IORef (IORef, readIORef, writeIORef)
@@ -470,12 +470,18 @@ printOverallEffect Slight     = "slightly inflated"
 printOverallEffect Moderate   = "moderately inflated"
 printOverallEffect Severe     = "severely inflated"
 
--- | Run a benchmark interactively, analyse its performance, and
--- return the analysis.
-benchmark' :: Benchmarkable -> IO Report
-benchmark' = benchmarkWith' defaultConfig
+-- XXX The original type of these types returned 'Report' type. But the
+-- implementation was wrong as it was not running any environment settings on
+-- the way to the benchmark. Now, we have used the correct function to do that
+-- but unfortunately that function returns void. That can be fixed though if it
+-- is important.
 
--- | Run a benchmark interactively, analyse its performance, and
--- return the analysis.
-benchmarkWith' :: Config -> Benchmarkable -> IO Report
-benchmarkWith' = runWithAnalysisInteractive analyseBenchmark
+-- | Run a benchmark interactively and analyse its performance.
+benchmarkWith' :: Config -> Benchmarkable -> IO ()
+benchmarkWith' cfg bm =
+  withConfig cfg $
+    runBenchmark (const True) (Benchmark "function" bm) analyseBenchmark
+
+-- | Run a benchmark interactively and analyse its performanc.
+benchmark' :: Benchmarkable -> IO ()
+benchmark' = benchmarkWith' defaultConfig

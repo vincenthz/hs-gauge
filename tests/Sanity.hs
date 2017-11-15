@@ -1,13 +1,13 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import Gauge.Main (bench, bgroup, env, whnf)
+import Gauge.Benchmark (bench, bgroup, env, whnf)
 import System.Environment (getEnv, withArgs)
 import System.Timeout (timeout)
 import Test.Tasty (defaultMain)
 import Test.Tasty.HUnit (testCase)
 import Test.HUnit (Assertion, assertFailure)
-import qualified Gauge.Main as C
+import qualified Gauge as C
 import qualified Control.Exception as E
 import qualified Data.ByteString as B
 

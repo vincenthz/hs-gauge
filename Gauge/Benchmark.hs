@@ -11,43 +11,54 @@
 -- Stability   : experimental
 -- Portability : GHC
 --
--- Core benchmarking code.
+-- Constructing and running benchmarks.
 
 module Gauge.Benchmark
     (
-    -- * Benchmark descriptions
+    -- * Benchmarkable
+    -- $bench
+
+    -- ** Benchmarking IO actions
+    -- $io
+
+    -- ** Benchmarking pure code
+    -- $pure
+
+    -- ** Fully evaluating a result
+    -- $rnf
+
       Benchmarkable(..)
-    , Benchmark(..)
-    -- * Benchmark construction
-    , env
-    , envWithCleanup
-    , perBatchEnv
-    , perBatchEnvWithCleanup
-    , perRunEnv
-    , perRunEnvWithCleanup
+
+    -- ** Constructing Benchmarkable
     , toBenchmarkable
-    , bench
-    , bgroup
-    , addPrefix
-    , benchNames
-    -- ** Evaluation control
     , whnf
     , nf
     , nfIO
     , whnfIO
+
+    -- ** Constructing Benchmarkable with Environment
+    , perBatchEnv
+    , perBatchEnvWithCleanup
+    , perRunEnv
+    , perRunEnvWithCleanup
+
+    -- * Benchmarks
+    , Benchmark(..)
+
+    -- ** Constructing Benchmarks
+    , bench
+    , bgroup
+
+    -- ** Constructing Benchmarks with Environment
+    , env
+    , envWithCleanup
+
+    -- * Listing benchmarks
+    , benchNames
+
     -- * Running Benchmarks
     , runBenchmark
-    , runBenchmarkable
-    , runBenchmarkable_
-    , runQuick
-    , runWithAnalysis
-    , runWithAnalysisInteractive
-    , runOnly
-    , runFixedIters
-    , quickAnalyse
-    -- * Running Benchmarks Interactively
-    , benchmark
-    , benchmarkWith
+    , runBenchmarkIters
     ) where
 
 import Control.Applicative ((<*))
@@ -56,16 +67,105 @@ import Control.Exception (bracket, catch, evaluate, finally)
 import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
 import Data.List (unfoldr)
-import Gauge.IO.Printf (note, prolix, rewindClearLine)
-import Gauge.Main.Options (defaultConfig, Config(..), Verbosity(..))
-import Gauge.Measurement (initializeTime, measure, getTime, secs,
-                          measureAccessors_, rescale, Measured(..))
-import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO, withConfig)
+import Gauge.IO.Printf (note, prolix)
+import Gauge.Main.Options (Config(..))
+import Gauge.Measurement (measure, getTime, secs, Measured(..))
+import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
 import System.Directory (canonicalizePath, getTemporaryDirectory, removeFile)
-import System.IO (hClose, hSetBuffering, BufferMode(..), openTempFile, stdout)
+import System.IO (hClose, openTempFile)
 import System.Mem (performGC)
 import qualified Data.Vector as V
 import System.Process (callProcess)
+
+-- $bench
+--
+-- The 'Benchmarkable' type is a container for code that can be benchmarked.
+-- 'Benchmarkable' is the leaf to construct a 'Benchmark'. The value inside
+-- must run a benchmark the given number of times.  We are most interested in
+-- benchmarking two things:
+--
+-- * 'IO' actions.  Any 'IO' action can be benchmarked directly.
+--
+-- * Pure functions.  GHC optimises aggressively when compiling with
+--   @-O@, so it is easy to write innocent-looking benchmark code that
+--   doesn't measure the performance of a pure function at all.  We
+--   work around this by benchmarking both a function and its final
+--   argument together.
+
+-- $io
+--
+-- Any 'IO' action can be benchmarked easily (e.g. using 'nfIO' or 'whnfIO') if
+-- its type resembles this:
+--
+-- @
+-- 'IO' a
+-- @
+
+-- $pure
+--
+-- Because GHC optimises aggressively when compiling with @-O@, it is
+-- potentially easy to write innocent-looking benchmark code that will
+-- only be evaluated once, for which all but the first iteration of
+-- the timing loop will be timing the cost of doing nothing.
+--
+-- To work around this, we provide two functions for benchmarking pure
+-- code.
+--
+-- The first will cause results to be fully evaluated to normal form
+-- (NF):
+--
+-- @
+-- 'nf' :: 'NFData' b => (a -> b) -> a -> 'Benchmarkable'
+-- @
+--
+-- The second will cause results to be evaluated to weak head normal
+-- form (the Haskell default):
+--
+-- @
+-- 'whnf' :: (a -> b) -> a -> 'Benchmarkable'
+-- @
+--
+-- As both of these types suggest, when you want to benchmark a
+-- function, you must supply two values:
+--
+-- * The first element is the function, saturated with all but its
+--   last argument.
+--
+-- * The second element is the last argument to the function.
+--
+-- Here is an example that makes the use of these functions clearer.
+-- Suppose we want to benchmark the following function:
+--
+-- @
+-- firstN :: Int -> [Int]
+-- firstN k = take k [(0::Int)..]
+-- @
+--
+-- So in the easy case, we construct a benchmark as follows:
+--
+-- @
+-- 'nf' firstN 1000
+-- @
+
+-- $rnf
+--
+-- The 'whnf' harness for evaluating a pure function only evaluates
+-- the result to weak head normal form (WHNF).  If you need the result
+-- evaluated all the way to normal form, use the 'nf' function to
+-- force its complete evaluation.
+--
+-- Using the @firstN@ example from earlier, to naive eyes it might
+-- /appear/ that the following code ought to benchmark the production
+-- of the first 1000 list elements:
+--
+-- @
+-- 'whnf' firstN 1000
+-- @
+--
+-- Since we are using 'whnf', in this case the result will only be
+-- forced until it reaches WHNF, so what this would /actually/
+-- benchmark is merely how long it takes to produce the first list
+-- element!
 
 -- | A pure function or impure action that can be benchmarked. The
 -- 'Int64' parameter indicates the number of times to run the given
@@ -373,12 +473,12 @@ benchNames (BenchGroup d bs) = map (addPrefix d) . concatMap benchNames $ bs
 -- | Take a 'Benchmarkable', number of iterations, a function to combine the
 -- results of multiple iterations and a measurement function to measure the
 -- stats over a number of iterations.
-runBenchmarkable :: Benchmarkable
+iterateBenchmarkable :: Benchmarkable
                  -> Int64
                  -> (a -> a -> a)
                  -> (IO () -> IO a)
                  -> IO a
-runBenchmarkable Benchmarkable{..} i comb f
+iterateBenchmarkable Benchmarkable{..} i comb f
     | perRun = work >>= go (i - 1)
     | otherwise = work
   where
@@ -398,11 +498,11 @@ runBenchmarkable Benchmarkable{..} i comb f
         performGC
         f run `finally` clean <* performGC
     {-# INLINE work #-}
-{-# INLINE runBenchmarkable #-}
+{-# INLINE iterateBenchmarkable #-}
 
-runBenchmarkable_ :: Benchmarkable -> Int64 -> IO ()
-runBenchmarkable_ bm i = runBenchmarkable bm i (\() () -> ()) id
-{-# INLINE runBenchmarkable_ #-}
+iterateBenchmarkable_ :: Benchmarkable -> Int64 -> IO ()
+iterateBenchmarkable_ bm i = iterateBenchmarkable bm i (\() () -> ()) id
+{-# INLINE iterateBenchmarkable_ #-}
 
 series :: Double -> Maybe (Int64, Double)
 series k = Just (truncate l, l)
@@ -419,7 +519,7 @@ squish ys = foldr go [] ys
 -- benchmark will not terminate until we reach all the minimum bounds
 -- specified. If the minimum bounds are satisfied, the benchmark will terminate
 -- as soon as we reach any of the maximums.
-runBenchmark :: Benchmarkable
+runBenchmarkable' :: Benchmarkable
              -> Int
              -- ^ Minimum sample duration to in ms.
              -> Int
@@ -428,12 +528,12 @@ runBenchmark :: Benchmarkable
              -- ^ Upper bound on how long the benchmarking process
              -- should take.
              -> IO (V.Vector Measured, Double)
-runBenchmark bm minDuration minSamples timeLimit = do
-  runBenchmarkable_ bm 1
+runBenchmarkable' bm minDuration minSamples timeLimit = do
+  iterateBenchmarkable_ bm 1
   start <- performGC >> getTime
   let loop [] !_ _ = error "unpossible!"
       loop (iters:niters) samples acc = do
-        m <- measure (runBenchmarkable bm iters) iters
+        m <- measure (iterateBenchmarkable bm iters) iters
         endTime <- getTime
         if samples >= minSamples &&
            measTime m >= fromIntegral minDuration / 1000 &&
@@ -460,10 +560,10 @@ withSystemTempFile template action = do
     (action)
   ignoringIOErrors act = act `catch` (\e -> const (return ()) (e :: IOError))
 
--- | Run a single benchmark measurement only in a separate process.
-runBenchmarkWith :: String -> String -> Double -> Bool
-                 -> IO (V.Vector Measured, Double)
-runBenchmarkWith prog desc tlimit quick =
+-- | Run a single benchmark measurement in a separate process.
+runBenchmarkIsolated :: String -> String -> Double -> Bool
+                     -> IO (V.Vector Measured)
+runBenchmarkIsolated prog desc tlimit quick =
     withSystemTempFile "gauge-quarantine" $ \file -> do
       -- XXX This is dependent on option names, if the option names change this
       -- will break.
@@ -472,109 +572,46 @@ runBenchmarkWith prog desc tlimit quick =
                          ] ++ if quick then ["--quick"] else [])
       readFile file >>= return . read
 
--- | Run a single benchmark.
-runOne :: String -> Benchmarkable -> Maybe FilePath
-       -> Gauge (V.Vector Measured)
-runOne desc bm file = do
+-- | Run a single benchmarkable and return the result.
+runBenchmarkable :: String -> Benchmarkable
+  -> Gauge (V.Vector Measured)
+runBenchmarkable desc bm = do
   Config{..} <- askConfig
-  r@(meas, timeTaken) <-
-    case measureWith of
-      Just prog -> gaugeIO $ runBenchmarkWith prog desc timeLimit quickMode
-      Nothing -> gaugeIO $
+  case measureWith of
+    Just prog -> gaugeIO $ runBenchmarkIsolated prog desc timeLimit quickMode
+    Nothing -> gaugeIO $ do
+      _ <- note "benchmarking %s" desc
+      (meas, timeTaken) <-
         if quickMode
-        then runBenchmark bm 30 2 0
-        else runBenchmark bm 30 10 timeLimit
-  case file of
-    Just f -> gaugeIO $ writeFile f (show r)
-    Nothing ->
+        then runBenchmarkable' bm 30 2 0
+        else runBenchmarkable' bm 30 10 timeLimit
       when (timeTaken > timeLimit * 1.25) .
         void $ prolix "measurement took %s\n" (secs timeTaken)
-  return meas
+      return meas
 
-runOnly :: FilePath -> (String -> Bool) -> Benchmark -> Gauge ()
-runOnly outfile select bs =
-  for select bs $ \_ desc bm -> runOne desc bm (Just outfile) >> return ()
-
--- | Run a single benchmark and analyse its performance.
-runAndAnalyseOne
-  :: (String -> V.Vector Measured -> Gauge a)
-  -> String
-  -> Benchmarkable
-  -> Gauge a
-runAndAnalyseOne analyse desc bm = do
-  _ <- note "benchmarking %s" desc
-  runOne desc bm Nothing >>= analyse desc
-
-runWithAnalysis
-  :: (String -> V.Vector Measured -> Gauge a)
-  -> (String -> Bool)
+-- | Run benchmarkables, selected by a given selector function, under a given
+-- benchmark and analyse the output using the given analysis function.
+runBenchmark
+  :: (String -> Bool) -- ^ Select benchmarks by name.
   -> Benchmark
+  -> (String -> V.Vector Measured -> Gauge a) -- ^ Analysis function.
   -> Gauge ()
-runWithAnalysis analyse select bs = do
-  gaugeIO $ hSetBuffering stdout NoBuffering
-  for select bs $ \_ desc bm -> do
-    _ <- runAndAnalyseOne analyse desc bm
-    return ()
-
--- | Run a benchmark interactively, analyse its performance, and
--- return the analysis.
-runWithAnalysisInteractive
-  :: (String -> V.Vector Measured -> Gauge a)
-  -> Config
-  -> Benchmarkable
-  -> IO a
-runWithAnalysisInteractive analyse cfg bm = do
-  initializeTime
-  withConfig cfg $ runAndAnalyseOne analyse "function" bm
-
--- | Analyse a single benchmark.
-quickAnalyse :: String -> V.Vector Measured -> Gauge ()
-quickAnalyse desc meas = do
-  Config{..} <- askConfig
-  let accessors =
-        if verbosity == Verbose
-        then filter (("iters" /=) . fst) measureAccessors_
-        else filter (("time" ==)  . fst) measureAccessors_
-
-  _ <- note "%s%-40s " rewindClearLine desc
-  if verbosity == Verbose then gaugeIO (putStrLn "") else return ()
-  _ <- traverse
-        (\(k, (a, s, _)) -> reportStat a s k)
-        accessors
-  _ <- note "\n"
-  pure ()
-
-  where
-
-  reportStat accessor sh msg =
-    when (not $ V.null meas) $
-      let val = (accessor . rescale) $ V.last meas
-       in maybe (return ()) (\x -> note "%-20s %-10s\n" msg (sh x)) val
-
-runQuick :: (String -> Bool) -> Benchmark -> Gauge ()
-runQuick = runWithAnalysis quickAnalyse
-
--- | Run a benchmark interactively, and analyse its performance.
-benchmark :: Benchmarkable -> IO ()
-benchmark = benchmarkWith defaultConfig
-
--- | Run a benchmark interactively, and analyse its performance.
-benchmarkWith :: Config -> Benchmarkable -> IO ()
-benchmarkWith = runWithAnalysisInteractive quickAnalyse
+runBenchmark selector bs analyse =
+  for selector bs $ \_idx desc bm ->
+      runBenchmarkable desc bm >>= analyse desc >>= \_ -> return ()
 
 -- XXX For consistency, this should also use a separate process when
 -- --measure-with is specified.
 -- | Run a benchmark without analysing its performance.
-runFixedIters :: Int64            -- ^ Number of loop iterations to run.
-              -> (String -> Bool) -- ^ A predicate that chooses
-                                  -- whether to run a benchmark by its
-                                  -- name.
-              -> Benchmark
-              -> Gauge ()
-runFixedIters iters select bs =
-  for select bs $ \_idx desc bm -> do
+runBenchmarkIters
+  :: (String -> Bool) -- ^ Select benchmarks by name.
+  -> Benchmark
+  -> Int64            -- ^ Number of iterations to run.
+  -> Gauge ()
+runBenchmarkIters selector bs iters =
+  for selector bs $ \_idx desc bm -> do
     _ <- note "benchmarking %s\r" desc
-    gaugeIO $ runBenchmarkable_ bm iters
+    gaugeIO $ iterateBenchmarkable_ bm iters
 
 -- | Iterate over benchmarks.
 for :: (String -> Bool)

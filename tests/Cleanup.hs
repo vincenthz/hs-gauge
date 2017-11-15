@@ -4,7 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-import Gauge.Main (Benchmark, bench, nfIO)
+import Gauge.Benchmark(Benchmark, bench, nfIO)
 import Gauge.Main.Options (Config(..), Verbosity(Quiet))
 import Control.Applicative (pure)
 import Control.DeepSeq (NFData(..))
@@ -18,7 +18,7 @@ import System.IO ( Handle, IOMode(ReadWriteMode), SeekMode(AbsoluteSeek)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (testCase)
 import Test.HUnit (assertFailure)
-import qualified Gauge.Main as C
+import qualified Gauge as C
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 
