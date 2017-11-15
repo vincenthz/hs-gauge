@@ -45,6 +45,7 @@ library
     Gauge.Time
 
     Gauge.Source.RUsage
+    Gauge.Source.GC
     Gauge.Source.Time
 
   if flag(analysis)
