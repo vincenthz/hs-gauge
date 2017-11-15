@@ -75,7 +75,7 @@ testCleanup shouldFail name withEnvClean = testCase name $ do
     runTest :: Benchmark -> IO (Either CheckResult ())
     runTest = withArgs (["-n","1"]) . try . C.defaultMainWith config . pure
       where
-        config = C.defaultConfig { verbosity = Quiet , timeLimit = 1 }
+        config = C.defaultConfig { verbosity = Quiet , timeLimit = Just 1 }
 
     failTest :: String -> IO ()
     failTest s = assertFailure $ s ++ " in test: " ++ name ++ "!"
