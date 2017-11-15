@@ -670,8 +670,8 @@ applyRUStatistics end start m
                            , measMaxrss  = RUsage.maxResidentSetSize end
                            , measMinflt  = diff RUsage.minorFault
                            , measMajflt  = diff RUsage.majorFault
-                           , measNvcsw   = diff RUsage.nVolutaryContextSwitch
-                           , measNivcsw  = diff RUsage.nInvolutaryContextSwitch
+                           , measNvcsw   = diff RUsage.nVoluntaryContextSwitch
+                           , measNivcsw  = diff RUsage.nInvoluntaryContextSwitch
                            }
     | otherwise        = m
  where diff f = f end - f start
