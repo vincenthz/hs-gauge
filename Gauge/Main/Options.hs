@@ -95,6 +95,10 @@ data Config = Config {
       -- ^ Minimum duration of each sample, increased duration allows us to
       -- perform more iterations in each sample. To enforce a single iteration
       -- in a sample use duration 0.
+    , includeFirstIter :: Bool
+      -- ^ Discard the very first iteration of a benchmark. The first iteration
+      -- includes the potentially extra cost of one time evaluations
+      -- introducing large variance.
     , quickMode    :: Bool
     -- ^ Quickly measure and report raw measurements.
     , measureOnly  :: Maybe FilePath
@@ -135,27 +139,28 @@ data Config = Config {
 -- | Default benchmarking configuration.
 defaultConfig :: Config
 defaultConfig = Config
-    { confInterval = Nothing
-    , forceGC      = True
-    , timeLimit    = Nothing
-    , minSamples   = Nothing
-    , minDuration  = MilliSeconds 30
-    , quickMode    = False
-    , measureOnly  = Nothing
-    , measureWith  = Nothing
-    , resamples    = 1000
-    , regressions  = []
-    , rawDataFile  = Nothing
-    , reportFile   = Nothing
-    , csvFile      = Nothing
-    , jsonFile     = Nothing
-    , junitFile    = Nothing
-    , verbosity    = Normal
-    , template     = "default"
-    , iters        = Nothing
-    , match        = Prefix
-    , mode         = DefaultMode
-    , displayMode  = StatsTable
+    { confInterval     = Nothing
+    , forceGC          = True
+    , timeLimit        = Nothing
+    , minSamples       = Nothing
+    , minDuration      = MilliSeconds 30
+    , includeFirstIter = False
+    , quickMode        = False
+    , measureOnly      = Nothing
+    , measureWith      = Nothing
+    , resamples        = 1000
+    , regressions      = []
+    , rawDataFile      = Nothing
+    , reportFile       = Nothing
+    , csvFile          = Nothing
+    , jsonFile         = Nothing
+    , junitFile        = Nothing
+    , verbosity        = Normal
+    , template         = "default"
+    , iters            = Nothing
+    , match            = Prefix
+    , mode             = DefaultMode
+    , displayMode      = StatsTable
     }
 
 -- | Create a benchmark selector function that can tell if a name given on the
@@ -187,6 +192,7 @@ opts =
     , Option "L" ["time-limit"] (ReqArg setTimeLimit "SECS") "Time limit to run a benchmark, use 0 to force min-samples per benchmark"
     , Option ""  ["min-samples"] (ReqArg setMinSamples "COUNT") "Minimum number of samples to be taken"
     , Option ""  ["min-duration"] (ReqArg setMinDuration "MILLISECS") "Minimum duration of each sample, use 0 to force one iteration per sample"
+    , Option ""  ["include-first-iter"] (NoArg setIncludeFirst) "Do not discard the measurement of the first iteration"
     , Option "q" ["quick"]      (NoArg setQuickMode) "Perform a quick measurement and report results without statistical analysis"
     , Option ""  ["measure-only"] (fileArg setMeasureOnly) "Just measure the benchmark and place the raw data in the given file"
     , Option ""  ["measure-with"] (fileArg setMeasureProg) "Perform measurements in a separate process using this program."
@@ -213,6 +219,7 @@ opts =
     setTimeLimit s v = v { timeLimit = Just $ range 0.0 86400 s }
     setMinSamples n v = v { minSamples = Just $ read n }
     setMinDuration ms v = v { minDuration = MilliSeconds $ read ms }
+    setIncludeFirst v = v { includeFirstIter = True }
     setQuickMode v = v { quickMode = True }
     setMeasureOnly f v = v { measureOnly = Just f }
     setMeasureProg f v = v { measureWith = Just f }
