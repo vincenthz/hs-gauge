@@ -545,7 +545,6 @@ runBenchmarkable' :: Benchmarkable
              -- should take.
              -> IO (V.Vector Measured, Double, Int64)
 runBenchmarkable' bm minDuration minSamples timeLimit = do
-  iterateBenchmarkable_ bm 1
   start <- performGC >> getTime
   let loop [] !_ _ = error "unpossible!"
       loop (iters:niters) iTotal acc = do
@@ -605,12 +604,16 @@ runBenchmarkable desc bm = do
     Just prog -> gaugeIO $ runBenchmarkIsolated cfg prog desc
     Nothing -> gaugeIO $ do
       _ <- note "benchmarking %s ... " desc
+      i0 <- if includeFirstIter
+            then return 0
+            else iterateBenchmarkable_ bm 1 >> return 1
       let limit = bmTimeLimit cfg
       (meas, timeTaken, i) <-
         runBenchmarkable' bm minDuration (bmMinSamples cfg) limit
       when ((verbosity == Verbose || not quickMode)
             && timeTaken > limit * 1.25) .
-        void $ prolix "took %s, total %d iterations\n" (secs timeTaken) i
+        void $ prolix "took %s, total %d iterations\n"
+                      (secs timeTaken) (i0 + i)
       return meas
 
 -------------------------------------------------------------------------------
