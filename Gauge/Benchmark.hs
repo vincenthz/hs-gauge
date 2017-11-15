@@ -15,28 +15,29 @@
 
 module Gauge.Benchmark
     (
-    -- * Benchmarkable
-    -- $bench
-
-    -- ** Benchmarking IO actions
-    -- $io
-
-    -- ** Benchmarking pure code
-    -- $pure
-
-    -- ** Fully evaluating a result
+    -- * Evaluating IO Actions or Pure Functions
     -- $rnf
 
+    -- * Benchmarkable
+    -- $bench
       Benchmarkable(..)
 
     -- ** Constructing Benchmarkable
     , toBenchmarkable
-    , whnf
-    , nf
+
+    -- ** Benchmarking IO actions
+    -- $io
+
     , nfIO
     , whnfIO
 
-    -- ** Constructing Benchmarkable with Environment
+    -- ** Benchmarking pure code
+    -- $pure
+
+    , nf
+    , whnf
+
+    -- ** Benchmarking with Environment
     , perBatchEnv
     , perBatchEnvWithCleanup
     , perRunEnv
@@ -49,7 +50,7 @@ module Gauge.Benchmark
     , bench
     , bgroup
 
-    -- ** Constructing Benchmarks with Environment
+    -- ** Benchmarks with Environment
     , env
     , envWithCleanup
 
@@ -68,108 +69,70 @@ import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
 import Data.List (unfoldr)
 import Gauge.IO.Printf (note, prolix)
-import Gauge.Main.Options (Config(..))
+import Gauge.Main.Options (Config(..), Verbosity(..))
 import Gauge.Measurement (measure, getTime, secs, Measured(..))
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
+import Gauge.Time (MilliSeconds(..), milliSecondsToDouble)
 import System.Directory (canonicalizePath, getTemporaryDirectory, removeFile)
 import System.IO (hClose, openTempFile)
 import System.Mem (performGC)
 import qualified Data.Vector as V
 import System.Process (callProcess)
 
--- $bench
+-- $rnf
 --
--- The 'Benchmarkable' type is a container for code that can be benchmarked.
--- 'Benchmarkable' is the leaf to construct a 'Benchmark'. The value inside
--- must run a benchmark the given number of times.  We are most interested in
--- benchmarking two things:
+-- To benchmark, an IO action or a pure function must be evaluated to weak head
+-- normal form (WHNF) or normal form NF. This library provides APIs to reduce
+-- IO actions or pure functions to WHNF (e.g. 'whnf' and 'whnfIO') or NF (e.g.
+-- 'nf' or 'nfIO').
 --
--- * 'IO' actions.  Any 'IO' action can be benchmarked directly.
---
--- * Pure functions.  GHC optimises aggressively when compiling with
---   @-O@, so it is easy to write innocent-looking benchmark code that
---   doesn't measure the performance of a pure function at all.  We
---   work around this by benchmarking both a function and its final
---   argument together.
-
--- $io
---
--- Any 'IO' action can be benchmarked easily (e.g. using 'nfIO' or 'whnfIO') if
--- its type resembles this:
---
--- @
--- 'IO' a
--- @
-
--- $pure
---
--- Because GHC optimises aggressively when compiling with @-O@, it is
--- potentially easy to write innocent-looking benchmark code that will
--- only be evaluated once, for which all but the first iteration of
--- the timing loop will be timing the cost of doing nothing.
---
--- To work around this, we provide two functions for benchmarking pure
--- code.
---
--- The first will cause results to be fully evaluated to normal form
--- (NF):
---
--- @
--- 'nf' :: 'NFData' b => (a -> b) -> a -> 'Benchmarkable'
--- @
---
--- The second will cause results to be evaluated to weak head normal
--- form (the Haskell default):
---
--- @
--- 'whnf' :: (a -> b) -> a -> 'Benchmarkable'
--- @
---
--- As both of these types suggest, when you want to benchmark a
--- function, you must supply two values:
---
--- * The first element is the function, saturated with all but its
---   last argument.
---
--- * The second element is the last argument to the function.
---
--- Here is an example that makes the use of these functions clearer.
--- Suppose we want to benchmark the following function:
+-- Suppose we want to benchmark the following pure function:
 --
 -- @
 -- firstN :: Int -> [Int]
 -- firstN k = take k [(0::Int)..]
 -- @
 --
--- So in the easy case, we construct a benchmark as follows:
+-- We construct a benchmark evaluating it to NF as follows:
 --
 -- @
 -- 'nf' firstN 1000
 -- @
-
--- $rnf
 --
--- The 'whnf' harness for evaluating a pure function only evaluates
--- the result to weak head normal form (WHNF).  If you need the result
--- evaluated all the way to normal form, use the 'nf' function to
--- force its complete evaluation.
---
--- Using the @firstN@ example from earlier, to naive eyes it might
--- /appear/ that the following code ought to benchmark the production
--- of the first 1000 list elements:
+-- We can also evaluate a pure function to WHNF, however we must remember that
+-- it only evaluates the result up to, well, WHNF. To naive eyes it might
+-- /appear/ that the following code ought to benchmark the production of the
+-- first 1000 list elements:
 --
 -- @
 -- 'whnf' firstN 1000
 -- @
 --
--- Since we are using 'whnf', in this case the result will only be
--- forced until it reaches WHNF, so what this would /actually/
--- benchmark is merely how long it takes to produce the first list
--- element!
+-- Since this forces the expression to only WHNF, what this would /actually/
+-- benchmark is merely how long it takes to produce the first list element!
 
--- | A pure function or impure action that can be benchmarked. The
--- 'Int64' parameter indicates the number of times to run the given
--- function or action.
+-------------------------------------------------------------------------------
+-- Constructing benchmarkable
+-------------------------------------------------------------------------------
+
+-- $bench
+--
+-- A 'Benchmarkable' is the basic type which in turn is used to construct a
+-- 'Benchmark'.  It is a container for code that can be benchmarked.  The value
+-- contained inside a 'Benchmarkable' could be an IO action or a pure function.
+
+-- | A pure function or impure action that can be benchmarked. The function to
+-- be benchmarked is wrapped into a function ('runRepeatedly') that takes an
+-- 'Int64' parameter which indicates the number of times to run the given
+-- function or action.  The wrapper is constructed automatically by the APIs
+-- provided in this library to construct 'Benchmarkable'.
+--
+-- When 'perRun' is not set then 'runRepeatedly' is invoked to perform all
+-- iterations in one measurement interval.  When 'perRun' is set,
+-- 'runRepeatedly' is always invoked with 1 iteration in one measurement
+-- interval, before a measurement 'allocEnv' is invoked and after the
+-- measurement 'cleanEnv' is invoked. The performance counters for each
+-- iteration are then added together for all iterations.
 data Benchmarkable = forall a . NFData a =>
     Benchmarkable
       { allocEnv :: Int64 -> IO a
@@ -182,11 +145,41 @@ noop :: Monad m => a -> m ()
 noop = const $ return ()
 {-# INLINE noop #-}
 
--- | Construct a 'Benchmarkable' value from an impure action, where the 'Int64'
--- parameter indicates the number of times to run the action.
+-- | This is a low level function to construct a 'Benchmarkable' value from an
+-- impure wrapper action, where the 'Int64' parameter dictates the number of
+-- times the action wrapped inside would run. You would normally be using the
+-- other higher level APIs rather than this function to construct a
+-- benchmarkable.
 toBenchmarkable :: (Int64 -> IO ()) -> Benchmarkable
 toBenchmarkable f = Benchmarkable noop (const noop) (const f) False
 {-# INLINE toBenchmarkable #-}
+
+-- $pure
+--
+-- Benchmarking pure functions is a bit tricky.  Because GHC optimises
+-- aggressively when compiling with @-O@, it is potentially easy to write
+-- innocent-looking benchmark code that will only be evaluated once, for which
+-- all but the first iteration of the timing loop will be timing the cost of
+-- doing nothing.
+--
+-- To work around this, the benchmark applies the function to its argument and
+-- evaluates the application. Unlike an IO action we need both the function and
+-- its argument. Therefore, the types of APIs to benchmark a pure function look
+-- like this:
+--
+-- @
+-- 'nf' :: 'NFData' b => (a -> b) -> a -> 'Benchmarkable'
+-- 'whnf' :: (a -> b) -> a -> 'Benchmarkable'
+-- @
+--
+-- As both of these types suggest, when you want to benchmark a
+-- function, you must supply two values:
+--
+-- * The first element is the function, saturated with all but its
+--   last argument.
+--
+-- * The second element is the last argument to the function.
+--
 
 pureFunc :: (b -> c) -> (a -> b) -> a -> Benchmarkable
 pureFunc reduce f0 x0 = toBenchmarkable (go f0 x0)
@@ -206,6 +199,13 @@ whnf = pureFunc id
 nf :: NFData b => (a -> b) -> a -> Benchmarkable
 nf = pureFunc rnf
 {-# INLINE nf #-}
+
+-- $io
+--
+-- Benchmarking an 'IO' action is straightforward compared to benchmarking pure
+-- code. An 'IO' action resembling type @IO a@ can be turned into a
+-- 'Benchmarkable' using 'nfIO' to reduce it to normal form or using 'whnfIO'
+-- to reduce it to WHNF.
 
 impure :: (a -> b) -> IO a -> Int64 -> IO ()
 impure strategy a = go
@@ -228,6 +228,105 @@ whnfIO :: IO a -> Benchmarkable
 whnfIO = toBenchmarkable . impure id
 {-# INLINE whnfIO #-}
 
+-------------------------------------------------------------------------------
+-- Constructing Benchmarkable with Environment
+-------------------------------------------------------------------------------
+
+-- | Same as `perBatchEnv`, but but allows for an additional callback
+-- to clean up the environment. Resource clean up is exception safe, that is,
+-- it runs even if the 'Benchmark' throws an exception.
+perBatchEnvWithCleanup
+    :: (NFData env, NFData b)
+    => (Int64 -> IO env)
+    -- ^ Create an environment for a batch of N runs. The environment will be
+    -- evaluated to normal form before running.
+    -> (Int64 -> env -> IO ())
+    -- ^ Clean up the created environment.
+    -> (env -> IO b)
+    -- ^ Function returning the IO action that should be benchmarked with the
+    -- newly generated environment.
+    -> Benchmarkable
+perBatchEnvWithCleanup alloc clean work
+    = Benchmarkable alloc clean (impure rnf . work) False
+
+-- | Create a Benchmarkable where a fresh environment is allocated for every
+-- batch of runs of the benchmarkable.
+--
+-- The environment is evaluated to normal form before the benchmark is run.
+--
+-- When using 'whnf', 'whnfIO', etc. Gauge creates a 'Benchmarkable'
+-- whichs runs a batch of @N@ repeat runs of that expressions. Gauge may
+-- run any number of these batches to get accurate measurements. Environments
+-- created by 'env' and 'envWithCleanup', are shared across all these batches
+-- of runs.
+--
+-- This is fine for simple benchmarks on static input, but when benchmarking
+-- IO operations where these operations can modify (and especially grow) the
+-- environment this means that later batches might have their accuracy effected
+-- due to longer, for example, longer garbage collection pauses.
+--
+-- An example: Suppose we want to benchmark writing to a Chan, if we allocate
+-- the Chan using environment and our benchmark consists of @writeChan env ()@,
+-- the contents and thus size of the Chan will grow with every repeat. If
+-- Gauge runs a 1,000 batches of 1,000 repeats, the result is that the
+-- channel will have 999,000 items in it by the time the last batch is run.
+-- Since GHC GC has to copy the live set for every major GC this means our last
+-- set of writes will suffer a lot of noise of the previous repeats.
+--
+-- By allocating a fresh environment for every batch of runs this function
+-- should eliminate this effect.
+perBatchEnv
+    :: (NFData env, NFData b)
+    => (Int64 -> IO env)
+    -- ^ Create an environment for a batch of N runs. The environment will be
+    -- evaluated to normal form before running.
+    -> (env -> IO b)
+    -- ^ Function returning the IO action that should be benchmarked with the
+    -- newly generated environment.
+    -> Benchmarkable
+perBatchEnv alloc = perBatchEnvWithCleanup alloc (const noop)
+
+-- | Same as `perRunEnv`, but but allows for an additional callback
+-- to clean up the environment. Resource clean up is exception safe, that is,
+-- it runs even if the 'Benchmark' throws an exception.
+perRunEnvWithCleanup
+    :: (NFData env, NFData b)
+    => IO env
+    -- ^ Action that creates the environment for a single run.
+    -> (env -> IO ())
+    -- ^ Clean up the created environment.
+    -> (env -> IO b)
+    -- ^ Function returning the IO action that should be benchmarked with the
+    -- newly genereted environment.
+    -> Benchmarkable
+perRunEnvWithCleanup alloc clean work = bm { perRun = True }
+  where
+    bm = perBatchEnvWithCleanup (const alloc) (const clean) work
+
+-- | Create a Benchmarkable where a fresh environment is allocated for every
+-- run of the operation to benchmark. This is useful for benchmarking mutable
+-- operations that need a fresh environment, such as sorting a mutable Vector.
+--
+-- As with 'env' and 'perBatchEnv' the environment is evaluated to normal form
+-- before the benchmark is run.
+--
+-- This introduces extra noise and result in reduce accuracy compared to other
+-- Gauge benchmarks. But allows easier benchmarking for mutable operations
+-- than was previously possible.
+perRunEnv
+    :: (NFData env, NFData b)
+    => IO env
+    -- ^ Action that creates the environment for a single run.
+    -> (env -> IO b)
+    -- ^ Function returning the IO action that should be benchmarked with the
+    -- newly genereted environment.
+    -> Benchmarkable
+perRunEnv alloc = perRunEnvWithCleanup alloc noop
+
+-------------------------------------------------------------------------------
+-- Constructing benchmarks
+-------------------------------------------------------------------------------
+
 -- | Specification of a collection of benchmarks and environments. A
 -- benchmark may consist of:
 --
@@ -247,6 +346,22 @@ instance Show Benchmark where
     show (Environment _ _ b) = "Environment _ _" ++ show (b undefined)
     show (Benchmark d _)   = "Benchmark " ++ show d
     show (BenchGroup d _)  = "BenchGroup " ++ show d
+
+-- | Create a single benchmark.
+bench :: String                 -- ^ A name to identify the benchmark.
+      -> Benchmarkable          -- ^ An activity to be benchmarked.
+      -> Benchmark
+bench = Benchmark
+
+-- | Group several benchmarks together under a common name.
+bgroup :: String                -- ^ A name to identify the group of benchmarks.
+       -> [Benchmark]           -- ^ Benchmarks to group under this name.
+       -> Benchmark
+bgroup = BenchGroup
+
+-------------------------------------------------------------------------------
+-- Constructing Benchmarks with Environment
+-------------------------------------------------------------------------------
 
 -- | Run a benchmark (or collection of benchmarks) in the given
 -- environment.  The purpose of an environment is to lazily create
@@ -347,108 +462,9 @@ envWithCleanup
     -> Benchmark
 envWithCleanup = Environment
 
--- | Create a Benchmarkable where a fresh environment is allocated for every
--- batch of runs of the benchmarkable.
---
--- The environment is evaluated to normal form before the benchmark is run.
---
--- When using 'whnf', 'whnfIO', etc. Gauge creates a 'Benchmarkable'
--- whichs runs a batch of @N@ repeat runs of that expressions. Gauge may
--- run any number of these batches to get accurate measurements. Environments
--- created by 'env' and 'envWithCleanup', are shared across all these batches
--- of runs.
---
--- This is fine for simple benchmarks on static input, but when benchmarking
--- IO operations where these operations can modify (and especially grow) the
--- environment this means that later batches might have their accuracy effected
--- due to longer, for example, longer garbage collection pauses.
---
--- An example: Suppose we want to benchmark writing to a Chan, if we allocate
--- the Chan using environment and our benchmark consists of @writeChan env ()@,
--- the contents and thus size of the Chan will grow with every repeat. If
--- Gauge runs a 1,000 batches of 1,000 repeats, the result is that the
--- channel will have 999,000 items in it by the time the last batch is run.
--- Since GHC GC has to copy the live set for every major GC this means our last
--- set of writes will suffer a lot of noise of the previous repeats.
---
--- By allocating a fresh environment for every batch of runs this function
--- should eliminate this effect.
-perBatchEnv
-    :: (NFData env, NFData b)
-    => (Int64 -> IO env)
-    -- ^ Create an environment for a batch of N runs. The environment will be
-    -- evaluated to normal form before running.
-    -> (env -> IO b)
-    -- ^ Function returning the IO action that should be benchmarked with the
-    -- newly generated environment.
-    -> Benchmarkable
-perBatchEnv alloc = perBatchEnvWithCleanup alloc (const noop)
-
--- | Same as `perBatchEnv`, but but allows for an additional callback
--- to clean up the environment. Resource clean up is exception safe, that is,
--- it runs even if the 'Benchmark' throws an exception.
-perBatchEnvWithCleanup
-    :: (NFData env, NFData b)
-    => (Int64 -> IO env)
-    -- ^ Create an environment for a batch of N runs. The environment will be
-    -- evaluated to normal form before running.
-    -> (Int64 -> env -> IO ())
-    -- ^ Clean up the created environment.
-    -> (env -> IO b)
-    -- ^ Function returning the IO action that should be benchmarked with the
-    -- newly generated environment.
-    -> Benchmarkable
-perBatchEnvWithCleanup alloc clean work
-    = Benchmarkable alloc clean (impure rnf . work) False
-
--- | Create a Benchmarkable where a fresh environment is allocated for every
--- run of the operation to benchmark. This is useful for benchmarking mutable
--- operations that need a fresh environment, such as sorting a mutable Vector.
---
--- As with 'env' and 'perBatchEnv' the environment is evaluated to normal form
--- before the benchmark is run.
---
--- This introduces extra noise and result in reduce accuracy compared to other
--- Gauge benchmarks. But allows easier benchmarking for mutable operations
--- than was previously possible.
-perRunEnv
-    :: (NFData env, NFData b)
-    => IO env
-    -- ^ Action that creates the environment for a single run.
-    -> (env -> IO b)
-    -- ^ Function returning the IO action that should be benchmarked with the
-    -- newly genereted environment.
-    -> Benchmarkable
-perRunEnv alloc = perRunEnvWithCleanup alloc noop
-
--- | Same as `perRunEnv`, but but allows for an additional callback
--- to clean up the environment. Resource clean up is exception safe, that is,
--- it runs even if the 'Benchmark' throws an exception.
-perRunEnvWithCleanup
-    :: (NFData env, NFData b)
-    => IO env
-    -- ^ Action that creates the environment for a single run.
-    -> (env -> IO ())
-    -- ^ Clean up the created environment.
-    -> (env -> IO b)
-    -- ^ Function returning the IO action that should be benchmarked with the
-    -- newly genereted environment.
-    -> Benchmarkable
-perRunEnvWithCleanup alloc clean work = bm { perRun = True }
-  where
-    bm = perBatchEnvWithCleanup (const alloc) (const clean) work
-
--- | Create a single benchmark.
-bench :: String                 -- ^ A name to identify the benchmark.
-      -> Benchmarkable          -- ^ An activity to be benchmarked.
-      -> Benchmark
-bench = Benchmark
-
--- | Group several benchmarks together under a common name.
-bgroup :: String                -- ^ A name to identify the group of benchmarks.
-       -> [Benchmark]           -- ^ Benchmarks to group under this name.
-       -> Benchmark
-bgroup = BenchGroup
+-------------------------------------------------------------------------------
+-- Listing Benchmarks
+-------------------------------------------------------------------------------
 
 -- | Add the given prefix to a name.  If the prefix is empty, the name
 -- is returned unmodified.  Otherwise, the prefix and name are
@@ -467,7 +483,7 @@ benchNames (Benchmark d _)   = [d]
 benchNames (BenchGroup d bs) = map (addPrefix d) . concatMap benchNames $ bs
 
 -------------------------------------------------------------------------------
--- Running benchmarks
+-- Running benchmarkable
 -------------------------------------------------------------------------------
 
 -- | Take a 'Benchmarkable', number of iterations, a function to combine the
@@ -520,30 +536,30 @@ squish ys = foldr go [] ys
 -- specified. If the minimum bounds are satisfied, the benchmark will terminate
 -- as soon as we reach any of the maximums.
 runBenchmarkable' :: Benchmarkable
-             -> Int
-             -- ^ Minimum sample duration to in ms.
+             -> MilliSeconds
+             -- ^ Minimum sample duration in ms.
              -> Int
              -- ^ Minimum number of samples.
              -> Double
              -- ^ Upper bound on how long the benchmarking process
              -- should take.
-             -> IO (V.Vector Measured, Double)
+             -> IO (V.Vector Measured, Double, Int64)
 runBenchmarkable' bm minDuration minSamples timeLimit = do
   iterateBenchmarkable_ bm 1
   start <- performGC >> getTime
   let loop [] !_ _ = error "unpossible!"
-      loop (iters:niters) samples acc = do
-        m <- measure (iterateBenchmarkable bm iters) iters
+      loop (iters:niters) iTotal acc = do
         endTime <- getTime
-        if samples >= minSamples &&
-           measTime m >= fromIntegral minDuration / 1000 &&
+        if length acc >= minSamples &&
            endTime - start >= timeLimit
           then do
             let !v = V.reverse (V.fromList acc)
-            return (v, endTime - start)
-          else if measTime m >= fromIntegral minDuration / 1000
-               then loop niters (samples + 1) (m:acc)
-               else loop niters samples (acc)
+            return (v, endTime - start, iTotal)
+          else do
+               m <- measure (iterateBenchmarkable bm iters) iters
+               if measTime m >= milliSecondsToDouble minDuration
+               then loop niters (iTotal + iters) (m:acc)
+               else loop niters (iTotal + iters) (acc)
   loop (squish (unfoldr series 1)) 0 []
 
 withSystemTempFile
@@ -560,34 +576,46 @@ withSystemTempFile template action = do
     (action)
   ignoringIOErrors act = act `catch` (\e -> const (return ()) (e :: IOError))
 
+bmTimeLimit :: Config -> Double
+bmTimeLimit  Config {..} = maybe (if quickMode then 0 else 5) id timeLimit
+
+bmMinSamples :: Config -> Int
+bmMinSamples Config {..} = maybe (if quickMode then 1 else 10) id minSamples
+
 -- | Run a single benchmark measurement in a separate process.
-runBenchmarkIsolated :: String -> String -> Double -> Bool
-                     -> IO (V.Vector Measured)
-runBenchmarkIsolated prog desc tlimit quick =
+runBenchmarkIsolated :: Config -> String -> String -> IO (V.Vector Measured)
+runBenchmarkIsolated cfg prog desc =
     withSystemTempFile "gauge-quarantine" $ \file -> do
       -- XXX This is dependent on option names, if the option names change this
       -- will break.
-      callProcess prog (["--time-limit", show tlimit
-                          , "--measure-only", file, desc
-                         ] ++ if quick then ["--quick"] else [])
+      let MilliSeconds ms = minDuration cfg
+      callProcess prog ([ "--time-limit", show (bmTimeLimit cfg)
+                        , "--min-duration", show ms
+                        , "--min-samples", show (bmMinSamples cfg)
+                        , "--measure-only", file, desc
+                        ] ++ if (quickMode cfg) then ["--quick"] else [])
       readFile file >>= return . read
 
 -- | Run a single benchmarkable and return the result.
 runBenchmarkable :: String -> Benchmarkable
   -> Gauge (V.Vector Measured)
 runBenchmarkable desc bm = do
-  Config{..} <- askConfig
+  cfg@Config{..} <- askConfig
   case measureWith of
-    Just prog -> gaugeIO $ runBenchmarkIsolated prog desc timeLimit quickMode
+    Just prog -> gaugeIO $ runBenchmarkIsolated cfg prog desc
     Nothing -> gaugeIO $ do
-      _ <- note "benchmarking %s" desc
-      (meas, timeTaken) <-
-        if quickMode
-        then runBenchmarkable' bm 30 2 0
-        else runBenchmarkable' bm 30 10 timeLimit
-      when (timeTaken > timeLimit * 1.25) .
-        void $ prolix "measurement took %s\n" (secs timeTaken)
+      _ <- note "benchmarking %s ... " desc
+      let limit = bmTimeLimit cfg
+      (meas, timeTaken, i) <-
+        runBenchmarkable' bm minDuration (bmMinSamples cfg) limit
+      when ((verbosity == Verbose || not quickMode)
+            && timeTaken > limit * 1.25) .
+        void $ prolix "took %s, total %d iterations\n" (secs timeTaken) i
       return meas
+
+-------------------------------------------------------------------------------
+-- Running benchmarks
+-------------------------------------------------------------------------------
 
 -- | Run benchmarkables, selected by a given selector function, under a given
 -- benchmark and analyse the output using the given analysis function.
