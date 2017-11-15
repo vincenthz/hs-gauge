@@ -80,7 +80,7 @@ diffMetrics (AbsMetrics end) (AbsMetrics start) =
   where
     diff op f = f end `op` f start
     (-*) :: (Ord a, Num a) => a -> a -> a
-    a (-*) b
+    (-*) a b
         | a >= b    = a - b
         | otherwise = (-1)
 #else
