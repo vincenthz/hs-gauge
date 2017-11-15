@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Gauge.Time
     ( MicroSeconds(..)
+    , NanoSeconds(..)
     , microSecondsToDouble
     , MilliSeconds(..)
     , milliSecondsToDouble
@@ -18,6 +19,9 @@ import           GHC.Generics
 newtype MicroSeconds = MicroSeconds Word64
     deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num)
 
+-- | Represent a number of nanoseconds
+newtype NanoSeconds = NanoSeconds Word64
+    deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num)
 microSecondsToDouble :: MicroSeconds -> Double
 microSecondsToDouble (MicroSeconds w) = fromIntegral w / 1000000
 
