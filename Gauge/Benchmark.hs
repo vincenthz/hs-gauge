@@ -69,7 +69,7 @@ import Control.Monad (foldM, void, when)
 import Data.Int (Int64)
 import Data.List (unfoldr)
 import Gauge.IO.Printf (note, prolix)
-import Gauge.Main.Options (Config(..))
+import Gauge.Main.Options (Config(..), Verbosity(..))
 import Gauge.Measurement (measure, getTime, secs, Measured(..))
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
 import Gauge.Time (MilliSeconds(..), milliSecondsToDouble)
@@ -608,7 +608,8 @@ runBenchmarkable desc bm = do
       let limit = bmTimeLimit cfg
       (meas, timeTaken, i) <-
         runBenchmarkable' bm minDuration (bmMinSamples cfg) limit
-      when (timeTaken > limit * 1.25) .
+      when ((verbosity == Verbose || not quickMode)
+            && timeTaken > limit * 1.25) .
         void $ prolix "took %s, total %d iterations\n" (secs timeTaken) i
       return meas
 
