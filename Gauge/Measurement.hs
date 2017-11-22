@@ -3,11 +3,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE BangPatterns, CPP, ScopedTypeVariables #-}
 
-#if MIN_VERSION_base(4,10,0)
--- Disable deprecation warnings for now until we remove the use of getGCStats
--- and applyGCStats for good
-{-# OPTIONS_GHC -Wno-deprecations #-}
-#endif
 #ifdef mingw32_HOST_OS
 -- Disable warning about RUsage being unused on Windows
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
@@ -31,8 +26,6 @@ module Gauge.Measurement
       initializeTime
     , Time.getTime
     , Time.getCPUTime
-    , getGCStatistics
-    , GCStatistics(..)
     , Time.ClockTime(..)
     , Time.CpuTime(..)
     , Time.Cycles(..)
@@ -46,12 +39,9 @@ module Gauge.Measurement
     , validateAccessors
     , renderNames
     , rescale
-      -- * Deprecated
-    , getGCStats
-    , applyGCStats
     ) where
 
-import Gauge.Time (MicroSeconds(..), microSecondsToDouble)
+import Gauge.Time (MicroSeconds(..), microSecondsToDouble, nanoSecondsToDouble)
 import Control.DeepSeq (NFData(rnf))
 import Control.Monad (when, unless)
 import Data.Data (Data, Typeable)
@@ -59,20 +49,15 @@ import Data.Int (Int64)
 import Data.Map (Map, fromList)
 import Data.Word (Word64)
 import GHC.Generics (Generic)
-import GHC.Stats (GCStats(..))
-#if MIN_VERSION_base(4,10,0)
-import GHC.Stats (RTSStats(..), GCDetails(..))
-#endif
 import Text.Printf (printf)
-import qualified Control.Exception as Exc
 import qualified Data.List as List
 import qualified Data.Map as Map
-import qualified GHC.Stats as Stats
 
 import           Gauge.Source.RUsage (RUsage)
 import qualified Gauge.Source.RUsage as RUsage
 
 import qualified Gauge.Source.Time as Time
+import qualified Gauge.Source.GC as GC
 
 -- | A collection of measurements made while benchmarking.
 --
@@ -112,12 +97,12 @@ data Measured = Measured {
     , measNivcsw             :: !Word64
     -- ^ Number of involuntary context switches
 
-    , measAllocated          :: !Int64
+    , measAllocated          :: !Word64
       -- ^ __(GC)__ Number of bytes allocated.  Access using 'fromInt'.
-    , measNumGcs             :: !Int64
+    , measNumGcs             :: !Word64
       -- ^ __(GC)__ Number of garbage collections performed.  Access
       -- using 'fromInt'.
-    , measBytesCopied        :: !Int64
+    , measBytesCopied        :: !Word64
       -- ^ __(GC)__ Number of bytes copied during garbage collection.
       -- Access using 'fromInt'.
     , measMutatorWallSeconds :: !Double
@@ -206,13 +191,13 @@ measureAccessors_ = [
   , ("nivcsw",             ( fmap fromIntegral . fromWord . measNivcsw
                            , show . rnd
                            , "involuntary context switches"))
-  , ("allocated",          ( fmap fromIntegral . fromInt . measAllocated
+  , ("allocated",          ( fmap fromIntegral . fromWord . measAllocated
                            , show . rnd
                            , "(+RTS -T) bytes allocated"))
-  , ("numGcs",             ( fmap fromIntegral . fromInt . measNumGcs
+  , ("numGcs",             ( fmap fromIntegral . fromWord . measNumGcs
                            , show . rnd
                            , "(+RTS -T) number of garbage collections"))
-  , ("bytesCopied",        ( fmap fromIntegral . fromInt . measBytesCopied
+  , ("bytesCopied",        ( fmap fromIntegral . fromWord . measBytesCopied
                            , show . rnd
                            , "(+RTS -T) number of bytes copied during GC"))
   , ("mutatorWallSeconds", ( fromDouble . measMutatorWallSeconds
@@ -298,8 +283,8 @@ rescale m@Measured{..} = m {
     , measNvcsw              = w measNvcsw
     , measNivcsw             = w measNivcsw
 
-    , measNumGcs             = i measNumGcs
-    , measBytesCopied        = i measBytesCopied
+    , measNumGcs             = w measNumGcs
+    , measBytesCopied        = w measBytesCopied
     , measMutatorWallSeconds = d measMutatorWallSeconds
     , measMutatorCpuSeconds  = d measMutatorCpuSeconds
     , measGcWallSeconds      = d measGcWallSeconds
@@ -322,7 +307,7 @@ fromInt i | i == minBound = Nothing
 -- If the measurement is a huge negative number that corresponds to
 -- \"no data\", this will return 'Nothing'.
 fromWord :: Word64 -> Maybe Word64
-fromWord i | i == minBound = Nothing
+fromWord i | i == maxBound = Nothing
            | otherwise     = Just i
 
 {-
@@ -374,134 +359,6 @@ instance MeasureDiff Time.TimeRecord where
                         (measureDiff b1 b2)
                         (measureDiff c1 c2)
 
--- | Statistics about memory usage and the garbage collector. Apart from
--- 'gcStatsCurrentBytesUsed' and 'gcStatsCurrentBytesSlop' all are cumulative values since
--- the program started.
---
--- 'GCStatistics' is cargo-culted from the 'GCStats' data type that "GHC.Stats"
--- has. Since 'GCStats' was marked as deprecated and will be removed in GHC 8.4,
--- we use 'GCStatistics' to provide a backwards-compatible view of GC statistics.
-data GCStatistics = GCStatistics
-    { -- | Total number of bytes allocated
-    gcStatsBytesAllocated :: !Int64
-    -- | Number of garbage collections performed (any generation, major and
-    -- minor)
-    , gcStatsNumGcs :: !Int64
-    -- | Maximum number of live bytes seen so far
-    , gcStatsMaxBytesUsed :: !Int64
-    -- | Number of byte usage samples taken, or equivalently
-    -- the number of major GCs performed.
-    , gcStatsNumByteUsageSamples :: !Int64
-    -- | Sum of all byte usage samples, can be used with
-    -- 'gcStatsNumByteUsageSamples' to calculate averages with
-    -- arbitrary weighting (if you are sampling this record multiple
-    -- times).
-    , gcStatsCumulativeBytesUsed :: !Int64
-    -- | Number of bytes copied during GC
-    , gcStatsBytesCopied :: !Int64
-    -- | Number of live bytes at the end of the last major GC
-    , gcStatsCurrentBytesUsed :: !Int64
-    -- | Current number of bytes lost to slop
-    , gcStatsCurrentBytesSlop :: !Int64
-    -- | Maximum number of bytes lost to slop at any one time so far
-    , gcStatsMaxBytesSlop :: !Int64
-    -- | Maximum number of megabytes allocated
-    , gcStatsPeakMegabytesAllocated :: !Int64
-    -- | CPU time spent running mutator threads.  This does not include
-    -- any profiling overhead or initialization.
-    , gcStatsMutatorCpuSeconds :: !Double
-
-    -- | Wall clock time spent running mutator threads.  This does not
-    -- include initialization.
-    , gcStatsMutatorWallSeconds :: !Double
-    -- | CPU time spent running GC
-    , gcStatsGcCpuSeconds :: !Double
-    -- | Wall clock time spent running GC
-    , gcStatsGcWallSeconds :: !Double
-    -- | Total CPU time elapsed since program start
-    , gcStatsCpuSeconds :: !Double
-    -- | Total wall clock time elapsed since start
-    , gcStatsWallSeconds :: !Double
-    } deriving (Eq, Read, Show, Typeable, Data, Generic)
-
--- | Try to get GC statistics, bearing in mind that the GHC runtime
--- will throw an exception if statistics collection was not enabled
--- using \"@+RTS -T@\".
-{-# DEPRECATED getGCStats
-      ["GCStats has been deprecated in GHC 8.2. As a consequence,",
-       "getGCStats has also been deprecated in favor of getGCStatistics.",
-       "getGCStats will be removed in the next major gauge release."] #-}
-getGCStats :: IO (Maybe GCStats)
-getGCStats =
-  (Just `fmap` Stats.getGCStats) `Exc.catch` \(_::Exc.SomeException) ->
-  return Nothing
-
--- | Try to get GC statistics, bearing in mind that the GHC runtime
--- will throw an exception if statistics collection was not enabled
--- using \"@+RTS -T@\".
-getGCStatistics :: IO (Maybe GCStatistics)
-#if MIN_VERSION_base(4,10,0)
--- Use RTSStats/GCDetails to gather GC stats
-getGCStatistics = do
-  hasStats <- Stats.getRTSStatsEnabled
-  if hasStats
-  then getStats >>= return . Just
-  else return Nothing
-
-  where
-
-  getStats = do
-    stats <- Stats.getRTSStats
-    let gcdetails :: Stats.GCDetails
-        gcdetails = gc stats
-
-        nsToSecs :: Int64 -> Double
-        nsToSecs ns = fromIntegral ns * 1.0E-9
-
-    return $ GCStatistics {
-        gcStatsBytesAllocated         = fromIntegral $ allocated_bytes stats
-      , gcStatsNumGcs                 = fromIntegral $ gcs stats
-      , gcStatsMaxBytesUsed           = fromIntegral $ max_live_bytes stats
-      , gcStatsNumByteUsageSamples    = fromIntegral $ major_gcs stats
-      , gcStatsCumulativeBytesUsed    = fromIntegral $ cumulative_live_bytes stats
-      , gcStatsBytesCopied            = fromIntegral $ copied_bytes stats
-      , gcStatsCurrentBytesUsed       = fromIntegral $ gcdetails_live_bytes gcdetails
-      , gcStatsCurrentBytesSlop       = fromIntegral $ gcdetails_slop_bytes gcdetails
-      , gcStatsMaxBytesSlop           = fromIntegral $ max_slop_bytes stats
-      , gcStatsPeakMegabytesAllocated = fromIntegral (max_mem_in_use_bytes stats) `quot` (1024*1024)
-      , gcStatsMutatorCpuSeconds      = nsToSecs $ mutator_cpu_ns stats
-      , gcStatsMutatorWallSeconds     = nsToSecs $ mutator_elapsed_ns stats
-      , gcStatsGcCpuSeconds           = nsToSecs $ gc_cpu_ns stats
-      , gcStatsGcWallSeconds          = nsToSecs $ gc_elapsed_ns stats
-      , gcStatsCpuSeconds             = nsToSecs $ cpu_ns stats
-      , gcStatsWallSeconds            = nsToSecs $ elapsed_ns stats
-      }
-#else
--- Use the old GCStats type to gather GC stats
-getGCStatistics = do
-  stats <- Stats.getGCStats
-  return $ Just GCStatistics {
-      gcStatsBytesAllocated         = bytesAllocated stats
-    , gcStatsNumGcs                 = numGcs stats
-    , gcStatsMaxBytesUsed           = maxBytesUsed stats
-    , gcStatsNumByteUsageSamples    = numByteUsageSamples stats
-    , gcStatsCumulativeBytesUsed    = cumulativeBytesUsed stats
-    , gcStatsBytesCopied            = bytesCopied stats
-    , gcStatsCurrentBytesUsed       = currentBytesUsed stats
-    , gcStatsCurrentBytesSlop       = currentBytesSlop stats
-    , gcStatsMaxBytesSlop           = maxBytesSlop stats
-    , gcStatsPeakMegabytesAllocated = peakMegabytesAllocated stats
-    , gcStatsMutatorCpuSeconds      = mutatorCpuSeconds stats
-    , gcStatsMutatorWallSeconds     = mutatorWallSeconds stats
-    , gcStatsGcCpuSeconds           = gcCpuSeconds stats
-    , gcStatsGcWallSeconds          = gcWallSeconds stats
-    , gcStatsCpuSeconds             = cpuSeconds stats
-    , gcStatsWallSeconds            = wallSeconds stats
-    }
- `Exc.catch`
-  \(_::Exc.SomeException) -> return Nothing
-#endif
-
 #ifdef GAUGE_MEASURE_TIME_NEW
 measureTime :: IO () -> IO (Time.TimeRecord 'Time.Differential)
 measureTime f = do
@@ -530,23 +387,18 @@ measure :: ((Measured -> Measured -> Measured)
         -> Int64         -- ^ Number of iterations.
         -> IO Measured
 measure run iters = run addResults $ \act -> do
-  startStats <- getGCStatistics
-
 #ifdef GAUGE_MEASURE_TIME_NEW
-  (Time.TimeRecord time cpuTime cycles, startRUsage, endRUsage) <- RUsage.with RUsage.Self $ measureTime act
+    ((Time.TimeRecord time cpuTime cycles, startRUsage, endRUsage), gcStats) <- GC.withMetrics $ RUsage.with RUsage.Self $ measureTime act
 #else
-  ((time, cpuTime, cycles), startRUsage, endRUsage) <- RUsage.with RUsage.Self $ measureTime act
+    (((time, cpuTime, cycles), startRUsage, endRUsage), gcStats) <- GC.withMetrics $ RUsage.with RUsage.Self $ measureTime act
 #endif
-
-  endStats <- getGCStatistics
-  let !m = applyGCStatistics endStats startStats $
-           applyRUStatistics endRUsage startRUsage $ measured {
-             measTime    = outTime time
-           , measCpuTime = outCputime cpuTime
-           , measCycles  = outCycles cycles
-           , measIters   = iters
-           }
-  return m
+    return $! applyGCStatistics gcStats
+           $  applyRUStatistics endRUsage startRUsage
+           $  measured { measTime    = outTime time
+                       , measCpuTime = outCputime cpuTime
+                       , measCycles  = outCycles cycles
+                       , measIters   = iters
+                       }
   where
 #ifdef GAUGE_MEASURE_TIME_NEW
     outTime (Time.ClockTime w)  = fromIntegral w / 1.0e9
@@ -594,17 +446,17 @@ measured = Measured {
     , measCycles             = 0
     , measIters              = 0
 
-    , measUtime              = minBound
-    , measStime              = minBound
-    , measMaxrss             = minBound
-    , measMinflt             = minBound
-    , measMajflt             = minBound
-    , measNvcsw              = minBound
-    , measNivcsw             = minBound
+    , measUtime              = maxBound
+    , measStime              = maxBound
+    , measMaxrss             = maxBound
+    , measMinflt             = maxBound
+    , measMajflt             = maxBound
+    , measNvcsw              = maxBound
+    , measNivcsw             = maxBound
 
-    , measAllocated          = minBound
-    , measNumGcs             = minBound
-    , measBytesCopied        = minBound
+    , measAllocated          = maxBound
+    , measNumGcs             = maxBound
+    , measBytesCopied        = maxBound
     , measMutatorWallSeconds = bad
     , measMutatorCpuSeconds  = bad
     , measGcWallSeconds      = bad
@@ -613,47 +465,19 @@ measured = Measured {
 
 -- | Apply the difference between two sets of GC statistics to a
 -- measurement.
-{-# DEPRECATED applyGCStats
-      ["GCStats has been deprecated in GHC 8.2. As a consequence,",
-       "applyGCStats has also been deprecated in favor of applyGCStatistics.",
-       "applyGCStats will be removed in the next major gauge release."] #-}
-applyGCStats :: Maybe GCStats
-             -- ^ Statistics gathered at the __end__ of a run.
-             -> Maybe GCStats
-             -- ^ Statistics gathered at the __beginning__ of a run.
-             -> Measured
-             -- ^ Value to \"modify\".
-             -> Measured
-applyGCStats (Just end) (Just start) m = m {
-    measAllocated          = diff bytesAllocated
-  , measNumGcs             = diff numGcs
-  , measBytesCopied        = diff bytesCopied
-  , measMutatorWallSeconds = diff mutatorWallSeconds
-  , measMutatorCpuSeconds  = diff mutatorCpuSeconds
-  , measGcWallSeconds      = diff gcWallSeconds
-  , measGcCpuSeconds       = diff gcCpuSeconds
-  } where diff f = f end - f start
-applyGCStats _ _ m = m
-
--- | Apply the difference between two sets of GC statistics to a
--- measurement.
-applyGCStatistics :: Maybe GCStatistics
-                  -- ^ Statistics gathered at the __end__ of a run.
-                  -> Maybe GCStatistics
-                  -- ^ Statistics gathered at the __beginning__ of a run.
+applyGCStatistics :: Maybe GC.Metrics
                   -> Measured
-                  -- ^ Value to \"modify\".
                   -> Measured
-applyGCStatistics (Just end) (Just start) m = m {
-    measAllocated          = diff gcStatsBytesAllocated
-  , measNumGcs             = diff gcStatsNumGcs
-  , measBytesCopied        = diff gcStatsBytesCopied
-  , measMutatorWallSeconds = diff gcStatsMutatorWallSeconds
-  , measMutatorCpuSeconds  = diff gcStatsMutatorCpuSeconds
-  , measGcWallSeconds      = diff gcStatsGcWallSeconds
-  , measGcCpuSeconds       = diff gcStatsGcCpuSeconds
-  } where diff f = f end - f start
-applyGCStatistics _ _ m = m
+applyGCStatistics (Just stats) m = m
+    { measAllocated          = GC.allocated stats
+    , measNumGcs             = GC.numGCs stats
+    , measBytesCopied        = GC.copied stats
+    , measMutatorWallSeconds = nanoSecondsToDouble $ GC.mutWallSeconds stats
+    , measMutatorCpuSeconds  = nanoSecondsToDouble $ GC.mutCpuSeconds stats
+    , measGcWallSeconds      = nanoSecondsToDouble $ GC.gcWallSeconds stats
+    , measGcCpuSeconds       = nanoSecondsToDouble $ GC.gcCpuSeconds stats
+    }
+applyGCStatistics Nothing m = m
 
 -- | Apply the difference between two sets of rusage statistics to a
 -- measurement.
