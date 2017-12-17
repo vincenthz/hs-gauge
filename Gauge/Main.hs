@@ -25,6 +25,7 @@ module Gauge.Main
     , benchmarkWith
     ) where
 
+import Control.Applicative
 import Control.Monad (unless, when)
 #ifdef HAVE_ANALYSIS
 import Gauge.Analysis (analyseBenchmark)
@@ -35,6 +36,7 @@ import Gauge.Main.Options
 import Gauge.Measurement (Measured, measureAccessors_, rescale)
 import Gauge.Monad (Gauge, askConfig, withConfig, gaugeIO)
 import Data.List (sort)
+import Data.Traversable
 import System.Environment (getProgName, getArgs)
 import System.Exit (ExitCode(..), exitWith)
 -- import System.FilePath.Glob

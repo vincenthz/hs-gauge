@@ -4,5 +4,7 @@ packages:
 extra-deps:
 - basement-0.0.2
 - foundation-0.0.15
+- code-page-0.1.3
+- math-functions-0.1.7.0
 flags: {}
 extra-package-dbs: []

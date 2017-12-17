@@ -25,6 +25,7 @@ module Gauge.Source.Time
 
 #include "gauge-time.h"
 
+import Control.Applicative
 import Data.Word (Word64)
 import Foreign.Ptr
 import Foreign.Storable

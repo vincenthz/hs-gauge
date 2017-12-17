@@ -21,6 +21,7 @@ module Gauge.Monad
     , finallyGauge
     ) where
 
+import Control.Applicative
 import Control.Exception
 import Control.Monad (ap)
 import Data.IORef (IORef, newIORef)

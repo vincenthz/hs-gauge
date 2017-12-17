@@ -103,7 +103,7 @@ library
     -- formely statistics dependency that we need
   if flag(analysis)
       build-depends:
-        math-functions
+        math-functions >= 0.1.7
 
   default-language: Haskell2010
   ghc-options: -O2 -Wall -funbox-strict-fields

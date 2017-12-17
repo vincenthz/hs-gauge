@@ -25,6 +25,7 @@ module Gauge.Source.RUsage
 
 #ifdef SUPPORT_RUSAGE
 
+import Control.Applicative
 import Foreign.C.Error (throwErrnoIfMinus1_)
 import Foreign.Storable
 import Foreign.Ptr
@@ -147,10 +148,8 @@ clongToW64 = fromIntegral
 sizeRUsage :: Int
 sizeRUsage = #const sizeof(struct rusage)
 
-pattern Self :: Who
 pattern Self = (#const RUSAGE_SELF)
 
-pattern Children :: Who
 pattern Children = (#const RUSAGE_CHILDREN)
 
 type Who = CInt
@@ -180,10 +179,8 @@ supported = True
 
 #else
 
-pattern Self :: Who
 pattern Self = 1
 
-pattern Children :: Who
 pattern Children = 2
 
 type Who = CInt

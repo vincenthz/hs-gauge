@@ -42,6 +42,7 @@ module Gauge.Measurement
     ) where
 
 import Gauge.Time (MicroSeconds(..), microSecondsToDouble, nanoSecondsToDouble)
+import Control.Applicative
 import Control.DeepSeq (NFData(rnf))
 import Control.Monad (when, unless)
 import Data.Data (Data, Typeable)

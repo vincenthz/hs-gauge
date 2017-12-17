@@ -39,6 +39,7 @@ module Statistics.Function
 
 #include "MachDeps.h"
 
+import Control.Applicative
 import Control.Monad.ST (ST)
 import Data.Bits ((.|.), shiftR)
 import qualified Data.Vector.Generic as G
