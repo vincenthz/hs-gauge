@@ -46,6 +46,7 @@ library
     Gauge.Time
     Gauge.Optional
     Gauge.CSV
+    Gauge.Format
 
     Gauge.Source.RUsage
     Gauge.Source.GC
