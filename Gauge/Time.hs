@@ -5,11 +5,14 @@ module Gauge.Time
     ( MicroSeconds(..)
     , MilliSeconds(..)
     , NanoSeconds(..)
+    , PicoSeconds100(..)
     -- * Convertion functions
     , microSecondsToDouble
     , milliSecondsToDouble
     , nanoSecondsToDouble
+    , picosecondsToNanoSeconds
     , doubleToNanoSeconds
+    , doubleToPicoseconds100
     ) where
 
 import           Data.Typeable
@@ -29,6 +32,13 @@ newtype MicroSeconds = MicroSeconds Word64
 -- | Represent a number of nanoseconds
 newtype NanoSeconds = NanoSeconds Word64
     deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num)
+
+-- | Represent a number of hundred of nanoseconds
+newtype PicoSeconds100 = PicoSeconds100 Word64
+    deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num)
+
+ref_picoseconds100 :: Num a => a
+ref_picoseconds100 = 10000000000
 
 ref_nanoseconds :: Num a => a
 ref_nanoseconds = 1000000000
@@ -50,3 +60,11 @@ nanoSecondsToDouble (NanoSeconds w) = fromIntegral w / ref_nanoseconds
 
 doubleToNanoSeconds :: Double -> NanoSeconds
 doubleToNanoSeconds w = NanoSeconds $ truncate (w * ref_nanoseconds)
+
+-- | Return the number of integral nanoseconds followed by the number of hundred of picoseconds (1 digit)
+picosecondsToNanoSeconds :: PicoSeconds100 -> (NanoSeconds, Word)
+picosecondsToNanoSeconds (PicoSeconds100 p) = (NanoSeconds ns, fromIntegral fragment)
+  where (ns, fragment) = p `divMod` 10
+
+doubleToPicoseconds100 :: Double -> PicoSeconds100
+doubleToPicoseconds100 w = PicoSeconds100 $ round (w * ref_picoseconds100)
