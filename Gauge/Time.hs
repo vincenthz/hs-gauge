@@ -33,7 +33,7 @@ newtype MicroSeconds = MicroSeconds Word64
 newtype NanoSeconds = NanoSeconds Word64
     deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num)
 
--- | Represent a number of hundred of nanoseconds
+-- | Represent a number of hundreds of picoseconds
 newtype PicoSeconds100 = PicoSeconds100 Word64
     deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num)
 
