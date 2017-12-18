@@ -1,6 +1,7 @@
 -- This is an extremely cheap (code-wise) implementation of Map.
 -- it's not meant to be efficient, but just provide
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Gauge.ListMap
     ( Map
