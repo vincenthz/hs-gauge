@@ -53,7 +53,7 @@ import Gauge.Monad (Gauge, askConfig, gaugeIO, Crit(..), askCrit, withConfig)
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
 import Data.IORef (IORef, readIORef, writeIORef)
-import Data.Map (Map)
+import Gauge.ListMap (Map)
 import Data.Maybe (fromJust, isJust)
 import GHC.Generics (Generic)
 import Statistics.Function (sort)
@@ -66,7 +66,7 @@ import Statistics.Types (Sample, Estimate(..),ConfInt(..),confidenceInterval
                         ,cl95,confidenceLevel)
 import System.Random.MWC (GenIO, createSystemRandom)
 import Text.Printf (printf)
-import qualified Data.Map as Map
+import qualified Gauge.ListMap as Map
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as G
 import qualified Data.Vector.Unboxed as U
@@ -88,7 +88,7 @@ data Outliers = Outliers {
     -- ^ Between 1.5 and 3 times the IQR above the third quartile.
     , highSevere  :: !Int64
     -- ^ More than 3 times the IQR above the third quartile.
-    } deriving (Eq, Read, Show, Typeable, Data, Generic)
+    } deriving (Eq, Show, Typeable, Data, Generic)
 
 instance NFData Outliers
 
@@ -99,7 +99,7 @@ data OutlierEffect = Unaffected -- ^ Less than 1% effect.
                    | Moderate   -- ^ Between 10% and 50%.
                    | Severe     -- ^ Above 50% (i.e. measurements
                                 -- are useless).
-                     deriving (Eq, Ord, Read, Show, Typeable, Data, Generic)
+                     deriving (Eq, Ord, Show, Typeable, Data, Generic)
 
 instance NFData OutlierEffect
 
@@ -121,7 +121,7 @@ data OutlierVariance = OutlierVariance {
     -- ^ Brief textual description of effect.
     , ovFraction :: Double
     -- ^ Quantitative description of effect (a fraction between 0 and 1).
-    } deriving (Eq, Read, Show, Typeable, Data, Generic)
+    } deriving (Eq, Show, Typeable, Data, Generic)
 
 instance NFData OutlierVariance where
     rnf OutlierVariance{..} = rnf ovEffect `seq` rnf ovDesc `seq` rnf ovFraction
@@ -134,7 +134,7 @@ data Regression = Regression {
     -- ^ Map from name to value of predictor coefficients.
   , regRSquare    :: St.Estimate St.ConfInt Double
     -- ^ R&#0178; goodness-of-fit estimate.
-  } deriving (Eq, Read, Show, Typeable, Generic)
+  } deriving (Eq, Show, Typeable, Generic)
 
 instance NFData Regression where
     rnf Regression{..} =
@@ -151,7 +151,7 @@ data SampleAnalysis = SampleAnalysis {
     , anOutlierVar :: OutlierVariance
       -- ^ Description of the effects of outliers on the estimated
       -- variance.
-    } deriving (Eq, Read, Show, Typeable, Generic)
+    } deriving (Eq, Show, Typeable, Generic)
 
 instance NFData SampleAnalysis where
     rnf SampleAnalysis{..} =
@@ -163,7 +163,7 @@ data KDE = KDE {
       kdeType   :: String
     , kdeValues :: U.Vector Double
     , kdePDF    :: U.Vector Double
-    } deriving (Eq, Read, Show, Typeable, Data, Generic)
+    } deriving (Eq, Show, Typeable, Data, Generic)
 
 instance NFData KDE where
     rnf KDE{..} = rnf kdeType `seq` rnf kdeValues `seq` rnf kdePDF
@@ -182,7 +182,7 @@ data Report = Report {
       -- ^ Analysis of outliers.
     , reportKDEs     :: [KDE]
       -- ^ Data for a KDE of times.
-    } deriving (Eq, Read, Show, Typeable, Generic)
+    } deriving (Eq, Show, Typeable, Generic)
 
 instance NFData Report where
     rnf Report{..} =
