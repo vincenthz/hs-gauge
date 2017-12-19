@@ -90,7 +90,7 @@ library
     Paths_gauge
 
   build-depends:
-    base >= 4.5 && < 5,
+    base >= 4.7 && < 5,
     basement,
     code-page,
     containers,
