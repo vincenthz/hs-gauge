@@ -148,9 +148,15 @@ clongToW64 = fromIntegral
 sizeRUsage :: Int
 sizeRUsage = #const sizeof(struct rusage)
 
-pattern Self = (#const RUSAGE_SELF)
+#if __GLASGOW_HASKELL__ >= 710
+pattern Self :: Who
+#endif
+pattern Self = (#const RUSAGE_SELF) :: Who
 
-pattern Children = (#const RUSAGE_CHILDREN)
+#if __GLASGOW_HASKELL__ >= 710
+pattern Children :: Who
+#endif
+pattern Children = (#const RUSAGE_CHILDREN) :: Who
 
 type Who = CInt
 
