@@ -46,12 +46,12 @@ import Control.DeepSeq (NFData(rnf))
 import Control.Monad (when, unless)
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
-import Data.Map (Map, fromList)
+import Gauge.ListMap (Map, fromList)
 import Data.Word (Word64)
 import GHC.Generics (Generic)
 import Text.Printf (printf)
 import qualified Data.List as List
-import qualified Data.Map as Map
+import qualified Gauge.ListMap as Map
 
 import           Gauge.Source.RUsage (RUsage)
 import qualified Gauge.Source.RUsage as RUsage
