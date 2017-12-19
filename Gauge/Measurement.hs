@@ -42,6 +42,7 @@ module Gauge.Measurement
     ) where
 
 import Gauge.Time (MicroSeconds(..), microSecondsToDouble, nanoSecondsToDouble)
+import Control.Applicative
 import Control.DeepSeq (NFData(rnf))
 import Control.Monad (when, unless)
 import Data.Data (Data, Typeable)
@@ -58,6 +59,7 @@ import qualified Gauge.Source.RUsage as RUsage
 
 import qualified Gauge.Source.Time as Time
 import qualified Gauge.Source.GC as GC
+import Prelude -- Silence redundant import warnings
 
 -- | A collection of measurements made while benchmarking.
 --

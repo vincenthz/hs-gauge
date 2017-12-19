@@ -40,6 +40,7 @@ module Gauge.Analysis
 -- Temporary: to support pre-AMP GHC 7.8.4:
 import Data.Monoid
 
+import Control.Applicative
 import Control.Arrow (second)
 import Control.DeepSeq (NFData(rnf))
 import Control.Monad (forM_, when)
@@ -55,6 +56,7 @@ import Data.Int (Int64)
 import Data.IORef (IORef, readIORef, writeIORef)
 import Gauge.ListMap (Map)
 import Data.Maybe (fromJust, isJust)
+import Data.Traversable (traverse)
 import GHC.Generics (Generic)
 import Statistics.Function (sort)
 import Statistics.Quantile (weightedAvg, Sorted(..))

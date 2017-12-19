@@ -39,6 +39,7 @@ module Statistics.Function
 
 #include "MachDeps.h"
 
+import Control.Applicative
 import Control.Monad.ST (ST)
 import Data.Bits ((.|.), shiftR)
 import qualified Data.Vector.Generic as G
@@ -46,6 +47,7 @@ import qualified Data.Vector.Unboxed as U
 import qualified Data.Vector.Unboxed.Mutable as M
 import Numeric.MathFunctions.Comparison (within)
 import Basement.Monad
+import Prelude -- Silence redundant import warnings
 
 -- | Sort a vector.
 sort :: U.Vector Double -> U.Vector Double

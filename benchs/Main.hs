@@ -3,6 +3,7 @@ module Main where
 
 import Gauge
 import System.IO.Unsafe
+import Control.Applicative
 import Control.Concurrent
 import Control.Exception
 

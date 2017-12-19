@@ -25,6 +25,7 @@ module Gauge.Main
     , benchmarkWith
     ) where
 
+import Control.Applicative
 import Control.Monad (unless, when)
 #ifdef HAVE_ANALYSIS
 import Gauge.Analysis (analyseBenchmark)
@@ -35,12 +36,14 @@ import Gauge.Main.Options
 import Gauge.Measurement (Measured, measureAccessors_, rescale)
 import Gauge.Monad (Gauge, askConfig, withConfig, gaugeIO)
 import Data.List (sort)
+import Data.Traversable
 import System.Environment (getProgName, getArgs)
 import System.Exit (ExitCode(..), exitWith)
 -- import System.FilePath.Glob
 import System.IO (BufferMode(..), hSetBuffering, stdout)
 import System.IO.CodePage (withCP65001)
 import qualified Data.Vector as V
+import Prelude -- Silence redundant import warnings
 
 -- | An entry point that can be used as a @main@ function.
 --

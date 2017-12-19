@@ -13,6 +13,7 @@ module Gauge.Source.GC
     , withMetrics
     ) where
 
+import           Control.Applicative
 import           Data.Word
 import           Data.IORef (readIORef, newIORef, IORef)
 import           Gauge.Time
@@ -26,6 +27,8 @@ import qualified GHC.Stats as GHC (GCStats(..), getGCStats)
 import           Data.Int
 #endif
 
+import Prelude -- Silence redundant import warnings
+
 #if MIN_VERSION_base(4,10,0)
 newtype AbsMetrics = AbsMetrics GHC.RTSStats
 #else
@@ -33,7 +36,7 @@ newtype AbsMetrics = AbsMetrics GHC.GCStats
 #endif
 
 -- | Check if RTS/GC metrics gathering is enabled or not
-supported :: Bool 
+supported :: Bool
 supported = unsafePerformIO (readIORef supportedVar)
 {-# NOINLINE supported #-}
 
@@ -46,9 +49,9 @@ supportedVar = unsafePerformIO $ do
 #endif
     newIORef b
 {-# NOINLINE supportedVar #-}
-  
+
 getMetrics :: IO AbsMetrics
-getMetrics = AbsMetrics <$> 
+getMetrics = AbsMetrics <$>
 #if MIN_VERSION_base(4,10,0)
     GHC.getRTSStats
 #else

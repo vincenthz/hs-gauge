@@ -25,6 +25,7 @@ module Gauge.Source.RUsage
 
 #ifdef SUPPORT_RUSAGE
 
+import Control.Applicative
 import Foreign.C.Error (throwErrnoIfMinus1_)
 import Foreign.Storable
 import Foreign.Ptr
@@ -40,6 +41,7 @@ import Foreign.Marshal.Alloc
 import Gauge.Time (MicroSeconds(..))
 import Foreign.C.Types
 import Data.Word
+import Prelude -- Silence redundant import warnings
 
 {- struct rusage :
 struct timeval ru_utime; /* user CPU time used */
@@ -147,11 +149,15 @@ clongToW64 = fromIntegral
 sizeRUsage :: Int
 sizeRUsage = #const sizeof(struct rusage)
 
+#if __GLASGOW_HASKELL__ >= 710
 pattern Self :: Who
-pattern Self = (#const RUSAGE_SELF)
+#endif
+pattern Self = (#const RUSAGE_SELF) :: Who
 
+#if __GLASGOW_HASKELL__ >= 710
 pattern Children :: Who
-pattern Children = (#const RUSAGE_CHILDREN)
+#endif
+pattern Children = (#const RUSAGE_CHILDREN) :: Who
 
 type Who = CInt
 
@@ -180,11 +186,15 @@ supported = True
 
 #else
 
+#if __GLASGOW_HASKELL__ >= 710
 pattern Self :: Who
-pattern Self = 1
+#endif
+pattern Self = 1 :: Who
 
+#if __GLASGOW_HASKELL__ >= 710
 pattern Children :: Who
-pattern Children = 2
+#endif
+pattern Children = 2 :: Who
 
 type Who = CInt
 
