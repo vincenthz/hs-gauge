@@ -11,13 +11,12 @@ module Statistics.Regression
     , bootstrapRegress
     ) where
 
-import Control.Applicative ((<$>))
+import Control.Applicative
 import Control.Concurrent (forkIO)
 import Control.Concurrent.Chan (newChan, readChan, writeChan)
 import Control.DeepSeq (rnf)
 import Control.Monad (forM_, replicateM)
 import GHC.Conc (getNumCapabilities)
-import Prelude hiding (pred, sum)
 import Statistics.Function as F
 import Statistics.Matrix
 import Statistics.Matrix.Algorithms (qr)
@@ -30,6 +29,7 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Generic as G
 import qualified Data.Vector.Unboxed as U
 import qualified Data.Vector.Unboxed.Mutable as M
+import Prelude hiding (pred, sum)
 
 -- | Perform an ordinary least-squares regression on a set of
 -- predictors, and calculate the goodness-of-fit of the regression.

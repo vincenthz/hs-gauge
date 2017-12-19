@@ -62,7 +62,7 @@ module Gauge.Benchmark
     , runBenchmarkIters
     ) where
 
-import Control.Applicative ((<*))
+import Control.Applicative
 import Control.DeepSeq (NFData(rnf))
 import Control.Exception (bracket, catch, evaluate, finally)
 import Control.Monad (foldM, void, when)
@@ -78,6 +78,7 @@ import System.IO (hClose, openTempFile)
 import System.Mem (performGC)
 import qualified Data.Vector as V
 import System.Process (callProcess)
+import Prelude
 
 -- $rnf
 --

@@ -6,7 +6,7 @@
 
 import Gauge.Benchmark(Benchmark, bench, nfIO)
 import Gauge.Main.Options (Config(..), Verbosity(Quiet))
-import Control.Applicative (pure)
+import Control.Applicative
 import Control.DeepSeq (NFData(..))
 import Control.Exception (Exception, try, throwIO)
 import Control.Monad (when)
@@ -21,6 +21,7 @@ import Test.HUnit (assertFailure)
 import qualified Gauge as C
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import Prelude
 
 instance NFData Handle where
     rnf !_ = ()

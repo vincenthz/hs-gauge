@@ -10,13 +10,13 @@ module Statistics.Matrix.Algorithms
       qr
     ) where
 
-import Control.Applicative ((<$>), (<*>))
+import Control.Applicative
 import Control.Monad.ST (ST, runST)
-import Prelude hiding (sum, replicate)
 import Statistics.Matrix (Matrix, column, dimension, for, norm)
 import qualified Statistics.Matrix.Mutable as M
 import Statistics.Sample.Internal (sum)
 import qualified Data.Vector.Unboxed as U
+import Prelude hiding (sum, replicate)
 
 -- | /O(r*c)/ Compute the QR decomposition of a matrix.
 -- The result returned is the matrices (/q/,/r/).

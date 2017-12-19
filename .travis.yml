@@ -1,92 +1,92 @@
-# Use new container infrastructure to enable caching
-sudo: false
+notifications:
+  email: false
 
-# Caching so the next build will be fast too.
-cache:
-  directories:
-  - $HOME/.ghc
-  - $HOME/.cabal
-  - $HOME/.stack
+env:
+  global:
+  - GHC_OPTIONS="-O0 -Werror"
+  - PACKCHECK="./packcheck.sh"
+  # The commit id of packcheck.sh to use from harendra-kumar/packcheck on github
+  - PACKCHECK_COMMIT="6be708c5b34b5a2a7b553cf9ebe99f1f5764a79a"
 
-# The different configurations we want to test. We have BUILD=cabal which uses
-# cabal-install, and BUILD=stack which uses Stack.
 matrix:
   include:
-  - env: BUILD=hlint
-    language: generic
-    compiler: hlint
-  - env: BUILD=stack RESOLVER=ghc-8.0
-    language: generic
-    addons: { apt: { packages: [ libgmp-dev ] } }
-    compiler: ghc-8.0
-  - env: BUILD=stack RESOLVER=ghc-8.2
-    language: generic
-    compiler: ghc-8.2
-    addons: { apt: { packages: [ libgmp-dev ] } }
-  - env: BUILD=stack RESOLVER=ghc-8.2 STACK_OPTIONS="--flag gauge:-analysis"
-    language: generic
-    compiler: ghc-8.2
-    addons: { apt: { packages: [ libgmp-dev ] } }
-  - env: BUILD=stack RESOLVER=ghc-7.10
-    language: generic
-    addons: { apt: { packages: [ libgmp-dev ] } }
-    compiler: ghc-7.10
-  - env: BUILD=stack RESOLVER=ghc-7.8
-    language: generic
-    addons: { apt: { packages: [ libgmp-dev ] } }
-    compiler: ghc-7.8
-  - env: BUILD=stack RESOLVER=ghc-8.0
+
+  - env: BUILD=stack STACK_YAML=.travis/stack-ghc-7.8.yaml
+  - env: BUILD=stack STACK_YAML=.travis/stack-ghc-7.10.yaml
+  - env: BUILD=stack STACK_YAML=.travis/stack-ghc-8.0.yaml
+  - env: BUILD=stack STACK_YAML=.travis/stack-ghc-8.2.yaml
+  - env: BUILD=stack STACK_YAML=.travis/stack-ghc-8.2.yaml STACK_OPTIONS="--flag gauge:-analysis"
+  - env: BUILD=stack STACK_YAML=.travis/stack-ghc-8.2.yaml HLINT_OPTIONS=". --cpp-define=__GLASGOW_HASKELL__=800 --cpp-define=x86_64_HOST_ARCH=1 --cpp-define=mingw32_HOST_OS=1"
+  - env: BUILD=stack STACK_YAML=.travis/stack-ghc-8.2.yaml
     os: osx
-    language: generic
-    compiler: ghc-8.0
+
+  # Note COVERALLS (hpc-coveralls) works only with cabal build.
+  # For this to succeed you have to add your porject to coveralls.io first
+  #- env: BUILD=cabal GHCVER=8.2.2 CABALVER=2.0 COVERALLS_OPTIONS="--coverage-mode=StrictlyFullLines --exclude-dir=test test"
+  #  addons: {apt: {packages: [cabal-install-2.0,ghc-8.2.2], sources: [hvr-ghc]}}
+
+  # --------------------------------------------------------------------------
+  # Builds that are allowed to fail
+  # --------------------------------------------------------------------------
 
   allow_failures:
-  - env: BUILD=hlint
-    language: generic
-    compiler: hlint
+  - env: BUILD=stack STACK_YAML=.travis/stack-ghc-8.2.yaml HLINT_OPTIONS=". --cpp-define=__GLASGOW_HASKELL__=800 --cpp-define=x86_64_HOST_ARCH=1 --cpp-define=mingw32_HOST_OS=1"
 
-install:
-  - export PATH=$HOME/.local/bin::$HOME/.cabal/bin:$PATH
-  - mkdir -p ~/.local/bin
-  - |
-    case "$BUILD" in
-      stack)
-        if [ `uname` = "Darwin" ]
-        then
-          travis_retry curl --insecure -L https://www.stackage.org/stack/osx-x86_64 | tar xz --strip-components=1 --include '*/stack' -C ~/.local/bin
-        else
-          travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-        fi
-      ;;
-    cabal)
-      ;;
-    esac
+# ------------------------------------------------------------------------
+#  Settings beyond this point are advanced and normally not tweaked
+# ------------------------------------------------------------------------
+
+sudo: false
+cache:
+  directories:
+  - $HOME/.cabal
+  - $HOME/.ghc
+  - $HOME/.local
+  - $HOME/.stack
 
 script:
-- |
-  set -ex
-  if [ "x${RUNTEST}" = "xfalse" ]; then exit 0; fi
-  case "$BUILD" in
-    stack)
-      rm stack.yaml && ln -sv .travis/stack-${RESOLVER}.yaml stack.yaml
-      stack --no-terminal test $STACK_OPTIONS \
-          --install-ghc \
-          --coverage --bench --no-run-benchmarks \
-          --haddock --no-haddock-deps
-      ;;
-    cabal)
-      cabal install --only-dependencies --enable-tests
-      cabal test
-      cabal check
-      cabal sdist
-      ;;
-    hlint)
-      curl -sL https://raw.github.com/ndmitchell/hlint/master/misc/travis.sh | sh -s . --cpp-define=__GLASGOW_HASKELL__=800 --cpp-define=x86_64_HOST_ARCH=1 --cpp-define=mingw32_HOST_OS=1
-      ;;
-  esac
-  set +ex
+  - |
+    # Where to find the packcheck.sh script
+    PACKCHECK_URL=https://raw.githubusercontent.com/harendra-kumar/packcheck/${PACKCHECK_COMMIT}/packcheck.sh
 
-# It doesn't seem to be working so far.
-#
-#after_script:
-#    - travis_retry curl -L https://github.com/rubik/stack-hpc-coveralls/releases/download/v0.0.3.0/shc-linux-x64-$GHCVER.tar.bz2 | tar -xj
+    # When GHCVER or CABALVER env variables are specified, modify the path to
+    # find the binaries installed from hvr-ghc repo
+    add_path()  { eval "test -n \"\$$1\"" && eval "PATH=/opt/$2/\"\$$1\"/bin:$PATH"; true; }
+
+    # Emit the value of the var specified as arg only when the build is cabal
+    cabal_env() { test "$BUILD" = cabal && echo $1; }
+
+    CURL=$(which curl)
+    PATH=/bin:/usr/bin
+    add_path GHCVER   ghc
+    add_path CABALVER cabal
+
+    # If a custom stack-yaml is specified, replace the default with that
+    if test -e "$STACK_YAML"; then rm -f stack.yaml && ln -sv $STACK_YAML stack.yaml; else true; fi
+    if test ! -e "$PACKCHECK"; then $CURL -sL -o "$PACKCHECK" $PACKCHECK_URL; fi;
+    chmod +x $PACKCHECK
+
+    # We start with a clean environment (env -i) and specify all the
+    # environment variables explicitly. TRAVIS vars are needed by
+    # hpc-coveralls.
+  - env -i
+      LC_ALL=C.UTF-8
+      TRAVIS=$TRAVIS
+      TRAVIS_JOB_ID=$TRAVIS_JOB_ID
+      PATH="$PATH"
+      RESOLVER=$RESOLVER
+      STACK_BUILD_OPTIONS="$STACK_BUILD_OPTIONS"
+      GHCVER=$GHCVER
+      GHC_OPTIONS="$GHC_OPTIONS"
+      COVERALLS_OPTIONS="$COVERALLS_OPTIONS"
+      CABAL_REINIT_CONFIG=y
+      TEST_INSTALL=y
+      $(cabal_env CABALVER=$CABALVER)
+      $(cabal_env CABAL_CHECK_RELAX=y)
+      $(cabal_env CABAL_NO_SANDBOX=y)
+      $(cabal_env CABAL_HACKAGE_MIRROR=hackage.haskell.org:http://hackage.fpcomplete.com)
+      HLINT_OPTIONS="$HLINT_OPTIONS"
+      bash -c "$PACKCHECK $BUILD"
+
+install: true
+language: c

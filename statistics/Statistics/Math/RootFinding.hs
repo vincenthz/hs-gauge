@@ -20,11 +20,12 @@ module Statistics.Math.RootFinding
     -- $references
     ) where
 
-import Control.Applicative (Alternative(..), Applicative(..))
+import Control.Applicative
 import Control.Monad (MonadPlus(..), ap)
 import Data.Data (Data, Typeable)
 import GHC.Generics (Generic)
 import Numeric.MathFunctions.Comparison (within)
+import Prelude
 
 
 -- | The result of searching for a root of a mathematical function.

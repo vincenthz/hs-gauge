@@ -20,7 +20,7 @@ import           Gauge.Time
 import           System.IO.Unsafe (unsafePerformIO)
 
 #if MIN_VERSION_base(4,10,0)
-import qualified GHC.Stats as GHC (RTSStats(..), GCDetails(..), getRTSStatsEnabled, getRTSStats)
+import qualified GHC.Stats as GHC (RTSStats(..), getRTSStatsEnabled, getRTSStats)
 #else
 import qualified Control.Exception as Exn
 import qualified GHC.Stats as GHC (GCStats(..), getGCStats)
