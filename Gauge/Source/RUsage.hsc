@@ -186,9 +186,15 @@ supported = True
 
 #else
 
-pattern Self = 1
+#if __GLASGOW_HASKELL__ >= 710
+pattern Self :: Who
+#endif
+pattern Self = 1 :: Who
 
-pattern Children = 2
+#if __GLASGOW_HASKELL__ >= 710
+pattern Children :: Who
+#endif
+pattern Children = 2 :: Who
 
 type Who = CInt
 
