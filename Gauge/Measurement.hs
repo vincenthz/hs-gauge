@@ -59,6 +59,7 @@ import qualified Gauge.Source.RUsage as RUsage
 
 import qualified Gauge.Source.Time as Time
 import qualified Gauge.Source.GC as GC
+import Prelude -- Silence redundant import warnings
 
 -- | A collection of measurements made while benchmarking.
 --

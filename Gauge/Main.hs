@@ -43,6 +43,7 @@ import System.Exit (ExitCode(..), exitWith)
 import System.IO (BufferMode(..), hSetBuffering, stdout)
 import System.IO.CodePage (withCP65001)
 import qualified Data.Vector as V
+import Prelude -- Silence redundant import warnings
 
 -- | An entry point that can be used as a @main@ function.
 --

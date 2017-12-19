@@ -41,6 +41,7 @@ import Foreign.Marshal.Alloc
 import Gauge.Time (MicroSeconds(..))
 import Foreign.C.Types
 import Data.Word
+import Prelude -- Silence redundant import warnings
 
 {- struct rusage :
 struct timeval ru_utime; /* user CPU time used */

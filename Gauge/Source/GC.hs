@@ -27,6 +27,8 @@ import qualified GHC.Stats as GHC (GCStats(..), getGCStats)
 import           Data.Int
 #endif
 
+import Prelude -- Silence redundant import warnings
+
 #if MIN_VERSION_base(4,10,0)
 newtype AbsMetrics = AbsMetrics GHC.RTSStats
 #else

@@ -28,6 +28,7 @@ import Data.IORef (IORef, newIORef)
 import Gauge.Main.Options (Config)
 import Gauge.Measurement (initializeTime)
 import System.Random.MWC (GenIO)
+import Prelude -- Silence redundant import warnings
 
 data Crit = Crit
     { config   :: !Config

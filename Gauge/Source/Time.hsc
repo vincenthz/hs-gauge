@@ -30,6 +30,7 @@ import Data.Word (Word64)
 import Foreign.Ptr
 import Foreign.Storable
 import Foreign.Marshal.Alloc (alloca, allocaBytes)
+import Prelude -- Silence redundant import warnings
 
 data MeasurementType = Differential | Absolute
 
