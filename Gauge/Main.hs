@@ -41,7 +41,7 @@ import System.Environment (getProgName, getArgs)
 import System.Exit (ExitCode(..), exitWith)
 -- import System.FilePath.Glob
 import System.IO (BufferMode(..), hSetBuffering, stdout)
-import System.IO.CodePage (withCP65001)
+import Basement.Terminal (initialize)
 import qualified Data.Vector as V
 import Prelude -- Silence redundant import warnings
 
@@ -142,7 +142,8 @@ benchmark = benchmarkWith defaultConfig
 defaultMainWith :: Config
                 -> [Benchmark]
                 -> IO ()
-defaultMainWith defCfg bs = withCP65001 $ do
+defaultMainWith defCfg bs = do
+    initialize
     args <- getArgs
     let (cfg, extra) = parseWith defCfg args
 #ifdef HAVE_ANALYSIS
