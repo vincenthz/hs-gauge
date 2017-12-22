@@ -1,3 +1,7 @@
+# Version HEAD
+
+* Remove code-page dependency
+
 # 0.1.3
 
 * Simplify monad handling, remove foundation as dependency

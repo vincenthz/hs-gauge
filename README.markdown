@@ -20,7 +20,7 @@ Added:
 
 * Remove further dependencies
 * storing benchmarks data in CSV and JSON
-* Add a standalong program taking benchmark data files and rendering to html/javascript/graphs
+* Add a standalone program taking benchmark data files and rendering to html/javascript/graphs
 * Make the library more useful as a standalone library to gather benchmark numbers related to functions in a programatic way
 
 ## Small mode
@@ -36,7 +36,7 @@ slow                                     mean 163.9 ns  ( +- 9.683 ns  )
 
 Number of total dependencies (direct & indirect):
 
-* gauge: 19 dependencies
+* gauge: 18 dependencies
 * criterion: 63 dependencies
 
 Dependencies removed:
@@ -87,7 +87,7 @@ Dependencies removed:
 * uuid-types 1.0.3
 * vector-algorithms 0.7.0.1
 * vector-binary-instances 0.2.3.5
-
+* code-page 0.1.3
 
 Criterion graph of dependencies:
 
