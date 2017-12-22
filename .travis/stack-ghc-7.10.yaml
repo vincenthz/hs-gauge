@@ -2,7 +2,7 @@ resolver: lts-6.35
 packages:
 - '.'
 extra-deps:
-- basement-0.0.2
+- basement-0.0.4
 - foundation-0.0.15
 - optparse-applicative-0.14.0.0
 flags: {}
