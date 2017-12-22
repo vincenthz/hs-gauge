@@ -3,7 +3,7 @@ notifications:
 
 env:
   global:
-  - GHC_OPTIONS="-O0 -Werror"
+  - GHC_OPTIONS="-Werror"
   - PACKCHECK="./packcheck.sh"
   # The commit id of packcheck.sh to use from harendra-kumar/packcheck on github
   - PACKCHECK_COMMIT="6be708c5b34b5a2a7b553cf9ebe99f1f5764a79a"
