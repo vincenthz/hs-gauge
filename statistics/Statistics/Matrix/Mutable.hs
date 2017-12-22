@@ -18,7 +18,7 @@ module Statistics.Matrix.Mutable
     , immutably
     ) where
 
-import Control.Applicative ((<$>))
+import Control.Applicative
 import Control.DeepSeq (NFData(..))
 import Control.Monad.ST (ST)
 import Statistics.Matrix.Types (Matrix(..), MMatrix(..), MVector)

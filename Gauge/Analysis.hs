@@ -56,7 +56,7 @@ import Data.Int (Int64)
 import Data.IORef (IORef, readIORef, writeIORef)
 import Gauge.ListMap (Map)
 import Data.Maybe (fromJust, isJust)
-import Data.Traversable (traverse)
+import Data.Traversable
 import GHC.Generics (Generic)
 import Statistics.Function (sort)
 import Statistics.Quantile (weightedAvg, Sorted(..))
@@ -75,7 +75,7 @@ import qualified Data.Vector.Unboxed as U
 import qualified Statistics.Resampling.Bootstrap as B
 import qualified Statistics.Types                as B
 import qualified Statistics.Types as St
-import Prelude
+import Prelude hiding (sequence, mapM)
 
 -- | Outliers from sample data, calculated using the boxplot
 -- technique.
