@@ -92,7 +92,7 @@ library
 
   build-depends:
     base >= 4.7 && < 5,
-    basement,
+    basement >= 0.0.4,
     deepseq >= 1.1.0.0,
     mwc-random >= 0.8.0.3,
     vector >= 0.7.1,
