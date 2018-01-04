@@ -72,7 +72,8 @@ import Gauge.IO.Printf (note, prolix)
 import Gauge.Main.Options (Config(..), Verbosity(..))
 import Gauge.Measurement (measure, getTime, secs, Measured(..))
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
-import Gauge.Time (MilliSeconds(..), milliSecondsToDouble)
+import Gauge.Time (MilliSeconds(..), milliSecondsToDouble, microSecondsToDouble)
+import qualified Gauge.CSV as CSV
 import System.Directory (canonicalizePath, getTemporaryDirectory, removeFile)
 import System.IO (hClose, openTempFile)
 import System.Mem (performGC)
@@ -594,28 +595,53 @@ runBenchmarkIsolated cfg prog desc =
                         , "--min-samples", show (bmMinSamples cfg)
                         , "--measure-only", file, desc
                         ] ++ if (quickMode cfg) then ["--quick"] else [])
-      readFile file >>= return . read
+      meas <- readFile file >>= return . read
+      writeMeas (csvRawFile cfg) desc meas
+      return meas
 
 -- | Run a single benchmarkable and return the result.
-runBenchmarkable :: String -> Benchmarkable
-  -> Gauge (V.Vector Measured)
+runBenchmarkable :: String -> Benchmarkable -> Gauge (V.Vector Measured)
 runBenchmarkable desc bm = do
-  cfg@Config{..} <- askConfig
-  case measureWith of
-    Just prog -> gaugeIO $ runBenchmarkIsolated cfg prog desc
-    Nothing -> gaugeIO $ do
-      _ <- note "benchmarking %s ... " desc
-      i0 <- if includeFirstIter
-            then return 0
-            else iterateBenchmarkable_ bm 1 >> return 1
-      let limit = bmTimeLimit cfg
-      (meas, timeTaken, i) <-
-        runBenchmarkable' bm minDuration (bmMinSamples cfg) limit
-      when ((verbosity == Verbose || not quickMode)
-            && timeTaken > limit * 1.25) .
-        void $ prolix "took %s, total %d iterations\n"
-                      (secs timeTaken) (i0 + i)
-      return meas
+    cfg@Config{..} <- askConfig
+    case measureWith of
+        Just prog -> gaugeIO $ runBenchmarkIsolated cfg prog desc
+        Nothing   -> gaugeIO $ runNormal cfg
+  where
+    runNormal cfg@Config{..} = do
+        _ <- note "benchmarking %s ... " desc
+        i0 <- if includeFirstIter
+                then return 0
+                else iterateBenchmarkable_ bm 1 >> return 1
+        let limit = bmTimeLimit cfg
+        (meas, timeTaken, i) <- runBenchmarkable' bm minDuration (bmMinSamples cfg) limit
+        when ((verbosity == Verbose || not quickMode) && timeTaken > limit * 1.25) .
+            void $ prolix "took %s, total %d iterations\n" (secs timeTaken) (i0 + i)
+        writeMeas csvRawFile desc meas
+        return meas
+
+writeMeas :: Maybe FilePath -> String -> V.Vector Measured -> IO ()
+writeMeas fp desc meas = V.forM_ meas $ \m ->
+    CSV.write fp $ CSV.Row
+        [ CSV.string   $ desc
+        , CSV.integral $ measIters m
+        , CSV.float    $ measTime m
+        , CSV.integral $ measCycles m
+        , CSV.float    $ measCpuTime m
+        , CSV.float    $ microSecondsToDouble $ measUtime m
+        , CSV.float    $ microSecondsToDouble $ measStime m
+        , CSV.integral $ measMaxrss m
+        , CSV.integral $ measMinflt m
+        , CSV.integral $ measMajflt m
+        , CSV.integral $ measNvcsw m
+        , CSV.integral $ measNivcsw m
+        , CSV.integral $ measAllocated m
+        , CSV.integral $ measNumGcs m
+        , CSV.integral $ measBytesCopied m
+        , CSV.float    $ measMutatorWallSeconds m
+        , CSV.float    $ measMutatorCpuSeconds m
+        , CSV.float    $ measGcWallSeconds m
+        , CSV.float    $ measGcCpuSeconds m
+        ]
 
 -------------------------------------------------------------------------------
 -- Running benchmarks

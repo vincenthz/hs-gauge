@@ -179,6 +179,8 @@ runMode wat cfg benches bs =
               True  -> runWithConfig runBenchmark quickAnalyse
               False -> do
 #ifdef HAVE_ANALYSIS
+                  CSV.write (csvRawFile cfg) $ CSV.Row $ map CSV.string
+                        (map fst measureAccessors_)
                   CSV.write (csvFile cfg) $ CSV.Row $ map CSV.string
                         ["Name", "Mean","MeanLB","MeanUB","Stddev","StddevLB","StddevUB"]
                   runWithConfig runBenchmark analyseBenchmark
