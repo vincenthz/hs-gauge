@@ -1,6 +1,11 @@
-# Version HEAD
+
+# 0.2.0
 
 * Remove code-page dependency
+* Improve reliability
+* Add ability to use rusage on unix'es
+* Add ability to run without analysis / statistics
+* Clean & Refactor & Rewrite source code
 
 # 0.1.3
 
