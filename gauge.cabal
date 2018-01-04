@@ -44,6 +44,7 @@ library
     Gauge.Monad
     Gauge.ListMap
     Gauge.Time
+    Gauge.CSV
 
     Gauge.Source.RUsage
     Gauge.Source.GC
