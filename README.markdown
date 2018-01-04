@@ -14,6 +14,7 @@ missing:
 Added:
 
 * Small condensed output (`-s` or `--small`)
+* Raw measurements dumping (CSV)
 
 ## Future Feature Plan
 
