@@ -29,6 +29,7 @@ import Control.Applicative
 import Control.Monad (unless, when)
 #ifdef HAVE_ANALYSIS
 import Gauge.Analysis (analyseBenchmark)
+import qualified Gauge.CSV as CSV
 #endif
 import Gauge.IO.Printf (note, printError, rewindClearLine)
 import Gauge.Benchmark
@@ -176,8 +177,10 @@ runMode wat cfg benches bs =
           Nothing ->
             case quickMode cfg of
               True  -> runWithConfig runBenchmark quickAnalyse
-              False ->
+              False -> do
 #ifdef HAVE_ANALYSIS
+                  CSV.write (csvFile cfg) $ CSV.Row $ map CSV.string
+                        ["Name", "Mean","MeanLB","MeanUB","Stddev","StddevLB","StddevUB"]
                   runWithConfig runBenchmark analyseBenchmark
 #else
                   runWithConfig runBenchmark quickAnalyse

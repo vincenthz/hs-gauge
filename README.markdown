@@ -7,7 +7,6 @@ for outputing to terminal benchmark data.
 
 missing:
 
-* CSV export
 * JSON export
 * HTML/javascript pages
 * Glob benchmark matching

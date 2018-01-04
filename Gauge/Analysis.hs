@@ -51,6 +51,7 @@ import Gauge.Main.Options (defaultConfig, Config(..), Verbosity (..),
 import Gauge.Measurement (Measured(measTime), secs, rescale, measureKeys,
                           measureAccessors_, validateAccessors, renderNames)
 import Gauge.Monad (Gauge, askConfig, gaugeIO, Crit(..), askCrit, withConfig)
+import qualified Gauge.CSV as CSV
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
 import Data.IORef (IORef, readIORef, writeIORef)
@@ -398,6 +399,17 @@ analyseBenchmark desc meas = do
             OutlierVariance{..} = anOutlierVar
             wibble = printOverallEffect ovEffect
             (builtin, others) = splitAt 1 anRegress
+
+        gaugeIO $ CSV.write csvFile $ CSV.Row
+            [ CSV.string desc
+            , CSV.float (estPoint anMean)
+            , CSV.float (fst $ confidenceInterval anMean)
+            , CSV.float (snd $ confidenceInterval anMean)
+            , CSV.float (estPoint anStdDev)
+            , CSV.float (fst $ confidenceInterval anStdDev)
+            , CSV.float (snd $ confidenceInterval anStdDev)
+            ]
+
         case displayMode of
             StatsTable -> do
               _ <- note "%sbenchmarked %s\n" rewindClearLine desc
@@ -412,11 +424,6 @@ analyseBenchmark desc meas = do
                 _ <- bs r2 (regResponder ++ ":") regRSquare
                 forM_ (Map.toList regCoeffs) $ \(prd,val) ->
                   bs (printf "%.3g") ("  " ++ prd) val
-              --writeCsv
-              --  (desc,
-              --   estPoint anMean,   fst $ confidenceInterval anMean,   snd $ confidenceInterval anMean,
-              --   estPoint anStdDev, fst $ confidenceInterval anStdDev, snd $ confidenceInterval anStdDev
-              -- )
               when (verbosity == Verbose || (ovEffect > Slight && verbosity > Quiet)) $ do
                 when (verbosity == Verbose) $ noteOutliers reportOutliers
                 _ <- note "variance introduced by outliers: %d%% (%s)\n"
