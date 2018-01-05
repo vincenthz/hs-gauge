@@ -118,6 +118,8 @@ data Config = Config {
       -- ^ File to write report output to, with template expanded.
     , csvFile      :: Maybe FilePath
       -- ^ File to write CSV summary to.
+    , csvRawFile   :: Maybe FilePath
+      -- ^ File to write CSV measurements to.
     , jsonFile     :: Maybe FilePath
       -- ^ File to write JSON-formatted results to.
     , junitFile    :: Maybe FilePath
@@ -153,6 +155,7 @@ defaultConfig = Config
     , rawDataFile      = Nothing
     , reportFile       = Nothing
     , csvFile          = Nothing
+    , csvRawFile       = Nothing
     , jsonFile         = Nothing
     , junitFile        = Nothing
     , verbosity        = Normal
@@ -200,6 +203,7 @@ opts =
     , Option ""  ["regress"]    (ReqArg setRegressions "RESP:PRED..") "Regressions to perform"
     , Option ""  ["raw"]        (fileArg setRaw) "File to write raw data to"
     , Option "o" ["output"]     (fileArg setOutput) "File to write report to"
+    , Option ""  ["csvraw"]     (fileArg setCSVRaw) "File to write CSV measurements to"
     , Option ""  ["csv"]        (fileArg setCSV) "File to write CSV summary to"
     , Option ""  ["json"]       (fileArg setJSON) "File to write JSON summary to"
     , Option ""  ["junit"]      (fileArg setJUnit) "File to write JUnit summary to"
@@ -228,6 +232,7 @@ opts =
     setRaw f v = v { rawDataFile = Just f }
     setOutput f v = v { reportFile = Just f }
     setCSV f v = v { csvFile = Just f }
+    setCSVRaw f v = v { csvRawFile = Just f }
     setJSON f v = v { jsonFile = Just f }
     setJUnit f v = v { junitFile = Just f }
     setVerbosity s v = v { verbosity = toEnum (range 0 2 s) }
