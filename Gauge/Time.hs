@@ -20,22 +20,23 @@ import           Data.Data
 import           Data.Word
 import           Control.DeepSeq
 import           GHC.Generics
+import           Gauge.Optional (OptionalTag)
 
 -- | Represent a number of milliseconds.
 newtype MilliSeconds = MilliSeconds Word64
-    deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num)
+    deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num, OptionalTag)
 
 -- | Represent a number of microseconds
 newtype MicroSeconds = MicroSeconds Word64
-    deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num)
+    deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num, OptionalTag)
 
 -- | Represent a number of nanoseconds
 newtype NanoSeconds = NanoSeconds Word64
-    deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num)
+    deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num, OptionalTag)
 
 -- | Represent a number of hundreds of picoseconds
 newtype PicoSeconds100 = PicoSeconds100 Word64
-    deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num)
+    deriving (Eq, Read, Show, Typeable, Data, Generic, NFData, Enum, Bounded, Num, OptionalTag)
 
 ref_picoseconds100 :: Num a => a
 ref_picoseconds100 = 10000000000
