@@ -54,6 +54,9 @@ import Text.Printf (printf)
 import qualified Data.List as List
 import qualified Gauge.ListMap as Map
 
+import           Gauge.Optional (Optional)
+import qualified Gauge.Optional as Optional
+
 import           Gauge.Source.RUsage (RUsage)
 import qualified Gauge.Source.RUsage as RUsage
 
@@ -84,40 +87,40 @@ data Measured = Measured {
       -- ^ Total CPU time elapsed, in seconds.  Includes both user and
       -- kernel (system) time.
 
-    , measUtime              :: !MicroSeconds
+    , measUtime              :: !(Optional MicroSeconds)
     -- ^ User time
-    , measStime              :: !MicroSeconds
+    , measStime              :: !(Optional MicroSeconds)
     -- ^ System time
-    , measMaxrss             :: !Word64
+    , measMaxrss             :: !(Optional Word64)
     -- ^ Maximum resident set size
-    , measMinflt             :: !Word64
+    , measMinflt             :: !(Optional Word64)
     -- ^ Minor page faults
-    , measMajflt             :: !Word64
+    , measMajflt             :: !(Optional Word64)
     -- ^ Major page faults
-    , measNvcsw              :: !Word64
+    , measNvcsw              :: !(Optional Word64)
     -- ^ Number of voluntary context switches
-    , measNivcsw             :: !Word64
+    , measNivcsw             :: !(Optional Word64)
     -- ^ Number of involuntary context switches
 
-    , measAllocated          :: !Word64
+    , measAllocated          :: !(Optional Word64)
       -- ^ __(GC)__ Number of bytes allocated.  Access using 'fromInt'.
-    , measNumGcs             :: !Word64
+    , measNumGcs             :: !(Optional Word64)
       -- ^ __(GC)__ Number of garbage collections performed.  Access
       -- using 'fromInt'.
-    , measBytesCopied        :: !Word64
+    , measBytesCopied        :: !(Optional Word64)
       -- ^ __(GC)__ Number of bytes copied during garbage collection.
       -- Access using 'fromInt'.
-    , measMutatorWallSeconds :: !Double
+    , measMutatorWallSeconds :: !(Optional Double)
       -- ^ __(GC)__ Wall-clock time spent doing real work
       -- (\"mutation\"), as distinct from garbage collection.  Access
       -- using 'fromDouble'.
-    , measMutatorCpuSeconds  :: !Double
+    , measMutatorCpuSeconds  :: !(Optional Double)
       -- ^ __(GC)__ CPU time spent doing real work (\"mutation\"), as
       -- distinct from garbage collection.  Access using 'fromDouble'.
-    , measGcWallSeconds      :: !Double
+    , measGcWallSeconds      :: !(Optional Double)
       -- ^ __(GC)__ Wall-clock time spent doing garbage collection.
       -- Access using 'fromDouble'.
-    , measGcCpuSeconds       :: !Double
+    , measGcCpuSeconds       :: !(Optional Double)
       -- ^ __(GC)__ CPU time spent doing garbage collection.  Access
       -- using 'fromDouble'.
     } deriving (Eq, Read, Show, Typeable, Data, Generic)
@@ -172,46 +175,46 @@ measureAccessors_ = [
   , ("cpuTime",            ( Just . measCpuTime
                            , secs
                            , "CPU time"))
-  , ("utime",              ( Just . microSecondsToDouble . measUtime
+  , ("utime",              ( fmap microSecondsToDouble . Optional.toMaybe . measUtime
                            , secs
                            , "user time"))
-  , ("stime",              ( Just . microSecondsToDouble . measStime
+  , ("stime",              ( fmap microSecondsToDouble . Optional.toMaybe . measStime
                            , secs
                            , "system time"))
-  , ("maxrss",             ( fmap fromIntegral . fromWord . measMaxrss
+  , ("maxrss",             ( fmap fromIntegral . Optional.toMaybe . measMaxrss
                            , show . rnd
                            , "maximum resident set size"))
-  , ("minflt",             ( fmap fromIntegral . fromWord . measMinflt
+  , ("minflt",             ( fmap fromIntegral . Optional.toMaybe . measMinflt
                            , show . rnd
                            , "minor page faults"))
-  , ("majflt",             ( fmap fromIntegral . fromWord . measMajflt
+  , ("majflt",             ( fmap fromIntegral . Optional.toMaybe . measMajflt
                            , show . rnd
                            , "major page faults"))
-  , ("nvcsw",              ( fmap fromIntegral . fromWord . measNvcsw
+  , ("nvcsw",              ( fmap fromIntegral . Optional.toMaybe . measNvcsw
                            , show . rnd
                            , "voluntary context switches"))
-  , ("nivcsw",             ( fmap fromIntegral . fromWord . measNivcsw
+  , ("nivcsw",             ( fmap fromIntegral . Optional.toMaybe . measNivcsw
                            , show . rnd
                            , "involuntary context switches"))
-  , ("allocated",          ( fmap fromIntegral . fromWord . measAllocated
+  , ("allocated",          ( fmap fromIntegral . Optional.toMaybe . measAllocated
                            , show . rnd
                            , "(+RTS -T) bytes allocated"))
-  , ("numGcs",             ( fmap fromIntegral . fromWord . measNumGcs
+  , ("numGcs",             ( fmap fromIntegral . Optional.toMaybe . measNumGcs
                            , show . rnd
                            , "(+RTS -T) number of garbage collections"))
-  , ("bytesCopied",        ( fmap fromIntegral . fromWord . measBytesCopied
+  , ("bytesCopied",        ( fmap fromIntegral . Optional.toMaybe . measBytesCopied
                            , show . rnd
                            , "(+RTS -T) number of bytes copied during GC"))
-  , ("mutatorWallSeconds", ( fromDouble . measMutatorWallSeconds
+  , ("mutatorWallSeconds", ( Optional.toMaybe . measMutatorWallSeconds
                            , secs
                            , "(+RTS -T) wall-clock time for mutator threads"))
-  , ("mutatorCpuSeconds",  ( fromDouble . measMutatorCpuSeconds
+  , ("mutatorCpuSeconds",  ( Optional.toMaybe . measMutatorCpuSeconds
                            , secs
                            , "(+RTS -T) CPU time spent running mutator threads"))
-  , ("gcWallSeconds",      ( fromDouble . measGcWallSeconds
+  , ("gcWallSeconds",      ( Optional.toMaybe . measGcWallSeconds
                            , secs
                            , "(+RTS -T) wall-clock time spent doing GC"))
-  , ("gcCpuSeconds",       ( fromDouble . measGcCpuSeconds
+  , ("gcCpuSeconds",       ( Optional.toMaybe . measGcCpuSeconds
                            , secs
                            , "(+RTS -T) CPU time spent doing GC"))
   ]
@@ -277,63 +280,26 @@ rescale m@Measured{..} = m {
     , measCycles             = i measCycles
     , measCpuTime            = d measCpuTime
 
-    , measUtime              = ts measUtime
-    , measStime              = ts measStime
+    , measUtime              = Optional.map ts measUtime
+    , measStime              = Optional.map ts measStime
     -- skip measMaxrss
-    , measMinflt             = w measMinflt
-    , measMajflt             = w measMajflt
-    , measNvcsw              = w measNvcsw
-    , measNivcsw             = w measNivcsw
+    , measMinflt             = Optional.map w measMinflt
+    , measMajflt             = Optional.map w measMajflt
+    , measNvcsw              = Optional.map w measNvcsw
+    , measNivcsw             = Optional.map w measNivcsw
 
-    , measNumGcs             = w measNumGcs
-    , measBytesCopied        = w measBytesCopied
-    , measMutatorWallSeconds = d measMutatorWallSeconds
-    , measMutatorCpuSeconds  = d measMutatorCpuSeconds
-    , measGcWallSeconds      = d measGcWallSeconds
-    , measGcCpuSeconds       = d measGcCpuSeconds
+    , measNumGcs             = Optional.map w measNumGcs
+    , measBytesCopied        = Optional.map w measBytesCopied
+    , measMutatorWallSeconds = Optional.map d measMutatorWallSeconds
+    , measMutatorCpuSeconds  = Optional.map d measMutatorCpuSeconds
+    , measGcWallSeconds      = Optional.map d measGcWallSeconds
+    , measGcCpuSeconds       = Optional.map d measGcCpuSeconds
     } where
-        d k = maybe k (/ iters) (fromDouble k)
-        i k = maybe k (round . (/ iters)) (fromIntegral <$> fromInt k)
-        w k = maybe k (round . (/ iters)) (fromIntegral <$> fromWord k)
-        ts (MicroSeconds k) = MicroSeconds $ maybe k (round . (/ iters)) (fromIntegral <$> fromWord k)
+        d = (/ iters)
+        i = round . (/ iters) . fromIntegral
+        w = round . (/ iters) . fromIntegral
+        ts (MicroSeconds k) = MicroSeconds (w k)
         iters               = fromIntegral measIters :: Double
-
--- | Convert a (possibly unavailable) GC measurement to a true value.
--- If the measurement is a huge negative number that corresponds to
--- \"no data\", this will return 'Nothing'.
-fromInt :: Int64 -> Maybe Int64
-fromInt i | i == minBound = Nothing
-          | otherwise     = Just i
-
--- | Convert a (possibly unavailable) GC measurement to a true value.
--- If the measurement is a huge negative number that corresponds to
--- \"no data\", this will return 'Nothing'.
-fromWord :: Word64 -> Maybe Word64
-fromWord i | i == maxBound = Nothing
-           | otherwise     = Just i
-
-{-
--- | Convert from a true value back to the packed representation used
--- for GC measurements.
-toInt :: Maybe Int64 -> Int64
-toInt Nothing  = minBound
-toInt (Just i) = i
--}
-
--- | Convert a (possibly unavailable) GC measurement to a true value.
--- If the measurement is a huge negative number that corresponds to
--- \"no data\", this will return 'Nothing'.
-fromDouble :: Double -> Maybe Double
-fromDouble d | isInfinite d || isNaN d = Nothing
-             | otherwise               = Just d
-
-{-
--- | Convert from a true value back to the packed representation used
--- for GC measurements.
-toDouble :: Maybe Double -> Double
-toDouble Nothing  = -1/0
-toDouble (Just d) = d
--}
 
 #define GAUGE_MEASURE_TIME_NEW
 
@@ -415,6 +381,7 @@ measure run iters = run addResults $ \act -> do
     addResults !m1 !m2 = m3
       where
         add f = f m1 + f m2
+        addO f = Optional.both (+) (f m1) (f m2)
 
         m3 = Measured
             { measTime               = add measTime
@@ -422,21 +389,21 @@ measure run iters = run addResults $ \act -> do
             , measCycles             = add measCycles
             , measIters              = add measIters
 
-            , measUtime              = add measUtime
-            , measStime              = add measStime
-            , measMaxrss             = max (measMaxrss m1) (measMaxrss m2)
-            , measMinflt             = add measMinflt
-            , measMajflt             = add measMajflt
-            , measNvcsw              = add measNvcsw
-            , measNivcsw             = add measNivcsw
+            , measUtime              = addO measUtime
+            , measStime              = addO measStime
+            , measMaxrss             = Optional.both max (measMaxrss m1) (measMaxrss m2)
+            , measMinflt             = addO measMinflt
+            , measMajflt             = addO measMajflt
+            , measNvcsw              = addO measNvcsw
+            , measNivcsw             = addO measNivcsw
 
-            , measAllocated          = add measAllocated
-            , measNumGcs             = add measNumGcs
-            , measBytesCopied        = add measBytesCopied
-            , measMutatorWallSeconds = add measMutatorWallSeconds
-            , measMutatorCpuSeconds  = add measMutatorCpuSeconds
-            , measGcWallSeconds      = add measGcWallSeconds
-            , measGcCpuSeconds       = add measGcCpuSeconds
+            , measAllocated          = addO measAllocated
+            , measNumGcs             = addO measNumGcs
+            , measBytesCopied        = addO measBytesCopied
+            , measMutatorWallSeconds = addO measMutatorWallSeconds
+            , measMutatorCpuSeconds  = addO measMutatorCpuSeconds
+            , measGcWallSeconds      = addO measGcWallSeconds
+            , measGcCpuSeconds       = addO measGcCpuSeconds
             }
 {-# INLINE measure #-}
 
@@ -448,22 +415,22 @@ measured = Measured {
     , measCycles             = 0
     , measIters              = 0
 
-    , measUtime              = maxBound
-    , measStime              = maxBound
-    , measMaxrss             = maxBound
-    , measMinflt             = maxBound
-    , measMajflt             = maxBound
-    , measNvcsw              = maxBound
-    , measNivcsw             = maxBound
+    , measUtime              = Optional.omitted
+    , measStime              = Optional.omitted
+    , measMaxrss             = Optional.omitted
+    , measMinflt             = Optional.omitted
+    , measMajflt             = Optional.omitted
+    , measNvcsw              = Optional.omitted
+    , measNivcsw             = Optional.omitted
 
-    , measAllocated          = maxBound
-    , measNumGcs             = maxBound
-    , measBytesCopied        = maxBound
-    , measMutatorWallSeconds = bad
-    , measMutatorCpuSeconds  = bad
-    , measGcWallSeconds      = bad
-    , measGcCpuSeconds       = bad
-    } where bad = -1/0
+    , measAllocated          = Optional.omitted
+    , measNumGcs             = Optional.omitted
+    , measBytesCopied        = Optional.omitted
+    , measMutatorWallSeconds = Optional.omitted
+    , measMutatorCpuSeconds  = Optional.omitted
+    , measGcWallSeconds      = Optional.omitted
+    , measGcCpuSeconds       = Optional.omitted
+    }
 
 -- | Apply the difference between two sets of GC statistics to a
 -- measurement.
@@ -471,13 +438,13 @@ applyGCStatistics :: Maybe GC.Metrics
                   -> Measured
                   -> Measured
 applyGCStatistics (Just stats) m = m
-    { measAllocated          = GC.allocated stats
-    , measNumGcs             = GC.numGCs stats
-    , measBytesCopied        = GC.copied stats
-    , measMutatorWallSeconds = nanoSecondsToDouble $ GC.mutWallSeconds stats
-    , measMutatorCpuSeconds  = nanoSecondsToDouble $ GC.mutCpuSeconds stats
-    , measGcWallSeconds      = nanoSecondsToDouble $ GC.gcWallSeconds stats
-    , measGcCpuSeconds       = nanoSecondsToDouble $ GC.gcCpuSeconds stats
+    { measAllocated          = Optional.toOptional $ GC.allocated stats
+    , measNumGcs             = Optional.toOptional $ GC.numGCs stats
+    , measBytesCopied        = Optional.toOptional $ GC.copied stats
+    , measMutatorWallSeconds = Optional.toOptional $ nanoSecondsToDouble $ GC.mutWallSeconds stats
+    , measMutatorCpuSeconds  = Optional.toOptional $ nanoSecondsToDouble $ GC.mutCpuSeconds stats
+    , measGcWallSeconds      = Optional.toOptional $ nanoSecondsToDouble $ GC.gcWallSeconds stats
+    , measGcCpuSeconds       = Optional.toOptional $ nanoSecondsToDouble $ GC.gcCpuSeconds stats
     }
 applyGCStatistics Nothing m = m
 
@@ -491,13 +458,13 @@ applyRUStatistics :: RUsage
                   -- ^ Value to \"modify\".
                   -> Measured
 applyRUStatistics end start m
-    | RUsage.supported = m { measUtime   = diffTV RUsage.userCpuTime
-                           , measStime   = diffTV RUsage.systemCpuTime
-                           , measMaxrss  = RUsage.maxResidentSetSize end
-                           , measMinflt  = diff RUsage.minorFault
-                           , measMajflt  = diff RUsage.majorFault
-                           , measNvcsw   = diff RUsage.nVoluntaryContextSwitch
-                           , measNivcsw  = diff RUsage.nInvoluntaryContextSwitch
+    | RUsage.supported = m { measUtime   = Optional.toOptional $ diffTV RUsage.userCpuTime
+                           , measStime   = Optional.toOptional $ diffTV RUsage.systemCpuTime
+                           , measMaxrss  = Optional.toOptional $ RUsage.maxResidentSetSize end
+                           , measMinflt  = Optional.toOptional $ diff RUsage.minorFault
+                           , measMajflt  = Optional.toOptional $ diff RUsage.majorFault
+                           , measNvcsw   = Optional.toOptional $ diff RUsage.nVoluntaryContextSwitch
+                           , measNivcsw  = Optional.toOptional $ diff RUsage.nInvoluntaryContextSwitch
                            }
     | otherwise        = m
  where diff f = f end - f start

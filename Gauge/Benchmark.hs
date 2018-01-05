@@ -74,6 +74,7 @@ import Gauge.Measurement (measure, getTime, secs, Measured(..))
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
 import Gauge.Time (MilliSeconds(..), milliSecondsToDouble, microSecondsToDouble)
 import qualified Gauge.CSV as CSV
+import qualified Gauge.Optional as Optional
 import System.Directory (canonicalizePath, getTemporaryDirectory, removeFile)
 import System.IO (hClose, openTempFile)
 import System.Mem (performGC)
@@ -627,21 +628,25 @@ writeMeas fp desc meas = V.forM_ meas $ \m ->
         , CSV.float    $ measTime m
         , CSV.integral $ measCycles m
         , CSV.float    $ measCpuTime m
-        , CSV.float    $ microSecondsToDouble $ measUtime m
-        , CSV.float    $ microSecondsToDouble $ measStime m
-        , CSV.integral $ measMaxrss m
-        , CSV.integral $ measMinflt m
-        , CSV.integral $ measMajflt m
-        , CSV.integral $ measNvcsw m
-        , CSV.integral $ measNivcsw m
-        , CSV.integral $ measAllocated m
-        , CSV.integral $ measNumGcs m
-        , CSV.integral $ measBytesCopied m
-        , CSV.float    $ measMutatorWallSeconds m
-        , CSV.float    $ measMutatorCpuSeconds m
-        , CSV.float    $ measGcWallSeconds m
-        , CSV.float    $ measGcCpuSeconds m
+        , opt (CSV.float . microSecondsToDouble) $ measUtime m
+        , opt (CSV.float . microSecondsToDouble) $ measStime m
+        , opt CSV.integral $ measMaxrss m
+        , opt CSV.integral $ measMinflt m
+        , opt CSV.integral $ measMajflt m
+        , opt CSV.integral $ measNvcsw m
+        , opt CSV.integral $ measNivcsw m
+        , opt CSV.integral $ measAllocated m
+        , opt CSV.integral $ measNumGcs m
+        , opt CSV.integral $ measBytesCopied m
+        , opt CSV.float    $ measMutatorWallSeconds m
+        , opt CSV.float    $ measMutatorCpuSeconds m
+        , opt CSV.float    $ measGcWallSeconds m
+        , opt CSV.float    $ measGcCpuSeconds m
         ]
+  where
+    -- an optional CSV field is either the empty string or the normal field value
+    opt :: Optional.OptionalTag a => (a -> CSV.Field) -> Optional.Optional a -> CSV.Field
+    opt f = maybe (CSV.string "") f . Optional.toMaybe
 
 -------------------------------------------------------------------------------
 -- Running benchmarks
