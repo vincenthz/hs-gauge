@@ -172,30 +172,6 @@ instance Variate Word where
     {-# INLINE uniform  #-}
     {-# INLINE uniformR #-}
 
-{-
-instance (Variate a, Variate b) => Variate (a,b) where
-    uniform g = (,) `liftM` uniform g `ap` uniform g
-    uniformR ((x1,y1),(x2,y2)) g = (,) `liftM` uniformR (x1,x2) g `ap` uniformR (y1,y2) g
-    {-# INLINE uniform  #-}
-    {-# INLINE uniformR #-}
-
-instance (Variate a, Variate b, Variate c) => Variate (a,b,c) where
-    uniform g = (,,) `liftM` uniform g `ap` uniform g `ap` uniform g
-    uniformR ((x1,y1,z1),(x2,y2,z2)) g =
-      (,,) `liftM` uniformR (x1,x2) g `ap` uniformR (y1,y2) g `ap` uniformR (z1,z2) g
-    {-# INLINE uniform  #-}
-    {-# INLINE uniformR #-}
-
-instance (Variate a, Variate b, Variate c, Variate d) => Variate (a,b,c,d) where
-    uniform g = (,,,) `liftM` uniform g `ap` uniform g `ap` uniform g
-                `ap` uniform g
-    uniformR ((x1,y1,z1,t1),(x2,y2,z2,t2)) g =
-      (,,,) `liftM` uniformR (x1,x2) g `ap` uniformR (y1,y2) g `ap`
-                    uniformR (z1,z2) g `ap` uniformR (t1,t2) g
-    {-# INLINE uniform  #-}
-    {-# INLINE uniformR #-}
--}
-
 wordsTo64Bit :: (Integral a) => Word32 -> Word32 -> a
 wordsTo64Bit x y =
     fromIntegral ((fromIntegral x `shiftL` 32) .|. fromIntegral y :: Word64)
