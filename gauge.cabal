@@ -123,7 +123,6 @@ test-suite sanity
     base,
     bytestring,
     gauge,
-    deepseq,
     tasty,
     tasty-hunit
 
@@ -140,7 +139,6 @@ test-suite verbose
     base,
     bytestring,
     gauge,
-    deepseq,
     tasty,
     tasty-hunit
 
@@ -157,7 +155,6 @@ test-suite quick
     base,
     bytestring,
     gauge,
-    deepseq,
     tasty,
     tasty-hunit
 
@@ -174,7 +171,6 @@ test-suite quick-verbose
     base,
     bytestring,
     gauge,
-    deepseq,
     tasty,
     tasty-hunit
 
