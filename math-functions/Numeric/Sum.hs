@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE BangPatterns, DeriveDataTypeable, FlexibleContexts,
     MultiParamTypeClasses, TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
@@ -28,6 +29,9 @@ module Numeric.Sum (
     , kbn
     ) where
 
+#if !(MIN_VERSION_base(4,8,0))
+import Control.Applicative
+#endif
 import Control.DeepSeq (NFData(..))
 import Control.Monad
 import Data.Data (Typeable, Data)
@@ -72,7 +76,6 @@ instance M.MVector U.MVector KBNSum where
     {-# INLINE basicUnsafeSlice #-}
     {-# INLINE basicOverlaps #-}
     {-# INLINE basicUnsafeNew #-}
-    {-# INLINE basicInitialize #-}
     {-# INLINE basicUnsafeReplicate #-}
     {-# INLINE basicUnsafeRead #-}
     {-# INLINE basicUnsafeWrite #-}
@@ -84,7 +87,6 @@ instance M.MVector U.MVector KBNSum where
     basicUnsafeSlice i n (MV_KBNSum v) = MV_KBNSum $ M.basicUnsafeSlice i n v
     basicOverlaps (MV_KBNSum v1) (MV_KBNSum v2) = M.basicOverlaps v1 v2
     basicUnsafeNew n = MV_KBNSum `liftM` M.basicUnsafeNew n
-    basicInitialize (MV_KBNSum v) = M.basicInitialize v
     basicUnsafeReplicate n (KBNSum a b) = MV_KBNSum `liftM` M.basicUnsafeReplicate n (a,b)
     basicUnsafeRead (MV_KBNSum v) i = uncurry KBNSum <$> M.basicUnsafeRead v i
     basicUnsafeWrite (MV_KBNSum v) i (KBNSum a b) = M.basicUnsafeWrite v i (a,b)
@@ -93,6 +95,10 @@ instance M.MVector U.MVector KBNSum where
     basicUnsafeCopy (MV_KBNSum v1) (MV_KBNSum v2) = M.basicUnsafeCopy v1 v2
     basicUnsafeMove (MV_KBNSum v1) (MV_KBNSum v2) = M.basicUnsafeMove v1 v2
     basicUnsafeGrow (MV_KBNSum v) n = MV_KBNSum `liftM` M.basicUnsafeGrow v n
+#if MIN_VERSION_vector(0,11,0)
+    {-# INLINE basicInitialize #-}
+    basicInitialize (MV_KBNSum v) = M.basicInitialize v
+#endif
 
 instance G.Vector U.Vector KBNSum where
     {-# INLINE basicUnsafeFreeze #-}
