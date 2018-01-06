@@ -71,6 +71,7 @@ module System.Random.MWC
     , initialize
     , createSystemRandom
     , GenIO
+    , splitGen
 
     -- * Variates: uniformly distributed values
     , Variate(..)
@@ -82,7 +83,7 @@ module System.Random.MWC
 #include "MachDeps.h"
 #endif
 
-import Control.Monad           (liftM)
+import Control.Monad           (liftM, replicateM)
 import Data.Bits               ((.&.), (.|.), shiftL, shiftR, xor)
 import Data.Int                (Int8, Int16, Int32, Int64)
 import Data.Vector.Generic     (Vector)
@@ -233,7 +234,7 @@ coff = 257
 -- the following example:
 --
 -- @gen' <- 'initialize' . 'fromSeed' =<< 'save'@
-initialize :: Vector v Word32 => v Word32 -> IO Gen
+initialize :: I.Vector Word32 -> IO Gen
 initialize seed = do
     q <- M.unsafeNew 258
     fill q
@@ -453,6 +454,13 @@ uniformVector :: (Variate a, Vector v a)
 uniformVector gen n = G.replicateM n (uniform gen)
 {-# INLINE uniformVector #-}
 
+-- | Split a generator into several that can run independently.
+splitGen :: Int -> GenIO -> IO [GenIO]
+splitGen n gen
+  | n <= 0    = return []
+  | otherwise =
+  fmap (gen:) . replicateM (n-1) $
+  initialize =<< uniformVector gen 256
 
 defaultSeed :: I.Vector Word32
 defaultSeed = I.fromList [

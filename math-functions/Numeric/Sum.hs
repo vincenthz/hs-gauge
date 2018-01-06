@@ -58,38 +58,6 @@ instance Summation Double where
     zero = 0
     add = (+)
 
--- | Kahan summation. This is the least accurate of the compensated
--- summation methods.  In practice, it only beats naive summation for
--- inputs with large magnitude.  Kahan summation can be /less/
--- accurate than naive summation for small-magnitude inputs.
---
--- This summation method is included for completeness. Its use is not
--- recommended.  In practice, 'KBNSum' is both 30% faster and more
--- accurate.
-data KahanSum = KahanSum {-# UNPACK #-} !Double {-# UNPACK #-} !Double
-              deriving (Eq, Show, Typeable, Data)
-
-
-{-
-derivingUnbox "KahanSum"
-    [t| KahanSum -> (Double, Double) |]
-    [| \ (KahanSum a b) -> (a, b) |]
-    [| \ (a, b) -> KahanSum a b |]
--}
-
-instance Summation KahanSum where
-    zero = KahanSum 0 0
-    add  = kahanAdd
-
-instance NFData KahanSum where
-    rnf !_ = ()
-
-kahanAdd :: KahanSum -> Double -> KahanSum
-kahanAdd (KahanSum sum c) x = KahanSum sum' c'
-  where sum' = sum + y
-        c'   = (sum' - sum) - y
-        y    = x - c
-
 -- | Kahan-Babuška-Neumaier summation. This is a little more
 -- computationally costly than plain Kahan summation, but is /always/
 -- at least as accurate.
@@ -160,35 +128,6 @@ kbnAdd (KBNSum sum c) x = KBNSum sum' c'
 -- | Return the result of a Kahan-Babuška-Neumaier sum.
 kbn :: KBNSum -> Double
 kbn (KBNSum sum c) = sum + c
-
--- | Second-order Kahan-Babuška summation.  This is more
--- computationally costly than Kahan-Babuška-Neumaier summation,
--- running at about a third the speed.  Its advantage is that it can
--- lose less precision (in admittedly obscure cases).
---
--- This method compensates for error in both the sum and the
--- first-order compensation term, hence the use of \"second order\" in
--- the name.
-data KB2Sum = KB2Sum {-# UNPACK #-} !Double
-                     {-# UNPACK #-} !Double
-                     {-# UNPACK #-} !Double
-            deriving (Eq, Show, Typeable, Data)
-
-instance Summation KB2Sum where
-    zero = KB2Sum 0 0 0
-    add  = kb2Add
-
-instance NFData KB2Sum where
-    rnf !_ = ()
-
-kb2Add :: KB2Sum -> Double -> KB2Sum
-kb2Add (KB2Sum sum c cc) x = KB2Sum sum' c' cc'
-  where sum'                 = sum + x
-        c'                   = c + k
-        cc' | abs c >= abs k = cc + ((c - c') + k)
-            | otherwise      = cc + ((k - c') + c)
-        k | abs sum >= abs x = (sum - sum') + x
-          | otherwise        = (x - sum') + sum
 
 -- | /O(n)/ Sum a vector of values.
 sumVector :: (Vector v Double, Summation s) =>

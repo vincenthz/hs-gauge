@@ -107,11 +107,6 @@ library
     process,
     directory
 
-  if flag(analysis)
-      build-depends:
-        -- former mwc-random dependency that we need
-        time
-
   default-language: Haskell2010
   ghc-options: -O2 -Wall -funbox-strict-fields
   if flag(analysis)

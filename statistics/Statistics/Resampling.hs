@@ -23,15 +23,12 @@ module Statistics.Resampling
     , resample
       -- * Jackknife
     , jackknife
-      -- * Helper functions
-    , splitGen
     ) where
 
 import Control.Concurrent (forkIO, newChan, readChan, writeChan)
 import Control.Monad
 import Data.Data (Data, Typeable)
 import Data.Vector.Generic (unsafeFreeze)
-import Data.Word (Word32)
 import qualified Data.Foldable as T
 import qualified Data.Traversable as T
 import qualified Data.Vector.Generic as G
@@ -44,7 +41,7 @@ import Numeric.Sum (Summation(..), kbn)
 import Statistics.Function (indices, inplaceSortIO)
 import Statistics.Sample (mean, stdDev, variance, varianceUnbiased)
 import Statistics.Types (Sample)
-import System.Random.MWC (Gen, GenIO, initialize, uniformR, uniformVector)
+import System.Random.MWC (Gen, GenIO, uniformR, splitGen)
 
 
 ----------------------------------------------------------------
@@ -207,11 +204,3 @@ dropAt n v = U.slice 0 n v U.++ U.slice (n+1) (U.length v - n - 1) v
 singletonErr :: String -> a
 singletonErr func = error $
                     "Statistics.Resampling." ++ func ++ ": singleton input"
-
--- | Split a generator into several that can run independently.
-splitGen :: Int -> GenIO -> IO [GenIO]
-splitGen n gen
-  | n <= 0    = return []
-  | otherwise =
-  fmap (gen:) . replicateM (n-1) $
-  initialize =<< (uniformVector gen 256 :: IO (U.Vector Word32))

@@ -20,11 +20,10 @@ import GHC.Conc (getNumCapabilities)
 import Statistics.Function as F
 import Statistics.Matrix
 import Statistics.Matrix.Algorithms (qr)
-import Statistics.Resampling (splitGen)
 import Statistics.Types      (Estimate(..),ConfInt,CL,estimateFromInterval,significanceLevel)
 import Statistics.Sample (mean)
 import Statistics.Sample.Internal (sum)
-import System.Random.MWC (GenIO, uniformR)
+import System.Random.MWC (GenIO, uniformR, splitGen)
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as G
 import qualified Data.Vector.Unboxed as U
