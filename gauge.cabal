@@ -76,8 +76,18 @@ library
         Statistics.Types
         Statistics.Types.Internal
         System.Random.MWC
+        Numeric.MathFunctions.Comparison
+        Numeric.MathFunctions.Constants
+        Numeric.Polynomial
+        Numeric.Polynomial.Chebyshev
+        Numeric.RootFinding
+        Numeric.Series
+        Numeric.SpecFunctions
+        Numeric.SpecFunctions.Internal
+        Numeric.Sum
 
-  hs-source-dirs: . statistics mwc-random
+
+  hs-source-dirs: . statistics mwc-random math-functions
 
   include-Dirs: cbits
   c-sources: cbits/cycles.c
@@ -103,8 +113,6 @@ library
 
   if flag(analysis)
       build-depends:
-        -- former statistics dependency that we need
-        math-functions >= 0.1.7,
         -- former mwc-random dependency that we need
         time
 
