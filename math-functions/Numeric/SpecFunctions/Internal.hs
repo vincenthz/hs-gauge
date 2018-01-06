@@ -17,11 +17,8 @@ module Numeric.SpecFunctions.Internal
     , log2
     ) where
 
-#if !MIN_VERSION_base(4,9,0)
-import Control.Applicative
-#endif
 import Data.Bits       ((.&.), (.|.), shiftR)
-import Data.Word       (Word)
+import Data.Word       (Word64)
 import qualified Data.Vector.Unboxed as U
 
 import Numeric.MathFunctions.Constants
@@ -111,8 +108,8 @@ log2 v0
                 | otherwise      = go (i-1) r v
     b = U.unsafeIndex bv
     !bv = U.fromList [ 0x02, 0x0c, 0xf0, 0xff00
-                     , fromIntegral (0xffff0000 :: Word)
-                     , fromIntegral (0xffffffff00000000 :: Word)]
+                     , fromIntegral (0xffff0000 :: Word64)
+                     , fromIntegral (0xffffffff00000000 :: Word64)]
     !sv = U.fromList [1,2,4,8,16,32]
 
 modErr :: String -> a
