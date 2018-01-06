@@ -29,7 +29,6 @@ module Statistics.Resampling
 
 import Control.Concurrent (forkIO, newChan, readChan, writeChan)
 import Control.Monad
-import Basement.Monad (PrimMonad(..))
 import Data.Data (Data, Typeable)
 import Data.Vector.Generic (unsafeFreeze)
 import Data.Word (Word32)
@@ -131,8 +130,7 @@ resample gen ests numResamples samples = do
   ests' = map estimate ests
 
 -- | Create vector using resamples
-resampleVector :: G.Vector v a
-               => Gen (PrimState IO) -> v a -> IO (v a)
+resampleVector :: G.Vector v a => Gen -> v a -> IO (v a)
 resampleVector gen v
   = G.replicateM n $ do i <- uniformR (0,n-1) gen
                         return $! G.unsafeIndex v i

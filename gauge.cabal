@@ -75,8 +75,9 @@ library
         Statistics.Transform
         Statistics.Types
         Statistics.Types.Internal
+        System.Random.MWC
 
-  hs-source-dirs: . statistics
+  hs-source-dirs: . statistics mwc-random
 
   include-Dirs: cbits
   c-sources: cbits/cycles.c
@@ -96,15 +97,16 @@ library
     base >= 4.7 && < 5,
     basement >= 0.0.4,
     deepseq >= 1.1.0.0,
-    mwc-random >= 0.8.0.3,
     vector >= 0.7.1,
     process,
     directory
 
-    -- formely statistics dependency that we need
   if flag(analysis)
       build-depends:
-        math-functions >= 0.1.7
+        -- former statistics dependency that we need
+        math-functions >= 0.1.7,
+        -- former mwc-random dependency that we need
+        time
 
   default-language: Haskell2010
   ghc-options: -O2 -Wall -funbox-strict-fields
