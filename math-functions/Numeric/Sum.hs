@@ -29,9 +29,6 @@ module Numeric.Sum (
     , kbn
     ) where
 
-#if !(MIN_VERSION_base(4,8,0))
-import Control.Applicative
-#endif
 import Control.DeepSeq (NFData(..))
 import Control.Monad
 import Data.Data (Typeable, Data)
@@ -88,7 +85,7 @@ instance M.MVector U.MVector KBNSum where
     basicOverlaps (MV_KBNSum v1) (MV_KBNSum v2) = M.basicOverlaps v1 v2
     basicUnsafeNew n = MV_KBNSum `liftM` M.basicUnsafeNew n
     basicUnsafeReplicate n (KBNSum a b) = MV_KBNSum `liftM` M.basicUnsafeReplicate n (a,b)
-    basicUnsafeRead (MV_KBNSum v) i = uncurry KBNSum <$> M.basicUnsafeRead v i
+    basicUnsafeRead (MV_KBNSum v) i = uncurry KBNSum `liftM` M.basicUnsafeRead v i
     basicUnsafeWrite (MV_KBNSum v) i (KBNSum a b) = M.basicUnsafeWrite v i (a,b)
     basicClear (MV_KBNSum v) = M.basicClear v
     basicSet (MV_KBNSum v) (KBNSum a b) = M.basicSet v (a,b)
@@ -111,7 +108,7 @@ instance G.Vector U.Vector KBNSum where
     basicUnsafeThaw (V_KBNSum v) = MV_KBNSum `liftM` G.basicUnsafeThaw v
     basicLength (V_KBNSum v) = G.basicLength v
     basicUnsafeSlice i n (V_KBNSum v) = V_KBNSum $ G.basicUnsafeSlice i n v
-    basicUnsafeIndexM (V_KBNSum v) i = uncurry KBNSum <$> G.basicUnsafeIndexM v i
+    basicUnsafeIndexM (V_KBNSum v) i = uncurry KBNSum `liftM` G.basicUnsafeIndexM v i
     basicUnsafeCopy (MV_KBNSum mv) (V_KBNSum v) = G.basicUnsafeCopy mv v
     elemseq _ = seq
 
