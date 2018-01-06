@@ -68,9 +68,7 @@ module System.Random.MWC
     (
     -- * Gen: Pseudo-Random Number Generators
       Gen
-    , create
     , initialize
-    , withSystemRandom
     , createSystemRandom
     , GenIO
 
@@ -84,12 +82,9 @@ module System.Random.MWC
 #include "MachDeps.h"
 #endif
 
-import Control.Monad           (ap, liftM, unless)
+import Control.Monad           (liftM)
 import Data.Bits               ((.&.), (.|.), shiftL, shiftR, xor)
 import Data.Int                (Int8, Int16, Int32, Int64)
-import Data.IORef              (atomicModifyIORef, newIORef)
-import Data.Ratio              ((%), numerator)
-import Data.Time.Clock.POSIX   (getPOSIXTime)
 import Data.Vector.Generic     (Vector)
 import Data.Word               (Word8, Word16, Word32, Word64)
 #if !MIN_VERSION_base(4,8,0)
@@ -100,10 +95,7 @@ import Foreign.Marshal.Array   (peekArray)
 import qualified Data.Vector.Generic         as G
 import qualified Data.Vector.Unboxed         as I
 import qualified Data.Vector.Unboxed.Mutable as M
-import System.CPUTime   (cpuTimePrecision, getCPUTime)
-import System.IO        (IOMode(..), hGetBuf, hPutStrLn, stderr, withBinaryFile)
-import System.IO.Unsafe (unsafePerformIO)
-import qualified Control.Exception as E
+import System.IO        (IOMode(..), hGetBuf, withBinaryFile)
 #if defined(mingw32_HOST_OS)
 import Foreign.Ptr
 import Foreign.C.Types
@@ -147,42 +139,6 @@ class Variate a where
     --   rounding errors.
     uniformR :: (a,a) -> Gen -> IO a
 
-instance Variate Int8 where
-    uniform  = uniform1 fromIntegral
-    uniformR a b = uniformRange a b
-    {-# INLINE uniform  #-}
-    {-# INLINE uniformR #-}
-
-instance Variate Int16 where
-    uniform  = uniform1 fromIntegral
-    uniformR a b = uniformRange a b
-    {-# INLINE uniform  #-}
-    {-# INLINE uniformR #-}
-
-instance Variate Int32 where
-    uniform  = uniform1 fromIntegral
-    uniformR a b = uniformRange a b
-    {-# INLINE uniform  #-}
-    {-# INLINE uniformR #-}
-
-instance Variate Int64 where
-    uniform  = uniform2 wordsTo64Bit
-    uniformR a b = uniformRange a b
-    {-# INLINE uniform  #-}
-    {-# INLINE uniformR #-}
-
-instance Variate Word8 where
-    uniform  = uniform1 fromIntegral
-    uniformR a b = uniformRange a b
-    {-# INLINE uniform  #-}
-    {-# INLINE uniformR #-}
-
-instance Variate Word16 where
-    uniform  = uniform1 fromIntegral
-    uniformR a b = uniformRange a b
-    {-# INLINE uniform  #-}
-    {-# INLINE uniformR #-}
-
 instance Variate Word32 where
     uniform  = uniform1 fromIntegral
     uniformR a b = uniformRange a b
@@ -192,27 +148,6 @@ instance Variate Word32 where
 instance Variate Word64 where
     uniform  = uniform2 wordsTo64Bit
     uniformR a b = uniformRange a b
-    {-# INLINE uniform  #-}
-    {-# INLINE uniformR #-}
-
-instance Variate Bool where
-    uniform = uniform1 wordToBool
-    uniformR (False,True)  g = uniform g
-    uniformR (False,False) _ = return False
-    uniformR (True,True)   _ = return True
-    uniformR (True,False)  g = uniform g
-    {-# INLINE uniform  #-}
-    {-# INLINE uniformR #-}
-
-instance Variate Float where
-    uniform          = uniform1 wordToFloat
-    uniformR (x1,x2) = uniform1 (\w -> x1 + (x2-x1) * wordToFloat w)
-    {-# INLINE uniform  #-}
-    {-# INLINE uniformR #-}
-
-instance Variate Double where
-    uniform          = uniform2 wordsToDouble
-    uniformR (x1,x2) = uniform2 (\w1 w2 -> x1 + (x2-x1) * wordsToDouble w1 w2)
     {-# INLINE uniform  #-}
     {-# INLINE uniformR #-}
 
@@ -237,13 +172,6 @@ instance Variate Word where
     {-# INLINE uniformR #-}
 
 {-
-instance Variate Integer where
-    uniform g = do
-      u <- uniform g
-      return $! fromIntegral (u :: Int)
-    {-# INLINE uniform #-}
--}
-
 instance (Variate a, Variate b) => Variate (a,b) where
     uniform g = (,) `liftM` uniform g `ap` uniform g
     uniformR ((x1,y1),(x2,y2)) g = (,) `liftM` uniformR (x1,x2) g `ap` uniformR (y1,y2) g
@@ -265,32 +193,12 @@ instance (Variate a, Variate b, Variate c, Variate d) => Variate (a,b,c,d) where
                     uniformR (z1,z2) g `ap` uniformR (t1,t2) g
     {-# INLINE uniform  #-}
     {-# INLINE uniformR #-}
+-}
 
 wordsTo64Bit :: (Integral a) => Word32 -> Word32 -> a
 wordsTo64Bit x y =
     fromIntegral ((fromIntegral x `shiftL` 32) .|. fromIntegral y :: Word64)
 {-# INLINE wordsTo64Bit #-}
-
-wordToBool :: Word32 -> Bool
-wordToBool i = (i .&. 1) /= 0
-{-# INLINE wordToBool #-}
-
-wordToFloat :: Word32 -> Float
-wordToFloat x      = (fromIntegral i * m_inv_32) + 0.5 + m_inv_33
-    where m_inv_33 = 1.16415321826934814453125e-10
-          m_inv_32 = 2.3283064365386962890625e-10
-          i        = fromIntegral x :: Int32
-{-# INLINE wordToFloat #-}
-
-wordsToDouble :: Word32 -> Word32 -> Double
-wordsToDouble x y  = (fromIntegral u * m_inv_32 + (0.5 + m_inv_53) +
-                     fromIntegral (v .&. 0xFFFFF) * m_inv_52)
-    where m_inv_52 = 2.220446049250313080847263336181640625e-16
-          m_inv_53 = 1.1102230246251565404236316680908203125e-16
-          m_inv_32 = 2.3283064365386962890625e-10
-          u        = fromIntegral x :: Int32
-          v        = fromIntegral y :: Int32
-{-# INLINE wordsToDouble #-}
 
 -- | State of the pseudo-random number generator. It uses mutable
 -- state so same generator shouldn't be used from the different
@@ -303,11 +211,6 @@ type GenIO = Gen
 ioff, coff :: Int
 ioff = 256
 coff = 257
-
--- | Create a generator for variates using a fixed seed.
-create :: IO Gen
-create = initialize defaultSeed
-{-# INLINE create #-}
 
 -- | Create a generator for variates using the given seed, of which up
 -- to 256 elements will be used.  For arrays of less than 256
@@ -352,24 +255,6 @@ initialize seed = do
                     | otherwise = G.unsafeIndex seed i
         fini = G.length seed
 {-# INLINE initialize #-}
-
-{-
--- | An immutable snapshot of the state of a 'Gen'.
-newtype Seed = Seed {
-    -- | Convert seed into vector.
-    fromSeed :: I.Vector Word32
-    }
-    deriving (Eq, Show, Typeable)
--}
-
--- Aquire seed from current time. This is horrible fallback for
--- Windows system.
-acquireSeedTime :: IO [Word32]
-acquireSeedTime = do
-  c <- (numerator . (%cpuTimePrecision)) `liftM` getCPUTime
-  t <- toRational `liftM` getPOSIXTime
-  let n    = fromIntegral (numerator t) :: Word64
-  return [fromIntegral c, fromIntegral n, fromIntegral (n `shiftR` 32)]
 
 -- | Acquire seed from the system entropy source. On Unix machines,
 -- this will attempt to use @/dev/urandom@. On Windows, it will internally
@@ -426,35 +311,12 @@ foreign import WINDOWS_CCONV unsafe "SystemFunction036"
   c_RtlGenRandom :: Ptr a -> CULong -> IO Bool
 #endif
 
--- | Seed a PRNG with data from the system's fast source of
--- pseudo-random numbers (\"@\/dev\/urandom@\" on Unix-like systems or
--- @RtlGenRandom@ on Windows), then run the given action.
---
--- This is a somewhat expensive function, and is intended to be called
--- only occasionally (e.g. once per thread).  You should use the `Gen`
--- it creates to generate many random numbers.
-withSystemRandom :: (Gen -> IO a) -> IO a
-withSystemRandom act = do
-  seed <- acquireSeedSystem `E.catch` \(_::E.IOException) -> do
-    seen <- atomicModifyIORef warned ((,) True)
-    unless seen $ E.handle (\(_::E.IOException) -> return ()) $ do
-#if !defined(mingw32_HOST_OS)
-      hPutStrLn stderr ("Warning: Couldn't open /dev/urandom")
-#else
-      hPutStrLn stderr ("Warning: Couldn't use RtlGenRandom")
-#endif
-      hPutStrLn stderr ("Warning: using system clock for seed instead " ++
-                        "(quality will be lower)")
-    acquireSeedTime
-  initialize (I.fromList seed) >>= act
-  where
-    warned = unsafePerformIO $ newIORef False
-    {-# NOINLINE warned #-}
-
 -- | Seed a PRNG with data from the system's fast source of pseudo-random
--- numbers. All the caveats of 'withSystemRandom' apply here as well.
+-- numbers.
 createSystemRandom :: IO GenIO
-createSystemRandom = withSystemRandom (return :: GenIO -> IO GenIO)
+createSystemRandom = do
+  seed <- acquireSeedSystem
+  initialize (I.fromList seed)
 
 -- | Compute the next index into the state pool.  This is simply
 -- addition modulo 256.
@@ -649,44 +511,3 @@ defaultSeed = I.fromList [
 --   floating point.
 --   /ACM Transactions on Modeling and Computer Simulation/ 17(1).
 --   <http://www.doornik.com/research/randomdouble.pdf>
-
-
--- $typehelp
---
--- The functions in this package are deliberately written for
--- flexibility, and will run in both the 'IO' and 'ST' monads.
---
--- This can defeat the compiler's ability to infer a principal type in
--- simple (and common) cases.  For instance, we would like the
--- following to work cleanly:
---
--- > import System.Random.MWC
--- > import Data.Vector.Unboxed
--- >
--- > main = do
--- >   v <- withSystemRandom $ \gen -> uniformVector gen 20
--- >   print (v :: Vector Int)
---
--- Unfortunately, the compiler cannot tell what monad 'uniformVector'
--- should execute in.  The \"fix\" of adding explicit type annotations
--- is not pretty:
---
--- > {-# LANGUAGE ScopedTypeVariables #-}
--- >
--- > import Control.Monad.ST
--- >
--- > main = do
--- >   vs <- withSystemRandom $
--- >         \(gen::GenST s) -> uniformVector gen 20 :: ST s (Vector Int)
--- >   print vs
---
--- As a more readable alternative, this library provides 'asGenST' and
--- 'asGenIO' to constrain the types appropriately.  We can get rid of
--- the explicit type annotations as follows:
---
--- > main = do
--- >   vs <- withSystemRandom . asGenST $ \gen -> uniformVector gen 20
--- >   print (vs :: Vector Int)
---
--- This is almost as compact as the original code that the compiler
--- rejected.

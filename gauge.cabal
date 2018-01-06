@@ -78,9 +78,6 @@ library
         System.Random.MWC
         Numeric.MathFunctions.Comparison
         Numeric.MathFunctions.Constants
-        Numeric.Polynomial
-        Numeric.Polynomial.Chebyshev
-        Numeric.Series
         Numeric.SpecFunctions
         Numeric.SpecFunctions.Internal
         Numeric.Sum

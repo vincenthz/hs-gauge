@@ -23,7 +23,6 @@ module Numeric.MathFunctions.Comparison
     , within
     ) where
 
-import Control.Monad.ST (runST)
 import Basement.Floating (doubleToWord, wordToDouble)
 import Data.Word (Word64)
 import Data.Int (Int64)

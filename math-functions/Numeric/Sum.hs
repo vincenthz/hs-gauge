@@ -25,43 +25,16 @@ module Numeric.Sum (
     -- * Summation type class
       Summation(..)
     , sumVector
-    -- ** Usage
-    -- $usage
-
-    -- * Kahan-Babuška-Neumaier summation
-    -- , KBNSum(..)
     , kbn
-
-    -- * Order-2 Kahan-Babuška summation
-    -- , KB2Sum(..)
-    -- , kb2
-
-    -- * Less desirable approaches
-
-    -- ** Kahan summation
-    -- , KahanSum(..)
-    -- , kahan
-
-    -- ** Pairwise summation
-    -- , pairwiseSum
-
-    -- * References
-    -- $references
     ) where
 
-import Control.Arrow ((***))
 import Control.DeepSeq (NFData(..))
 import Control.Monad
-import Data.Bits (shiftR)
 import Data.Data (Typeable, Data)
 import Data.Vector.Generic (Vector(..), foldl')
--- import Data.Vector.Unboxed.Deriving (derivingUnbox)
--- Needed for GHC 7.2 & 7.4 to derive Unbox instances
--- import Data.Vector.Generic.Mutable (MVector(..))
 import qualified Data.Vector.Generic.Mutable as M
 
 import qualified Data.Foldable as F
-import qualified Data.Vector as V
 import qualified Data.Vector.Generic as G
 import qualified Data.Vector.Unboxed as U
 
@@ -117,10 +90,6 @@ kahanAdd (KahanSum sum c) x = KahanSum sum' c'
         c'   = (sum' - sum) - y
         y    = x - c
 
--- | Return the result of a Kahan sum.
-kahan :: KahanSum -> Double
-kahan (KahanSum sum _) = sum
-
 -- | Kahan-Babuška-Neumaier summation. This is a little more
 -- computationally costly than plain Kahan summation, but is /always/
 -- at least as accurate.
@@ -175,13 +144,6 @@ instance G.Vector U.Vector KBNSum where
 
 instance U.Unbox KBNSum
 
-{-
-derivingUnbox "KBNSum"
-    [t| KBNSum -> (Double, Double) |]
-    [| \ (KBNSum a b) -> (a, b) |]
-    [| \ (a, b) -> KBNSum a b |]
--}
-
 instance Summation KBNSum where
     zero = KBNSum 0 0
     add  = kbnAdd
@@ -212,14 +174,6 @@ data KB2Sum = KB2Sum {-# UNPACK #-} !Double
                      {-# UNPACK #-} !Double
             deriving (Eq, Show, Typeable, Data)
 
-
-{-
-derivingUnbox "KB2Sum"
-    [t| KB2Sum -> (Double, Double, Double) |]
-    [| \ (KB2Sum a b c) -> (a, b, c) |]
-    [| \ (a, b, c) -> KB2Sum a b c |]
--}
-
 instance Summation KB2Sum where
     zero = KB2Sum 0 0 0
     add  = kb2Add
@@ -236,30 +190,11 @@ kb2Add (KB2Sum sum c cc) x = KB2Sum sum' c' cc'
         k | abs sum >= abs x = (sum - sum') + x
           | otherwise        = (x - sum') + sum
 
--- | Return the result of an order-2 Kahan-Babuška sum.
-kb2 :: KB2Sum -> Double
-kb2 (KB2Sum sum c cc) = sum + c + cc
-
 -- | /O(n)/ Sum a vector of values.
 sumVector :: (Vector v Double, Summation s) =>
              (s -> Double) -> v Double -> Double
 sumVector f = f . foldl' add zero
 {-# INLINE sumVector #-}
-
--- | /O(n)/ Sum a vector of values using pairwise summation.
---
--- This approach is perhaps 10% faster than 'KBNSum', but has poorer
--- bounds on its error growth.  Instead of having roughly constant
--- error regardless of the size of the input vector, in the worst case
--- its accumulated error grows with /O(log n)/.
-pairwiseSum :: (Vector v Double) => v Double -> Double
-pairwiseSum v
-  | len <= 256 = G.sum v
-  | otherwise  = uncurry (+) . (pairwiseSum *** pairwiseSum) .
-                 G.splitAt (len `shiftR` 1) $ v
-  where len = G.length v
-{-# SPECIALIZE pairwiseSum :: V.Vector Double -> Double #-}
-{-# SPECIALIZE pairwiseSum :: U.Vector Double -> Double #-}
 
 -- $usage
 --

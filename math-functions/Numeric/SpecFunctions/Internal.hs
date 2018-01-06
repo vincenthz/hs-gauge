@@ -14,10 +14,7 @@ module Numeric.SpecFunctions.Internal
     , erfc
     , invErf
     , invErfc
-    , log1p
-    , log1pmx
     , log2
-    , expm1
     ) where
 
 #if !MIN_VERSION_base(4,9,0)
@@ -26,13 +23,7 @@ import Control.Applicative
 import Data.Bits       ((.&.), (.|.), shiftR)
 import Data.Word       (Word)
 import qualified Data.Vector.Unboxed as U
-#if MIN_VERSION_base(4,9,0)
-import GHC.Float (log1p,expm1)
-#else
-import Numeric.Polynomial.Chebyshev    (chebyshevBroucke)
-#endif
 
-import Numeric.Series
 import Numeric.MathFunctions.Constants
 
 ----------------------------------------------------------------
@@ -107,83 +98,6 @@ invErfc p
       | otherwise = let err = erfc x - pp
                         x'  = x + err / (1.12837916709551257 * exp(-x * x) - x * err) -- // Halley
                     in loop (j+1) x'
-
-
-
-
-----------------------------------------------------------------
--- Logarithm
-----------------------------------------------------------------
-
--- GHC.Float provides log1p and expm1 since 4.9.0
-#if !MIN_VERSION_base(4,9,0)
--- | Compute the natural logarithm of 1 + @x@.  This is accurate even
--- for values of @x@ near zero, where use of @log(1+x)@ would lose
--- precision.
-log1p :: Double -> Double
-log1p x
-    | x == 0               = 0
-    | x == -1              = m_neg_inf
-    | x < -1               = m_NaN
-    | x' < m_epsilon * 0.5 = x
-    | (x >= 0 && x < 1e-8) || (x >= -1e-9 && x < 0)
-                           = x * (1 - x * 0.5)
-    | x' < 0.375           = x * (1 - x * chebyshevBroucke (x / 0.375) coeffs)
-    | otherwise            = log (1 + x)
-  where
-    x' = abs x
-    coeffs = U.fromList [
-               0.10378693562743769800686267719098e+1,
-              -0.13364301504908918098766041553133e+0,
-               0.19408249135520563357926199374750e-1,
-              -0.30107551127535777690376537776592e-2,
-               0.48694614797154850090456366509137e-3,
-              -0.81054881893175356066809943008622e-4,
-               0.13778847799559524782938251496059e-4,
-              -0.23802210894358970251369992914935e-5,
-               0.41640416213865183476391859901989e-6,
-              -0.73595828378075994984266837031998e-7,
-               0.13117611876241674949152294345011e-7,
-              -0.23546709317742425136696092330175e-8,
-               0.42522773276034997775638052962567e-9,
-              -0.77190894134840796826108107493300e-10,
-               0.14075746481359069909215356472191e-10,
-              -0.25769072058024680627537078627584e-11,
-               0.47342406666294421849154395005938e-12,
-              -0.87249012674742641745301263292675e-13,
-               0.16124614902740551465739833119115e-13,
-              -0.29875652015665773006710792416815e-14,
-               0.55480701209082887983041321697279e-15,
-              -0.10324619158271569595141333961932e-15
-             ]
-
--- | Compute @exp x - 1@ without loss of accuracy for x near zero.
-expm1 :: Double -> Double
-#ifdef USE_SYSTEM_EXPM1
-expm1 = c_expm1
-
-foreign import ccall "expm1" c_expm1 :: Double -> Double
-#else
--- NOTE: this is simplest implementation and not terribly efficient.
-expm1 x
-  | x < (-37.42994775023705) = -1
-  | x > m_max_log            = m_pos_inf
-  | abs x > 0.5              = exp x - 1
-  | otherwise                = sumSeries $ (*) <$> (scanSequence (*) x (pure x))
-                                               <*> (1 / scanSequence (*) 1 (enumSequenceFrom 2))
-#endif
-#endif
-
--- | Compute log(1+x)-x:
-log1pmx :: Double -> Double
-log1pmx x
-  | x <  -1        = error "Domain error"
-  | x == -1        = m_neg_inf
-  | ax > 0.95      = log(1 + x) - x
-  | ax < m_epsilon = -(x * x) /2
-  | otherwise      = - x * x * sumPowerSeries (-x) (recip <$> enumSequenceFrom 2)
-  where
-   ax = abs x
 
 -- | /O(log n)/ Compute the logarithm in base 2 of the given value.
 log2 :: Int -> Int
