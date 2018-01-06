@@ -80,7 +80,6 @@ library
         Numeric.MathFunctions.Constants
         Numeric.Polynomial
         Numeric.Polynomial.Chebyshev
-        Numeric.RootFinding
         Numeric.Series
         Numeric.SpecFunctions
         Numeric.SpecFunctions.Internal
