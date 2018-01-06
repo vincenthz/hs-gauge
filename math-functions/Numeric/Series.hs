@@ -22,8 +22,6 @@ module Numeric.Series (
   , sumSeries
   , sumPowerSeries
   , sequenceToList
-    -- * Evaluation of continued fractions
-  , evalContFractionB
   ) where
 
 import Control.Applicative
@@ -141,40 +139,3 @@ sumPowerSeries x ser = sumSeries $ liftA2 (*) (scanSequence (*) 1 (pure x)) ser
 -- | Convert series to infinite list
 sequenceToList :: Sequence a -> [a]
 sequenceToList (Sequence s f) = unfoldr (Just . f) s
-
-
-
-----------------------------------------------------------------
--- Evaluation of continued fractions
-----------------------------------------------------------------
-
--- |
--- Evaluate continued fraction using modified Lentz algorithm.
--- Sequence contain pairs (a[i],b[i]) which form following expression:
---
--- \[
--- b_0 + \frac{a_1}{b_1+\frac{a_2}{b_2+\frac{a_3}{b_3 + \cdots}}}
--- \]
---
--- Modified Lentz algorithm is described in Numerical recipes 5.2
--- "Evaluation of Continued Fractions"
-evalContFractionB :: Sequence (Double,Double) -> Double
-{-# INLINE evalContFractionB #-}
-evalContFractionB (Sequence sInit step)
-  = let ((_,b0),s0) = step sInit
-        f0          = maskZero b0
-    in  go f0 f0 0 s0
-  where
-    tiny = 1e-60
-    maskZero 0 = tiny
-    maskZero x = x
-    
-    go f c d s
-      | abs (delta - 1) >= m_epsilon = go f' c' d' s'
-      | otherwise                    = f'
-      where
-          ((a,b),s') = step s
-          d'    = recip $ maskZero $ b + a*d
-          c'    = maskZero $ b + a/c 
-          delta = c'*d'
-          f'    = f*delta

@@ -9,7 +9,16 @@
 -- Portability : portable
 --
 -- Internal module with implementation of special functions.
-module Numeric.SpecFunctions.Internal where
+module Numeric.SpecFunctions.Internal
+    ( erf
+    , erfc
+    , invErf
+    , invErfc
+    , log1p
+    , log1pmx
+    , log2
+    , expm1
+    ) where
 
 #if !MIN_VERSION_base(4,9,0)
 import Control.Applicative
