@@ -1,3 +1,10 @@
+# WIP
+
+* Inline math-functions & mwc-random:
+  * Remove most functions, instances and types, that are unnecessary for gauge
+  * Remove unsafe seeding with partial seed (unused in gauge anyway)
+  * Remove vector-th-unbox dependency (transitively template-haskell, pretty, ghc-boot-th)
+  * Remove time dependency
 
 # 0.2.0
 
