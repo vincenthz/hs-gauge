@@ -36,7 +36,7 @@ slow                                     mean 163.9 ns  ( +- 9.683 ns  )
 
 Number of total dependencies (direct & indirect):
 
-* gauge: 18 dependencies
+* gauge: 12 dependencies
 * criterion: 63 dependencies
 
 Dependencies removed:
@@ -56,30 +56,39 @@ Dependencies removed:
 * bytestring 0.10.8.1
 * cassava 0.4.5.1
 * cereal 0.5.4.0
+* code-page 0.1.3
+* containers 0.5.7.1
 * criterion 1.2.2.0
 * directory 1.3.0.0
 * dlist 0.8.0.3
 * erf 2.0.0.0
 * exceptions 0.8.3
 * filepath 1.4.1.1
+* ghc-boot-th 8.0.2
 * hashable 1.2.6.1
+* integer-gmp 1.0.0.1
 * integer-logarithms 1.0.2
 * js-flot 0.8.3
 * js-jquery 3.2.1
+* math-functions 0.2.1.0
 * microstache 1.0.1.1
 * monad-par 0.3.4.8
 * monad-par-extras 0.3.3
 * mtl 2.2.1
+* mwc-random 0.13.6.0
 * optparse-applicative 0.13.2.0
 * parallel 3.2.1.1
 * parsec 3.1.11
+* pretty 1.1.3.3
 * process 1.4.3.0
 * random 1.1
 * scientific 0.3.5.2
 * statistics 0.14.0.2
 * stm 2.4.4.1
 * tagged 0.8.5
+* template-haskell 2.11.1.0
 * text 1.2.2.2
+* time 1.6.0.1
 * time-locale-compat 0.1.1.3
 * transformers-compat 0.5.1.4
 * unix 2.7.2.1
@@ -87,7 +96,8 @@ Dependencies removed:
 * uuid-types 1.0.3
 * vector-algorithms 0.7.0.1
 * vector-binary-instances 0.2.3.5
-* code-page 0.1.3
+* vector-th-unbox 0.2.1.6
+
 
 Criterion graph of dependencies:
 

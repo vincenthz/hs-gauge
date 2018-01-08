@@ -3,4 +3,6 @@ resolver: lts-10.0
 packages:
 - '.'
 extra-deps: []
-flags: {}
+flags:
+  gauge:
+    analysis: true
