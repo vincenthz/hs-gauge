@@ -1,4 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstraintKinds #-}
 -- |
 -- Module      : Gauge.Optional
 -- Copyright   : (c) 2017-2018 Vincent Hanquez
