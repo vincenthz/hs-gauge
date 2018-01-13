@@ -109,7 +109,7 @@ quickAnalyse desc meas = do
 benchmarkWith :: Config -> Benchmarkable -> IO ()
 benchmarkWith cfg bm =
   withConfig cfg $
-    runBenchmark (const True) (Benchmark "function" bm) quickAnalyse
+    runBenchmark (const True) (Benchmark "function" bm) (BenchmarkNormal quickAnalyse)
 
 -- | Run a benchmark interactively with default config, and analyse its
 -- performance.
@@ -160,35 +160,36 @@ defaultMainWith defCfg bs = do
 -- one in your benchmark driver's command-line parser).
 runMode :: Mode -> Config -> [String] -> [Benchmark] -> IO ()
 runMode wat cfg benches bs =
-  -- TBD: This has become messy. We use mode as well as cfg options for the
-  -- same purpose It is possible to specify multiple exclusive options.  We
-  -- need to handle the exclusive options in a better way.
-  case wat of
-    List    -> mapM_ putStrLn . sort . concatMap benchNames $ bs
-    Version -> putStrLn versionInfo
-    Help    -> putStrLn describe
-    DefaultMode ->
-      case measureOnly cfg of
-        Just outfile -> runWithConfig runBenchmark (\_ r ->
-                          gaugeIO (writeFile outfile (show r)))
-        Nothing ->
-          case iters cfg of
-          Just nbIters -> runWithConfig runBenchmarkIters nbIters
-          Nothing ->
-            case quickMode cfg of
-              True  -> runWithConfig runBenchmark quickAnalyse
-              False -> do
+    -- TBD: This has become messy. We use mode as well as cfg options for the
+    -- same purpose It is possible to specify multiple exclusive options.  We
+    -- need to handle the exclusive options in a better way.
+    case wat of
+        List        -> mapM_ putStrLn . sort . concatMap benchNames $ bs
+        Version     -> putStrLn versionInfo
+        Help        -> putStrLn describe
+        DefaultMode -> runDefault
+  where
+    runDefault = do
+        CSV.write (csvRawFile cfg) $ CSV.Row $ map (CSV.string . fst) measureAccessors_
+        CSV.write (csvFile cfg) $ CSV.Row $ map CSV.string
+            ["Name", "Mean","MeanLB","MeanUB","Stddev","StddevLB","StddevUB"]
+
+        hSetBuffering stdout NoBuffering
+        selector <- selectBenches (match cfg) benches bsgroup
+
+        -- if compiled without analysis step, then default to quickmode
 #ifdef HAVE_ANALYSIS
-                  CSV.write (csvRawFile cfg) $ CSV.Row $ map CSV.string
-                        (map fst measureAccessors_)
-                  CSV.write (csvFile cfg) $ CSV.Row $ map CSV.string
-                        ["Name", "Mean","MeanLB","MeanUB","Stddev","StddevLB","StddevUB"]
-                  runWithConfig runBenchmark analyseBenchmark
+        let compiledAnalyseStep = analyseBenchmark
 #else
-                  runWithConfig runBenchmark quickAnalyse
+        let compiledAnalyseStep = quickAnalyse
 #endif
-  where bsgroup = BenchGroup "" bs
-        runWithConfig f arg = do
-          hSetBuffering stdout NoBuffering
-          selector <- selectBenches (match cfg) benches bsgroup
-          withConfig cfg $ f selector bsgroup arg
+
+        let mode = case (measureOnly cfg, iters cfg, quickMode cfg) of
+                (Just outfile, _           , _   )  -> BenchmarkNormal $ \_ r -> gaugeIO (writeFile outfile (show r))
+                (Nothing     , Just nbIters, _   )  -> BenchmarkIters nbIters
+                (Nothing     , Nothing     , True)  -> BenchmarkNormal quickAnalyse
+                (Nothing     , Nothing     , False) -> BenchmarkNormal compiledAnalyseStep
+
+        withConfig cfg $ runBenchmark selector bsgroup mode
+
+    bsgroup = BenchGroup "" bs

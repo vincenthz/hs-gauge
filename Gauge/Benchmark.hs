@@ -59,7 +59,7 @@ module Gauge.Benchmark
 
     -- * Running Benchmarks
     , runBenchmark
-    , runBenchmarkIters
+    , BenchmarkAnalysis(..)
     ) where
 
 import Control.Applicative
@@ -652,29 +652,25 @@ writeMeas fp desc meas = V.forM_ meas $ \m ->
 -- Running benchmarks
 -------------------------------------------------------------------------------
 
+-- | The function to run after measurement
+data BenchmarkAnalysis =
+      forall a . BenchmarkNormal (String -> V.Vector Measured -> Gauge a)
+    | BenchmarkIters Int64
+
 -- | Run benchmarkables, selected by a given selector function, under a given
 -- benchmark and analyse the output using the given analysis function.
-runBenchmark
-  :: (String -> Bool) -- ^ Select benchmarks by name.
-  -> Benchmark
-  -> (String -> V.Vector Measured -> Gauge a) -- ^ Analysis function.
-  -> Gauge ()
+runBenchmark :: (String -> Bool) -- ^ Select benchmarks by name.
+             -> Benchmark
+             -> BenchmarkAnalysis -- ^ Analysis function
+             -> Gauge ()
 runBenchmark selector bs analyse =
-  for selector bs $ \_idx desc bm ->
-      runBenchmarkable desc bm >>= analyse desc >>= \_ -> return ()
-
--- XXX For consistency, this should also use a separate process when
--- --measure-with is specified.
--- | Run a benchmark without analysing its performance.
-runBenchmarkIters
-  :: (String -> Bool) -- ^ Select benchmarks by name.
-  -> Benchmark
-  -> Int64            -- ^ Number of iterations to run.
-  -> Gauge ()
-runBenchmarkIters selector bs iters =
-  for selector bs $ \_idx desc bm -> do
-    _ <- note "benchmarking %s\r" desc
-    gaugeIO $ iterateBenchmarkable_ bm iters
+    for selector bs $ \_idx desc bm ->
+        case analyse of
+            BenchmarkNormal step ->
+                runBenchmarkable desc bm >>= step desc >>= \_ -> return ()
+            BenchmarkIters iters -> do
+                _ <- note "benchmarking %s\r" desc
+                gaugeIO $ iterateBenchmarkable_ bm iters
 
 -- | Iterate over benchmarks.
 for :: (String -> Bool)
