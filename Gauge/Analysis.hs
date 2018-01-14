@@ -37,9 +37,6 @@ module Gauge.Analysis
     , benchmarkWith'
     ) where
 
--- Temporary: to support pre-AMP GHC 7.8.4:
-import Data.Monoid
-
 import Control.Applicative
 import Control.Arrow (second)
 import Control.DeepSeq (NFData(rnf))
@@ -106,9 +103,8 @@ data OutlierEffect = Unaffected -- ^ Less than 1% effect.
 
 instance NFData OutlierEffect
 
-instance Monoid Outliers where
-    mempty  = Outliers 0 0 0 0 0
-    mappend = addOutliers
+outliersEmpty :: Outliers
+outliersEmpty = Outliers 0 0 0 0 0
 
 addOutliers :: Outliers -> Outliers -> Outliers
 addOutliers (Outliers s a b c d) (Outliers t w x y z) =
@@ -192,9 +188,10 @@ instance NFData Report where
       rnf reportName `seq` rnf reportKeys `seq`
       rnf reportMeasured `seq` rnf reportAnalysis `seq` rnf reportOutliers `seq`
       rnf reportKDEs
+
 -- | Classify outliers in a data set, using the boxplot technique.
 classifyOutliers :: Sample -> Outliers
-classifyOutliers sa = U.foldl' ((. outlier) . mappend) mempty ssa
+classifyOutliers sa = U.foldl' ((. outlier) . addOutliers) outliersEmpty ssa
     where outlier e = Outliers {
                         samplesSeen = 1
                       , lowSevere = if e <= loS && e < hiM then 1 else 0
