@@ -1,4 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstraintKinds #-}
 -- |
 -- Module      : Gauge.Optional
 -- Copyright   : (c) 2017-2018 Vincent Hanquez
@@ -29,6 +31,7 @@ import Data.Int
 import Data.Word
 import Data.Data
 import GHC.Generics
+import Basement.Compat.CallStack
 
 -- | A type representing a sum-type free Maybe a
 -- where a specific tag represent Nothing
@@ -50,7 +53,7 @@ instance OptionalTag Double where
     isOptionalTag d = isInfinite d || isNaN d
 
 -- | Create an optional value from a 
-toOptional :: OptionalTag a => a -> Optional a
+toOptional :: (HasCallStack, OptionalTag a) => a -> Optional a
 toOptional v
     | isOptionalTag v = error "Creating an optional valid value using the optional tag"
     | otherwise       = Optional v
@@ -70,7 +73,7 @@ toMaybe (Optional v) | isOptionalTag v = Nothing
                      | otherwise       = Just v
 {-# INLINE toMaybe #-}
 
-fromMaybe :: OptionalTag a => Maybe a -> Optional a
+fromMaybe :: (HasCallStack, OptionalTag a) => Maybe a -> Optional a
 fromMaybe Nothing  = Optional optionalTag
 fromMaybe (Just v)
     | isOptionalTag v = error "fromMaybe: creating an optional value using the optional tag"
@@ -82,7 +85,7 @@ map f o@(Optional v) | isOptionalTag v = o
                      | otherwise       = Optional (f v) 
 {-# INLINE map #-}
 
-both :: OptionalTag a => (a -> a -> a) -> Optional a -> Optional a -> Optional a
+both :: (HasCallStack, OptionalTag a) => (a -> a -> a) -> Optional a -> Optional a -> Optional a
 both f o1 o2
     | isOmitted o1    = o2
     | isOmitted o2    = o1
