@@ -2,6 +2,7 @@
 #define CYCLES_H
 
 #include <stddef.h>
+#include "Rts.h"
 
 #if x86_64_HOST_ARCH || i386_HOST_ARCH
 
