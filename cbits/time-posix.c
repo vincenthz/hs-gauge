@@ -2,19 +2,30 @@
 #include <stdint.h>
 
 #include <unistd.h>
-#include <asm-generic/unistd.h>
-#include <linux/perf_event.h>
 
 #include "gauge-time.h"
 
+// #define USE_PERF_EVENT
+
+#ifdef USE_PERF_EVENT
+#include <asm-generic/unistd.h>
+#include <linux/perf_event.h>
+#else
+#include <cycles.h>
+#endif
+
+#ifdef USE_PERF_EVENT
 static int gauge_rdtsc_fddev = -1;
+#endif
 
 void gauge_inittime(void)
 {
+#ifdef USE_PERF_EVENT
     static struct perf_event_attr attr;
     attr.type = PERF_TYPE_HARDWARE;
     attr.config = PERF_COUNT_HW_CPU_CYCLES;
     gauge_rdtsc_fddev = syscall (__NR_perf_event_open, &attr, 0, -1, -1, 0);
+#endif
 }
 
 #define timespec_to_uint64(x) (                      \
@@ -32,7 +43,11 @@ void gauge_record(struct gauge_time *tr)
 
     tr->clock_nanosecs = timespec_to_uint64(ts);
     tr->cpu_nanosecs = timespec_to_uint64(ts2);
+#ifdef USE_PERF_EVENT
     tr->rdtsc = (read (gauge_rdtsc_fddev, &res, sizeof(res)) < sizeof(res)) ? 0 : res;
+#else
+    tr->rdtsc = instruction_rdtsc();
+#endif
 }
 
 double gauge_gettime(void)
