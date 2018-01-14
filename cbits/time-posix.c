@@ -25,7 +25,7 @@ void gauge_inittime(void)
 void gauge_record(struct gauge_time *tr)
 {
     struct timespec ts, ts2;
-    uint64_t res;
+    uint64_t res = 0;
 
     clock_gettime(CLOCK_MONOTONIC, &ts);
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts2);
