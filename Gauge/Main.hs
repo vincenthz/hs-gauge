@@ -23,6 +23,7 @@ module Gauge.Main
     -- * Running Benchmarks Interactively
     , benchmark
     , benchmarkWith
+    , module Gauge.Benchmark
     ) where
 
 import Control.Applicative
