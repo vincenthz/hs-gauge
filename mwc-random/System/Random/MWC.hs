@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE BangPatterns, DeriveDataTypeable, FlexibleContexts,
-    MagicHash, Rank2Types, ScopedTypeVariables, TypeFamilies, UnboxedTuples,
+    MagicHash, Rank2Types, ScopedTypeVariables, TypeFamilies,
     ForeignFunctionInterface #-}
 -- |
 -- Module    : System.Random.MWC
@@ -282,6 +282,8 @@ aa :: Word64
 aa = 1540315826
 {-# INLINE aa #-}
 
+data DoubleWord32 = DoubleWord32 {-# UNPACK #-} !Word32 {-# UNPACK #-} !Word32
+
 uniformWord32 :: Gen -> IO Word32
 uniformWord32 (Gen q) = do
   i  <- nextIndex `liftM` M.unsafeRead q ioff
@@ -290,8 +292,8 @@ uniformWord32 (Gen q) = do
   let t  = aa * qi + c
       c' = fromIntegral (t `shiftR` 32)
       x  = fromIntegral t + c'
-      (# x', c'' #)  | x < c'    = (# x + 1, c' + 1 #)
-                     | otherwise = (# x,     c' #)
+      (DoubleWord32 x' c'')  | x < c'    = DoubleWord32 (x + 1) (c' + 1)
+                             | otherwise = DoubleWord32 x c'
   M.unsafeWrite q i x'
   M.unsafeWrite q ioff (fromIntegral i)
   M.unsafeWrite q coff (fromIntegral c'')
@@ -314,13 +316,13 @@ uniform2 f (Gen q) = do
   let t   = aa * qi + c
       c'  = fromIntegral (t `shiftR` 32)
       x   = fromIntegral t + c'
-      (# x', c'' #)  | x < c'    = (# x + 1, c' + 1 #)
-                     | otherwise = (# x,     c' #)
+      DoubleWord32 x' c'' | x < c'    = DoubleWord32 (x + 1) (c' + 1)
+                          | otherwise = DoubleWord32 x c'
       u   = aa * qj + fromIntegral c''
       d'  = fromIntegral (u `shiftR` 32)
       y   = fromIntegral u + d'
-      (# y', d'' #)  | y < d'    = (# y + 1, d' + 1 #)
-                     | otherwise = (# y,     d' #)
+      DoubleWord32 y' d'' | y < d'    = DoubleWord32 (y + 1) (d' + 1)
+                          | otherwise = DoubleWord32 y d'
   M.unsafeWrite q i x'
   M.unsafeWrite q j y'
   M.unsafeWrite q ioff (fromIntegral j)
@@ -388,8 +390,8 @@ uniformRange (x1,x2) g
   | otherwise = loop
   where
     -- Allow ranges where x2<x1
-    (# i, j #) | x1 < x2   = (# x1, x2 #)
-               | otherwise = (# x2, x1 #)
+    (i, j) | x1 < x2   = (x1, x2)
+           | otherwise = (x2, x1)
     n       = 1 + sub j i
     buckets = maxBound `div` n
     maxN    = buckets * n
