@@ -1,5 +1,5 @@
 name:           gauge
-version:        0.2.0
+version:        0.2.1
 synopsis:       small framework for performance measurement and analysis
 license:        BSD3
 license-file:   LICENSE
@@ -19,7 +19,7 @@ tested-with:
   GHC==7.8.4,
   GHC==7.10.3,
   GHC==8.0.2,
-  GHC==8.2.1
+  GHC==8.2.2
 
 description:
   This library provides a powerful but simple way to measure software

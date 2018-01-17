@@ -1,10 +1,15 @@
-# WIP
+# 0.2.1
 
 * Inline math-functions & mwc-random:
   * Remove most functions, instances and types, that are unnecessary for gauge
   * Remove unsafe seeding with partial seed (unused in gauge anyway)
   * Remove vector-th-unbox dependency (transitively template-haskell, pretty, ghc-boot-th)
   * Remove time dependency
+* Re-add Gauge.Benchmark to Gauge.Main to keep the transition between criterion and gauge easy
+* Fix cycles reporting on linux, osx and windows
+* Add some extra callstack for reporting on partial function
+* Fix compilation with Semigroup => Monoid (compilation on 8.4). still unsupported
+* Add some color on terminal output
 
 # 0.2.0
 
