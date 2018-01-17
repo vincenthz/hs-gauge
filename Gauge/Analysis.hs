@@ -48,6 +48,7 @@ import Gauge.Main.Options (defaultConfig, Config(..), Verbosity (..),
 import Gauge.Measurement (Measured(measTime), secs, rescale, measureKeys,
                           measureAccessors_, validateAccessors, renderNames)
 import Gauge.Monad (Gauge, askConfig, gaugeIO, Crit(..), askCrit, withConfig)
+import Gauge.Format
 import qualified Gauge.CSV as CSV
 import Data.Data (Data, Typeable)
 import Data.Int (Int64)
@@ -409,7 +410,7 @@ analyseBenchmark desc meas = do
 
         case displayMode of
             StatsTable -> do
-              _ <- note "%sbenchmarked %s\n" rewindClearLine desc
+              _ <- note "%sbenchmarked %s%s%s\n" rewindClearLine green desc reset
               let r2 n = printf "%.3f R\178" n
               forM_ builtin $ \Regression{..} ->
                 case Map.lookup "iters" regCoeffs of
@@ -433,7 +434,7 @@ analyseBenchmark desc meas = do
               _ <- note "\n"
               pure ()
             Condensed -> do
-              _ <- note "%s%-40s " rewindClearLine desc
+              _ <- note "%s%s%-40s%s " rewindClearLine green desc reset
               bsSmall secs "mean" anMean
               bsSmall secs "( +-" anStdDev
               _ <- note ")\n"
@@ -442,8 +443,9 @@ analyseBenchmark desc meas = do
         return rpt
       where bs :: (Double -> String) -> String -> Estimate ConfInt Double -> Gauge ()
             bs f metric e@Estimate{..} =
-              note "%-20s %-10s (%s .. %s%s)\n" metric
-                   (f estPoint) (f $ fst $ confidenceInterval e) (f $ snd $ confidenceInterval e)
+              note "%s%-20s%s %s%-10s%s (%s .. %s%s)\n" yellow metric reset
+                   red (f estPoint) reset
+                   (f $ fst $ confidenceInterval e) (f $ snd $ confidenceInterval e)
                    (let cl = confIntCL estError
                         str | cl == cl95 = ""
                             | otherwise  = printf ", ci %.3f" (confidenceLevel cl)
@@ -451,7 +453,7 @@ analyseBenchmark desc meas = do
                    )
             bsSmall :: (Double -> String) -> String -> Estimate ConfInt Double -> Gauge ()
             bsSmall f metric Estimate{..} =
-              note "%s %-10s" metric (f estPoint)
+              note "%s %s%-10s%s" metric red (f estPoint) reset
 
             reportStat :: Verbosity
                        -> (Measured -> Maybe Double)

@@ -10,12 +10,19 @@ module Gauge.Format
     ( printNanoseconds
     , printSubNanoseconds
     , tableMarkdown
+    , reset
+    , green
+    , red
+    , yellow
     ) where
 
 import Gauge.Time
 import Data.List
 import Data.Word
 import Text.Printf
+import qualified Basement.Terminal.ANSI as ANSI
+import           Basement.Bounded (zn64)
+import           GHC.Exts (toList)
 
 -- | Print a NanoSeconds quantity with a human friendly format
 -- that make it easy to compare different values
@@ -103,3 +110,10 @@ padCenter sz s
     len = length s
     (leftPad, r) = (sz - len) `divMod` 2
     rightPad = leftPad + r
+
+-- | reset, green, red, yellow ANSI escape
+reset, green, red, yellow :: String
+reset = toList ANSI.sgrReset
+green = toList $ ANSI.sgrForeground (zn64 2) True
+red = toList $ ANSI.sgrForeground (zn64 1) True
+yellow = toList $ ANSI.sgrForeground (zn64 3) True
