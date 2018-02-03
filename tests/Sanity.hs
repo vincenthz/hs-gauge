@@ -1,19 +1,17 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
 
-import Gauge.Benchmark (bench, bgroup, env, whnf)
-import System.Environment (getEnv, withArgs)
-import System.Timeout (timeout)
-import Test.Tasty (defaultMain)
-import Test.Tasty.HUnit (testCase)
-import Test.HUnit (Assertion, assertFailure)
+import           System.Timeout (timeout)
+import           Data.Monoid
+import           Data.Word
+import           GHC.Exts (IsList(..))
+
 import qualified Gauge as C
-import qualified Control.Exception as E
-import qualified Data.ByteString as B
+import           Gauge.Main.Options
+import           Gauge.Benchmark (bench, bgroup, env, whnf)
 
-#if !MIN_VERSION_bytestring(0,10,0)
-import Control.DeepSeq (NFData (..))
-#endif
+import           Foundation.Check
+import           Foundation.Check.Main
 
 fib :: Int -> Int
 fib = sum . go
@@ -21,52 +19,41 @@ fib = sum . go
         go 1 = [1]
         go n = go (n-1) ++ go (n-2)
 
--- Additional arguments to include along with the ARGS environment variable.
-extraArgs :: [String]
-extraArgs = [ "--raw=sanity.dat", "--json=sanity.json", "--csv=sanity.csv"
-            , "--output=sanity.html", "--junit=sanity.junit"
-#ifdef VERBOSE
-            , "-v 2"
-#endif
-#ifdef QUICK
-            , "--quick"
-#endif
+withSpecialMain :: Bool -> Bool -> [C.Benchmark] -> IO ()
+withSpecialMain useVerbose useQuick = C.defaultMainWith cfg
+  where
+    cfg = defaultConfig
+            { rawDataFile = Just "sanity.dat"
+            , jsonFile    = Just "sanity.json"
+            , csvFile     = Just "sanity.csv"
+            , reportFile  = Just "sanity.html"
+            , junitFile   = Just "sanity.junit"
+            , verbosity   = if useVerbose then Verbose else verbosity defaultConfig
+            , quickMode   = useQuick
+            }
+
+sanity :: Bool -> Bool -> Check ()
+sanity useVerbose useQuick = do
+    let tooLong = 30
+    wat <- pick "run-program" $ timeout (tooLong * 1000000) $ withSpecialMain useVerbose useQuick
+            [ bgroup "fib"
+                [ bench "fib 10" $ whnf fib 10
+                , bench "fib 22" $ whnf fib 22
+                ]
+            , env (return (replicate 1024 0 :: [Word8])) $ \xs ->
+                bgroup "length . filter"
+                    [ bench "string" $ whnf (length . filter (==0)) xs
+                    -- , env (return (B.pack xs)) $ \bs -> bench "uarray" $ whnf (B.length . B.filter (==0)) bs
+                    ]
             ]
 
-sanity :: Assertion
-sanity = do
-  args <- getArgEnv
-  withArgs (extraArgs ++ args) $ do
-    let tooLong = 30
-    wat <- timeout (tooLong * 1000000) $
-           C.defaultMain [
-               bgroup "fib" [
-                 bench "fib 10" $ whnf fib 10
-               , bench "fib 22" $ whnf fib 22
-               ]
-             , env (return (replicate 1024 0)) $ \xs ->
-               bgroup "length . filter" [
-                 bench "string" $ whnf (length . filter (==0)) xs
-               , env (return (B.pack xs)) $ \bs ->
-                 bench "bytestring" $ whnf (B.length . B.filter (==0)) bs
-               ]
-             ]
-    case wat of
-      Just () -> return ()
-      Nothing -> assertFailure $ "killed for running longer than " ++
-                                 show tooLong ++ " seconds!"
+    validate ("not killed for running longer than " <> fromList (show tooLong) <> " seconds") $
+        wat === Just ()
 
 main :: IO ()
-main = defaultMain $ testCase "sanity" sanity
-
--- This is a workaround to in pass arguments that sneak past
--- test-framework to get to criterion.
-getArgEnv :: IO [String]
-getArgEnv =
-  fmap words (getEnv "ARGS") `E.catch`
-  \(_ :: E.SomeException) -> return []
-
-#if !MIN_VERSION_bytestring(0,10,0)
-instance NFData B.ByteString where
-    rnf bs = bs `seq` ()
-#endif
+main = defaultMain $ Group "gauge-sanity"
+    [ CheckPlan "normal" $ sanity False False
+    , CheckPlan "verbose" $ sanity True False
+    , CheckPlan "quick" $ sanity False True
+    , CheckPlan "verbose-quick" $ sanity True True
+    ]
