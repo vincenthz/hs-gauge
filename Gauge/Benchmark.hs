@@ -552,8 +552,7 @@ runBenchmarkable' bm minDuration minSamples timeLimit = do
   let loop [] !_ _ = error "unpossible!"
       loop (iters:niters) iTotal acc = do
         endTime <- getTime
-        if length acc >= minSamples &&
-           endTime - start >= timeLimit
+        if length acc >= minSamples && endTime - start >= timeLimit
           then do
             let !v = V.reverse (V.fromList acc)
             return (v, endTime - start, iTotal)

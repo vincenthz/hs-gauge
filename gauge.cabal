@@ -51,6 +51,7 @@ library
     Gauge.Source.RUsage
     Gauge.Source.GC
     Gauge.Source.Time
+    System.Random.MWC
 
   if flag(analysis)
       exposed-modules:
@@ -76,7 +77,6 @@ library
         Statistics.Transform
         Statistics.Types
         Statistics.Types.Internal
-        System.Random.MWC
         Numeric.MathFunctions.Comparison
         Numeric.MathFunctions.Constants
         Numeric.SpecFunctions
