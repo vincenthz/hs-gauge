@@ -10,8 +10,8 @@ compiler: ghc-8.4 ghc-8.4-alpha2
 # option: alias x=y z=v
 
 # builds 
-build: ghc-7.8 nohaddock extradep=basement-0.0.6
-build: ghc-7.10 extradep=basement-0.0.6
+build: ghc-7.8 nohaddock extradep=basement-0.0.6 extradep=foundation-0.0.19
+build: ghc-7.10 extradep=basement-0.0.6 extradep=foundation=0.0.19
 build: ghc-8.0
 build: ghc-8.0
 build: ghc-8.2
