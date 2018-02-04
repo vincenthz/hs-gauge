@@ -17,7 +17,7 @@ build: ghc-8.0
 build: ghc-8.2
 build: ghc-8.2-noanalysis flag=gauge:-analysis
 build: ghc-8.2 os=osx
-build: ghc-8.4 allowed-failure
+build: ghc-8.4 allowed-failure extradep=basement-0.0.6 extradep=foundation-0.0.19 extradep=vector-0.12.0.1
 
 # packages
 package: '.'
