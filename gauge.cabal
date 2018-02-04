@@ -51,6 +51,7 @@ library
     Gauge.Source.RUsage
     Gauge.Source.GC
     Gauge.Source.Time
+    System.Random.MWC
 
   if flag(analysis)
       exposed-modules:
@@ -76,7 +77,6 @@ library
         Statistics.Transform
         Statistics.Types
         Statistics.Types.Internal
-        System.Random.MWC
         Numeric.MathFunctions.Comparison
         Numeric.MathFunctions.Constants
         Numeric.SpecFunctions
@@ -121,60 +121,10 @@ test-suite sanity
   ghc-options:          -O2 -Wall -rtsopts
 
   build-depends:
-    HUnit,
     base,
     bytestring,
     gauge,
-    tasty,
-    tasty-hunit
-
-test-suite verbose
-  type:                 exitcode-stdio-1.0
-  hs-source-dirs:       tests
-  main-is:              Sanity.hs
-  default-language:     Haskell2010
-  ghc-options:          -O2 -Wall -with-rtsopts "-T"
-  cpp-options:          -DVERBOSE
-
-  build-depends:
-    HUnit,
-    base,
-    bytestring,
-    gauge,
-    tasty,
-    tasty-hunit
-
-test-suite quick
-  type:                 exitcode-stdio-1.0
-  hs-source-dirs:       tests
-  main-is:              Sanity.hs
-  default-language:     Haskell2010
-  ghc-options:          -O2 -Wall -with-rtsopts "-T"
-  cpp-options:          -DQUICK
-
-  build-depends:
-    HUnit,
-    base,
-    bytestring,
-    gauge,
-    tasty,
-    tasty-hunit
-
-test-suite quick-verbose
-  type:                 exitcode-stdio-1.0
-  hs-source-dirs:       tests
-  main-is:              Sanity.hs
-  default-language:     Haskell2010
-  ghc-options:          -O2 -Wall -with-rtsopts "-T"
-  cpp-options:          -DQUICK -DVERBOSE
-
-  build-depends:
-    HUnit,
-    base,
-    bytestring,
-    gauge,
-    tasty,
-    tasty-hunit
+    foundation
 
 test-suite cleanup
   type:                 exitcode-stdio-1.0
@@ -186,14 +136,12 @@ test-suite cleanup
     -Wall -threaded     -O0 -rtsopts
 
   build-depends:
-    HUnit,
     base,
     bytestring,
     gauge,
     deepseq,
     directory,
-    tasty,
-    tasty-hunit
+    foundation
 
 benchmark self
   type:                 exitcode-stdio-1.0
