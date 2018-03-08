@@ -1,3 +1,7 @@
+# Unreleased
+
+* Write data to CSV file in quick mode too.
+
 # 0.2.1
 
 * Inline math-functions & mwc-random:
