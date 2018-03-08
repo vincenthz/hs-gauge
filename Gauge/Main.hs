@@ -85,10 +85,11 @@ selectBenches matchType benches bsgroup = do
 quickAnalyse :: String -> V.Vector Measured -> Gauge ()
 quickAnalyse desc meas = do
   Config{..} <- askConfig
-  let accessors =
+  let timeAccessor = filter (("time" ==)  . fst) measureAccessors_
+      accessors =
         if verbosity == Verbose
         then measureAccessors_
-        else filter (("time" ==)  . fst) measureAccessors_
+        else timeAccessor
 
   _ <- note "%s%-40s " rewindClearLine desc
   if verbosity == Verbose then gaugeIO (putStrLn "") else return ()
@@ -96,6 +97,10 @@ quickAnalyse desc meas = do
         (\(k, (a, s, _)) -> reportStat a s k)
         accessors
   _ <- note "\n"
+
+  _ <- traverse
+        (\(_, (a, _, _)) -> writeToCSV csvFile a)
+        timeAccessor
   pure ()
 
   where
@@ -104,6 +109,17 @@ quickAnalyse desc meas = do
     when (not $ V.null meas) $
       let val = (accessor . rescale) $ V.last meas
        in maybe (return ()) (\x -> note "%-20s %-10s\n" msg (sh x)) val
+
+  writeToCSV file accessor =
+    when (not $ V.null meas) $ do
+      let val = (accessor . rescale) $ V.last meas
+      case val of
+        Nothing -> pure ()
+        Just v ->
+          gaugeIO $ CSV.write file $ CSV.Row
+              [ CSV.string desc
+              , CSV.float v
+              ]
 
 -- | Run a benchmark interactively with supplied config, and analyse its
 -- performance.
@@ -172,8 +188,10 @@ runMode wat cfg benches bs =
   where
     runDefault = do
         CSV.write (csvRawFile cfg) $ CSV.Row $ map (CSV.string . fst) measureAccessors_
-        CSV.write (csvFile cfg) $ CSV.Row $ map CSV.string
-            ["Name", "Mean","MeanLB","MeanUB","Stddev","StddevLB","StddevUB"]
+        CSV.write (csvFile cfg) $ CSV.Row $ map CSV.string $ ["Name"] ++
+            if quickMode cfg
+            then ["Time"]
+            else ["Mean","MeanLB","MeanUB","Stddev","StddevLB","StddevUB"]
 
         hSetBuffering stdout NoBuffering
         selector <- selectBenches (match cfg) benches bsgroup
