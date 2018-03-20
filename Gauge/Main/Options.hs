@@ -219,7 +219,9 @@ opts =
     , Option "v" ["verbosity"]  (ReqArg setVerbosity "LEVEL") "Verbosity level"
     , Option "t" ["template"]   (fileArg setTemplate) "Template to use for report"
     , Option "n" ["iters"]      (ReqArg setIters "ITERS") "Run benchmarks, don't analyse"
-    , Option "m" ["match"]      (ReqArg setMatch "MATCH") "How to match benchmark names: prefix, glob, pattern, or ipattern"
+    , Option "m" ["match"]      (ReqArg setMatch "MATCH") $
+        "Benchmark match style: prefix, pattern (substring), "
+        ++ "or ipattern (case insensitive)"
     , Option "l" ["list"]       (NoArg $ setMode List) "List benchmarks"
     , Option ""  ["version"]    (NoArg $ setMode Version) "Show version info"
     , Option "s" ["small"]      (NoArg $ setDisplayMode Condensed) "Set benchmark display to the minimum useful information"
