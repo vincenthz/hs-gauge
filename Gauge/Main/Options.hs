@@ -140,6 +140,9 @@ data Config = Config {
     , displayMode  :: DisplayMode
     } deriving (Eq, Read, Show, Typeable, Data, Generic)
 
+defaultMinDuration :: MilliSeconds
+defaultMinDuration = MilliSeconds 30
+
 -- | Default benchmarking configuration.
 defaultConfig :: Config
 defaultConfig = Config
@@ -147,7 +150,7 @@ defaultConfig = Config
     , forceGC          = True
     , timeLimit        = Nothing
     , minSamples       = Nothing
-    , minDuration      = MilliSeconds 30
+    , minDuration      = defaultMinDuration
     , includeFirstIter = False
     , quickMode        = False
     , measureOnly      = Nothing
@@ -202,8 +205,9 @@ opts =
         "Min no. of samples for each benchmark, default is "
         ++ show defaultMinSamplesNormal ++ " in normal mode, "
         ++ show defaultMinSamplesQuick ++ " in quick mode"
-    , Option ""  ["min-duration"] (ReqArg setMinDuration "MILLISECS")
-        "Each sample iterates for this duration, if 0 stops after first iteration"
+    , Option ""  ["min-duration"] (ReqArg setMinDuration "MILLISECS") $
+        "Min duration for each sample, default is "
+        ++ show defaultMinDuration ++ ", when 0 stops after first iteration"
     , Option ""  ["include-first-iter"] (NoArg setIncludeFirst) "Do not discard the measurement of the first iteration"
     , Option "q" ["quick"]      (NoArg setQuickMode) "Perform a quick measurement and report results without statistical analysis"
     , Option ""  ["measure-only"] (fileArg setMeasureOnly) "Just measure the benchmark and place the raw data in the given file"
