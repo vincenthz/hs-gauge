@@ -26,8 +26,10 @@ module Gauge.Main.Options
 
 -- Temporary: to support pre-AMP GHC 7.8.4:
 import Data.Monoid
-
-import Gauge.Measurement (validateAccessors)
+import Gauge.Measurement
+       (validateAccessors, defaultMinSamplesNormal,
+        defaultMinSamplesQuick, defaultTimeLimitNormal,
+        defaultTimeLimitQuick)
 import Gauge.Time (MilliSeconds(..))
 import Data.Char (isSpace, toLower)
 import Data.List (foldl')
@@ -192,9 +194,16 @@ opts :: [OptDescr (Config -> Config)]
 opts =
     [ Option "I" ["ci"]         (ReqArg setCI "CI") "Confidence interval"
     , Option "G" ["no-gc"]      (NoArg setNoGC)     "Do not collect garbage between iterations"
-    , Option "L" ["time-limit"] (ReqArg setTimeLimit "SECS") "Time limit to run a benchmark, use 0 to force min-samples per benchmark"
-    , Option ""  ["min-samples"] (ReqArg setMinSamples "COUNT") "Minimum number of samples to be taken"
-    , Option ""  ["min-duration"] (ReqArg setMinDuration "MILLISECS") "Minimum duration of each sample, use 0 to force one iteration per sample"
+    , Option "L" ["time-limit"] (ReqArg setTimeLimit "SECS") $
+        "Min seconds for each benchmark run, default is "
+        ++ show defaultTimeLimitNormal ++ " in normal mode, "
+        ++ show defaultTimeLimitQuick ++ " in quick mode"
+    , Option ""  ["min-samples"] (ReqArg setMinSamples "COUNT") $
+        "Min no. of samples for each benchmark, default is "
+        ++ show defaultMinSamplesNormal ++ " in normal mode, "
+        ++ show defaultMinSamplesQuick ++ " in quick mode"
+    , Option ""  ["min-duration"] (ReqArg setMinDuration "MILLISECS")
+        "Each sample iterates for this duration, if 0 stops after first iteration"
     , Option ""  ["include-first-iter"] (NoArg setIncludeFirst) "Do not discard the measurement of the first iteration"
     , Option "q" ["quick"]      (NoArg setQuickMode) "Perform a quick measurement and report results without statistical analysis"
     , Option ""  ["measure-only"] (fileArg setMeasureOnly) "Just measure the benchmark and place the raw data in the given file"
