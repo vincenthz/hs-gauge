@@ -197,7 +197,8 @@ opts :: [OptDescr (Config -> Config)]
 opts =
     [ Option "I" ["ci"]         (ReqArg setCI "CI") "Confidence interval"
     , Option "G" ["no-gc"]      (NoArg setNoGC)     "Do not collect garbage between iterations"
-    , Option "L" ["time-limit"] (ReqArg setTimeLimit "SECS") $
+    , Option "L" ["time-limit"] (ReqArg setTimeLimit "SECS") "DEPRECATED: same as min-bench-duration"
+    , Option "L" ["min-bench-duration"] (ReqArg setTimeLimit "SECS") $
         "Min seconds for each benchmark run, default is "
         ++ show defaultTimeLimitNormal ++ " in normal mode, "
         ++ show defaultTimeLimitQuick ++ " in quick mode"
@@ -205,7 +206,8 @@ opts =
         "Min no. of samples for each benchmark, default is "
         ++ show defaultMinSamplesNormal ++ " in normal mode, "
         ++ show defaultMinSamplesQuick ++ " in quick mode"
-    , Option ""  ["min-duration"] (ReqArg setMinDuration "MILLISECS") $
+    , Option ""  ["min-duration"] (ReqArg setMinDuration "MILLISECS") "DEPRECATED: same as min-sample-duration"
+    , Option ""  ["min-sample-duration"] (ReqArg setMinDuration "MILLISECS") $
         "Min duration for each sample, default is "
         ++ show defaultMinDuration ++ ", when 0 stops after first iteration"
     , Option ""  ["include-first-iter"] (NoArg setIncludeFirst) "Do not discard the measurement of the first iteration"
