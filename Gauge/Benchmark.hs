@@ -70,7 +70,10 @@ import Data.Int (Int64)
 import Data.List (unfoldr)
 import Gauge.IO.Printf (note, prolix)
 import Gauge.Main.Options (Config(..), Verbosity(..))
-import Gauge.Measurement (measure, getTime, secs, Measured(..))
+import Gauge.Measurement
+       (measure, getTime, secs, Measured(..), defaultMinSamplesNormal,
+        defaultMinSamplesQuick, defaultTimeLimitNormal,
+        defaultTimeLimitQuick)
 import Gauge.Monad (Gauge, finallyGauge, askConfig, gaugeIO)
 import Gauge.Time (MilliSeconds(..), milliSecondsToDouble, microSecondsToDouble)
 import qualified Gauge.CSV as CSV
@@ -578,10 +581,18 @@ withSystemTempFile template action = do
   ignoringIOErrors act = act `catch` (\e -> const (return ()) (e :: IOError))
 
 bmTimeLimit :: Config -> Double
-bmTimeLimit  Config {..} = maybe (if quickMode then 0 else 5) id timeLimit
+bmTimeLimit  Config {..} =
+    let def = if quickMode
+              then defaultTimeLimitQuick
+              else defaultTimeLimitNormal
+    in maybe def id timeLimit
 
 bmMinSamples :: Config -> Int
-bmMinSamples Config {..} = maybe (if quickMode then 1 else 10) id minSamples
+bmMinSamples Config {..} =
+    let def = if quickMode
+              then defaultMinSamplesQuick
+              else defaultMinSamplesNormal
+    in maybe def id minSamples
 
 -- | Run a single benchmark measurement in a separate process.
 runBenchmarkIsolated :: Config -> String -> String -> IO (V.Vector Measured)

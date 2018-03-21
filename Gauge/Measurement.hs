@@ -22,8 +22,11 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 module Gauge.Measurement
-    (
-      initializeTime
+    ( defaultMinSamplesNormal
+    , defaultMinSamplesQuick
+    , defaultTimeLimitNormal
+    , defaultTimeLimitQuick
+    , initializeTime
     , Time.getTime
     , Time.getCPUTime
     , Time.ClockTime(..)
@@ -63,6 +66,14 @@ import qualified Gauge.Source.RUsage as RUsage
 import qualified Gauge.Source.Time as Time
 import qualified Gauge.Source.GC as GC
 import Prelude -- Silence redundant import warnings
+
+defaultMinSamplesNormal, defaultMinSamplesQuick :: Int
+defaultMinSamplesNormal = 10
+defaultMinSamplesQuick = 1
+
+defaultTimeLimitNormal, defaultTimeLimitQuick :: Double
+defaultTimeLimitNormal = 5
+defaultTimeLimitQuick = 0
 
 -- | A collection of measurements made while benchmarking.
 --
