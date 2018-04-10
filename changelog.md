@@ -1,6 +1,7 @@
 # Unreleased
 
 * Write data to CSV file in quick mode too.
+* Fix the CSV file header to match with the data rows for the `--csvraw` case.
 
 # 0.2.1
 

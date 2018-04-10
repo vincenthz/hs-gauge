@@ -187,10 +187,16 @@ runMode wat cfg benches bs =
         DefaultMode -> runDefault
   where
     runDefault = do
-        CSV.write (csvRawFile cfg) $ CSV.Row $ map (CSV.string . fst) measureAccessors_
+        -- write the raw csv file header
+        CSV.write (csvRawFile cfg) $ CSV.Row $ map CSV.string $
+            ["name"] ++ map fst measureAccessors_
+
+        -- write the csv file header
         CSV.write (csvFile cfg) $ CSV.Row $ map CSV.string $ ["Name"] ++
             if quickMode cfg
             then ["Time"]
+            -- This requires statistical analysis support.  This must
+            -- remain compatible with criterion.
             else ["Mean","MeanLB","MeanUB","Stddev","StddevLB","StddevUB"]
 
         hSetBuffering stdout NoBuffering
