@@ -49,7 +49,9 @@ data Verbosity = Quiet
                            Generic)
 
 -- | How to match a benchmark name.
-data MatchType = Prefix
+data MatchType = Exact
+                -- ^ Match the exact benchmark name
+               | Prefix
                  -- ^ Match by prefix. For example, a prefix of
                  -- @\"foo\"@ will match @\"foobar\"@.
                | Pattern
@@ -179,6 +181,7 @@ makeSelector :: MatchType
             -> (String -> Bool)
 makeSelector matchKind args =
   case matchKind of
+    Exact    -> \b -> null args || any (== b) args
     Prefix   -> \b -> null args || any (`isPrefixOf` b) args
     Pattern  -> \b -> null args || any (`isInfixOf` b) args
     IPattern -> \b -> null args || any (`isInfixOf` map toLower b) (map (map toLower) args)
@@ -224,7 +227,7 @@ opts =
     , Option "t" ["template"]   (fileArg setTemplate) "Template to use for report"
     , Option "n" ["iters"]      (ReqArg setIters "ITERS") "Run benchmarks, don't analyse"
     , Option "m" ["match"]      (ReqArg setMatch "MATCH") $
-        "Benchmark match style: prefix, pattern (substring), "
+        "Benchmark match style: prefix (default), exact, pattern (substring), "
         ++ "or ipattern (case insensitive)"
     , Option "l" ["list"]       (NoArg $ setMode List) "List benchmarks"
     , Option ""  ["version"]    (NoArg $ setMode Version) "Show version info"
@@ -257,6 +260,7 @@ opts =
         let m = case map toLower s of
                     "pfx"      -> Prefix
                     "prefix"   -> Prefix
+                    "exact"    -> Exact
                     "pattern"  -> Pattern
                     "ipattern" -> IPattern
                     _          -> optionError ("unknown match type: " <> s)
