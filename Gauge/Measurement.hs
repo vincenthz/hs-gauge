@@ -449,9 +449,9 @@ applyGCStatistics :: Maybe GC.Metrics
                   -> Measured
                   -> Measured
 applyGCStatistics (Just stats) m = m
-    { measAllocated          = Optional.toOptional "allocated" $ GC.allocated stats
+    { measAllocated          = GC.allocated stats
     , measNumGcs             = Optional.toOptional "num-gcs" $ GC.numGCs stats
-    , measBytesCopied        = Optional.toOptional "bytes-copied" $ GC.copied stats
+    , measBytesCopied        = GC.copied stats
     , measMutatorWallSeconds = Optional.toOptional "mut-wall-secs" $ nanoSecondsToDouble $ GC.mutWallSeconds stats
     , measMutatorCpuSeconds  = Optional.toOptional "mut-cpu-secs" $ nanoSecondsToDouble $ GC.mutCpuSeconds stats
     , measGcWallSeconds      = Optional.toOptional "gc-wall-secs" $ nanoSecondsToDouble $ GC.gcWallSeconds stats

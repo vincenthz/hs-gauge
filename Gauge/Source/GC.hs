@@ -18,6 +18,7 @@ import           Data.Word
 import           Data.IORef (readIORef, newIORef, IORef)
 import           Gauge.Time
 import           System.IO.Unsafe (unsafePerformIO)
+import           Gauge.Optional (omitted, toOptional, Optional, OptionalTag)
 
 #if MIN_VERSION_base(4,10,0)
 import qualified GHC.Stats as GHC (RTSStats(..), getRTSStatsEnabled, getRTSStats)
@@ -60,9 +61,9 @@ getMetrics = AbsMetrics <$>
 
 -- | Differential metrics related the RTS/GC
 data Metrics = Metrics
-    { allocated      :: {-# UNPACK #-} !Word64 -- ^ number of bytes allocated
+    { allocated      :: {-# UNPACK #-} !(Optional Word64) -- ^ number of bytes allocated
     , numGCs         :: {-# UNPACK #-} !Word64 -- ^ number of GCs
-    , copied         :: {-# UNPACK #-} !Word64 -- ^ number of bytes copied
+    , copied         :: {-# UNPACK #-} !(Optional Word64) -- ^ number of bytes copied
     , mutWallSeconds :: {-# UNPACK #-} !NanoSeconds -- ^ mutator wall time measurement
     , mutCpuSeconds  :: {-# UNPACK #-} !NanoSeconds -- ^ mutator cpu time measurement
     , gcWallSeconds  :: {-# UNPACK #-} !NanoSeconds -- ^ gc wall time measurement
@@ -72,13 +73,13 @@ data Metrics = Metrics
 diffMetrics :: AbsMetrics -> AbsMetrics -> Metrics
 diffMetrics (AbsMetrics end) (AbsMetrics start) =
 #if MIN_VERSION_base(4,10,0)
-    Metrics { allocated      = diff (-*) GHC.allocated_bytes
+    Metrics { allocated      = diff (-*?) GHC.allocated_bytes
             , numGCs         = diff (-*) (fromIntegral . GHC.gcs)
-            , copied         = diff (-*) GHC.copied_bytes
-            , mutWallSeconds = NanoSeconds $ diff (-*) (fromIntegral . GHC.mutator_cpu_ns)
+            , copied         = diff (-*?) GHC.copied_bytes
+            , mutWallSeconds = NanoSeconds $ diff (-*) (fromIntegral . GHC.mutator_elapsed_ns)
             , mutCpuSeconds  = NanoSeconds $ diff (-*) (fromIntegral . GHC.mutator_cpu_ns)
-            , gcWallSeconds  = NanoSeconds $ diff (-*) (fromIntegral . GHC.gc_cpu_ns)
-            , gcCpuSeconds   = NanoSeconds $ diff (-*) (fromIntegral . GHC.gc_elapsed_ns)
+            , gcWallSeconds  = NanoSeconds $ diff (-*) (fromIntegral . GHC.gc_elapsed_ns)
+            , gcCpuSeconds   = NanoSeconds $ diff (-*) (fromIntegral . GHC.gc_cpu_ns)
             }
   where
     diff op f = f end `op` f start
@@ -86,10 +87,15 @@ diffMetrics (AbsMetrics end) (AbsMetrics start) =
     (-*) a b
         | a >= b    = a - b
         | otherwise = (-1)
+
+    (-*?) :: (OptionalTag a, Ord a, Num a) => a -> a -> Optional a
+    (-*?) a b
+        | a >= b    = toOptional "gc metric" (a - b)
+        | otherwise = omitted
 #else
-    Metrics { allocated      = diff (-*) GHC.bytesAllocated
+    Metrics { allocated      = diff (-*?) GHC.bytesAllocated
             , numGCs         = diff (-*) GHC.numGcs
-            , copied         = diff (-*) GHC.bytesCopied
+            , copied         = diff (-*?) GHC.bytesCopied
             , mutWallSeconds = doubleToNanoSeconds $ diff (-) GHC.mutatorWallSeconds
             , mutCpuSeconds  = doubleToNanoSeconds $ diff (-) GHC.mutatorCpuSeconds
             , gcWallSeconds  = doubleToNanoSeconds $ diff (-) GHC.gcWallSeconds
@@ -102,6 +108,11 @@ diffMetrics (AbsMetrics end) (AbsMetrics start) =
     (-*) a b
         | a >= b    = fromIntegral (a - b)
         | otherwise = (-1)
+
+    (-*?) :: Int64 -> Int64 -> Optional Word64
+    (-*?) a b
+        | a >= b    = toOptional "gc metrics" $ fromIntegral (a - b)
+        | otherwise = omitted
 #endif
 
 -- | Return RTS/GC metrics differential between a call to `f`
