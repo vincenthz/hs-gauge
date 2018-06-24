@@ -76,10 +76,10 @@ diffMetrics (AbsMetrics end) (AbsMetrics start) =
     Metrics { allocated      = diff (-*?) GHC.allocated_bytes
             , numGCs         = diff (-*) (fromIntegral . GHC.gcs)
             , copied         = diff (-*?) GHC.copied_bytes
-            , mutWallSeconds = NanoSeconds $ diff (-*) (fromIntegral . GHC.mutator_cpu_ns)
+            , mutWallSeconds = NanoSeconds $ diff (-*) (fromIntegral . GHC.mutator_elapsed_ns)
             , mutCpuSeconds  = NanoSeconds $ diff (-*) (fromIntegral . GHC.mutator_cpu_ns)
-            , gcWallSeconds  = NanoSeconds $ diff (-*) (fromIntegral . GHC.gc_cpu_ns)
-            , gcCpuSeconds   = NanoSeconds $ diff (-*) (fromIntegral . GHC.gc_elapsed_ns)
+            , gcWallSeconds  = NanoSeconds $ diff (-*) (fromIntegral . GHC.gc_elapsed_ns)
+            , gcCpuSeconds   = NanoSeconds $ diff (-*) (fromIntegral . GHC.gc_cpu_ns)
             }
   where
     diff op f = f end `op` f start
