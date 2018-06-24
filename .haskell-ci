@@ -4,7 +4,7 @@ compiler: ghc-7.10 lts-6.35
 compiler: ghc-8.0 lts-9.21
 compiler: ghc-8.2 lts-10.4
 compiler: ghc-8.2-noanalysis lts-10.4
-compiler: ghc-8.4 ghc-8.4-alpha2
+compiler: ghc-8.4 nightly-2018-06-23
 
 # options
 # option: alias x=y z=v
@@ -16,8 +16,8 @@ build: ghc-8.0
 build: ghc-8.0
 build: ghc-8.2
 build: ghc-8.2-noanalysis flag=gauge:-analysis
-build: ghc-8.2 os=osx
-build: ghc-8.4 allowed-failure extradep=basement-0.0.6 extradep=foundation-0.0.19 extradep=vector-0.12.0.1 extradep=primitive-0.6.3.0
+build: ghc-8.2 os=linux,osx,windows
+build: ghc-8.4 os=linux,windows
 
 # packages
 package: '.'
