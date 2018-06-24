@@ -449,13 +449,13 @@ applyGCStatistics :: Maybe GC.Metrics
                   -> Measured
                   -> Measured
 applyGCStatistics (Just stats) m = m
-    { measAllocated          = Optional.toOptional $ GC.allocated stats
-    , measNumGcs             = Optional.toOptional $ GC.numGCs stats
-    , measBytesCopied        = Optional.toOptional $ GC.copied stats
-    , measMutatorWallSeconds = Optional.toOptional $ nanoSecondsToDouble $ GC.mutWallSeconds stats
-    , measMutatorCpuSeconds  = Optional.toOptional $ nanoSecondsToDouble $ GC.mutCpuSeconds stats
-    , measGcWallSeconds      = Optional.toOptional $ nanoSecondsToDouble $ GC.gcWallSeconds stats
-    , measGcCpuSeconds       = Optional.toOptional $ nanoSecondsToDouble $ GC.gcCpuSeconds stats
+    { measAllocated          = Optional.toOptional "allocated" $ GC.allocated stats
+    , measNumGcs             = Optional.toOptional "num-gcs" $ GC.numGCs stats
+    , measBytesCopied        = Optional.toOptional "bytes-copied" $ GC.copied stats
+    , measMutatorWallSeconds = Optional.toOptional "mut-wall-secs" $ nanoSecondsToDouble $ GC.mutWallSeconds stats
+    , measMutatorCpuSeconds  = Optional.toOptional "mut-cpu-secs" $ nanoSecondsToDouble $ GC.mutCpuSeconds stats
+    , measGcWallSeconds      = Optional.toOptional "gc-wall-secs" $ nanoSecondsToDouble $ GC.gcWallSeconds stats
+    , measGcCpuSeconds       = Optional.toOptional "gc-cpu-secs" $ nanoSecondsToDouble $ GC.gcCpuSeconds stats
     }
 applyGCStatistics Nothing m = m
 
@@ -469,13 +469,13 @@ applyRUStatistics :: RUsage
                   -- ^ Value to \"modify\".
                   -> Measured
 applyRUStatistics end start m
-    | RUsage.supported = m { measUtime   = Optional.toOptional $ diffTV RUsage.userCpuTime
-                           , measStime   = Optional.toOptional $ diffTV RUsage.systemCpuTime
-                           , measMaxrss  = Optional.toOptional $ RUsage.maxResidentSetSize end
-                           , measMinflt  = Optional.toOptional $ diff RUsage.minorFault
-                           , measMajflt  = Optional.toOptional $ diff RUsage.majorFault
-                           , measNvcsw   = Optional.toOptional $ diff RUsage.nVoluntaryContextSwitch
-                           , measNivcsw  = Optional.toOptional $ diff RUsage.nInvoluntaryContextSwitch
+    | RUsage.supported = m { measUtime   = Optional.toOptional "user-cpu-time" $ diffTV RUsage.userCpuTime
+                           , measStime   = Optional.toOptional "system-cpu-time" $ diffTV RUsage.systemCpuTime
+                           , measMaxrss  = Optional.toOptional "max-rss" $ RUsage.maxResidentSetSize end
+                           , measMinflt  = Optional.toOptional "min-flt" $ diff RUsage.minorFault
+                           , measMajflt  = Optional.toOptional "maj-flt" $ diff RUsage.majorFault
+                           , measNvcsw   = Optional.toOptional "volontary-context-switch" $ diff RUsage.nVoluntaryContextSwitch
+                           , measNivcsw  = Optional.toOptional "involontary-context-switch" $ diff RUsage.nInvoluntaryContextSwitch
                            }
     | otherwise        = m
  where diff f = f end - f start
