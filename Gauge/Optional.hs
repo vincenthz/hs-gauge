@@ -55,7 +55,7 @@ instance OptionalTag Double where
 -- | Create an optional value from a 
 toOptional :: (HasCallStack, OptionalTag a) => String -> a -> Optional a
 toOptional ty v
-    | isOptionalTag v = error ("Creating an optional valid value for " <> ty <> " using the optional tag")
+    | isOptionalTag v = error ("Creating an optional valid value for " ++ ty ++ " using the optional tag")
     | otherwise       = Optional v
 {-# INLINE toOptional #-}
 
