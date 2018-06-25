@@ -1,7 +1,9 @@
-# Unreleased
+# 0.2.2
 
 * Write data to CSV file in quick mode too.
 * Fix the CSV file header to match with the data rows for the `--csvraw` case.
+* Fix issue with GC metrics in 32 bits that would silently wrap and failure in optional machinery.
+* Simplify dependencies in tests using foudation checks.
 
 # 0.2.1
 
