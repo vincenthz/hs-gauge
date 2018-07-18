@@ -31,6 +31,9 @@ module Gauge.Benchmark
     , nfIO
     , whnfIO
 
+    , nfAppIO
+    , whnfAppIO
+
     -- ** Benchmarking pure code
     -- $pure
 
@@ -223,6 +226,9 @@ impure strategy a = go
 -- | Perform an action, then evaluate its result to normal form.
 -- This is particularly useful for forcing a lazy 'IO' action to be
 -- completely performed.
+--
+-- If the construction of the 'IO a' value is an important factor
+-- in the benchmark, it is best to use 'nfAppIO' instead.
 nfIO :: NFData a => IO a -> Benchmarkable
 nfIO = toBenchmarkable . impure rnf
 {-# INLINE nfIO #-}
@@ -230,9 +236,41 @@ nfIO = toBenchmarkable . impure rnf
 -- | Perform an action, then evaluate its result to weak head normal
 -- form (WHNF).  This is useful for forcing an 'IO' action whose result
 -- is an expression to be evaluated down to a more useful value.
+--
+-- If the construction of the 'IO a' value is an important factor
+-- in the benchmark, it is best to use 'whnfAppIO' instead.
 whnfIO :: IO a -> Benchmarkable
 whnfIO = toBenchmarkable . impure id
 {-# INLINE whnfIO #-}
+
+-- | Apply an argument to a function which performs an action, then
+-- evaluate its result to normal form (NF).
+-- This function constructs the 'IO b' value on each iteration,
+-- similar to 'nf'.
+-- This is particularly useful for 'IO' actions where the bulk of the
+-- work is not bound by IO, but by pure computations that may
+-- optimize away if the argument is known statically, as in 'nfIO'.
+nfAppIO :: NFData b => (a -> IO b) -> a -> Benchmarkable
+nfAppIO = impureFunc rnf
+{-# INLINE nfAppIO #-}
+
+-- | Perform an action, then evaluate its result to weak head normal
+-- form (WHNF).
+-- This function constructs the 'IO b' value on each iteration,
+-- similar to 'whnf'.
+-- This is particularly useful for 'IO' actions where the bulk of the
+-- work is not bound by IO, but by pure computations that may
+-- optimize away if the argument is known statically, as in 'nfIO'.
+whnfAppIO :: (a -> IO b) -> a -> Benchmarkable
+whnfAppIO = impureFunc id
+{-# INLINE whnfAppIO #-}
+
+impureFunc :: (b -> c) -> (a -> IO b) -> a -> Benchmarkable
+impureFunc strategy f0 x0 = toBenchmarkable (go f0 x0)
+  where go f x n
+          | n <= 0    = return ()
+          | otherwise = f x >>= evaluate . strategy >> go f x (n-1)
+{-# INLINE impureFunc #-}
 
 -------------------------------------------------------------------------------
 -- Constructing Benchmarkable with Environment
