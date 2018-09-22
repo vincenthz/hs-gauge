@@ -604,6 +604,7 @@ runBenchmarkIsolated cfg prog desc =
       callProcess prog ([ "--time-limit", show (bmTimeLimit cfg)
                         , "--min-duration", show ms
                         , "--min-samples", show (bmMinSamples cfg)
+                        , "--match", "exact"
                         , "--measure-only", file, desc
                         ] ++ if (quickMode cfg) then ["--quick"] else [])
       meas <- readFile file >>= return . read
