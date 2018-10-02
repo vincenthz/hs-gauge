@@ -12,12 +12,13 @@
 -- Portability : GHC
 --
 -- Constructing and running benchmarks.
+-- To benchmark, an IO action or a pure function must be evaluated to normal
+-- form (NF) or weak head normal form (WHNF). This library provides APIs to
+-- reduce IO actions or pure functions to NF (`nf` or `nfAppIO`) or WHNF
+-- (`whnf` or `whnfAppIO`).
 
 module Gauge.Benchmark
     (
-    -- * Evaluating IO Actions or Pure Functions
-    -- $rnf
-
     -- * Benchmarkable
     -- $bench
       Benchmarkable(..)
@@ -25,20 +26,19 @@ module Gauge.Benchmark
     -- ** Constructing Benchmarkable
     , toBenchmarkable
 
-    -- ** Benchmarking IO actions
-    -- $io
-
-    , nfIO
-    , whnfIO
-
-    , nfAppIO
-    , whnfAppIO
-
     -- ** Benchmarking pure code
     -- $pure
 
     , nf
     , whnf
+
+    -- ** Benchmarking IO actions
+
+    , nfAppIO
+    , whnfAppIO
+
+    , nfIO
+    , whnfIO
 
     -- ** Benchmarking with Environment
     , perBatchEnv
@@ -88,38 +88,6 @@ import qualified Data.Vector as V
 import System.Process (callProcess)
 import Prelude
 
--- $rnf
---
--- To benchmark, an IO action or a pure function must be evaluated to weak head
--- normal form (WHNF) or normal form NF. This library provides APIs to reduce
--- IO actions or pure functions to WHNF (e.g. 'whnf' and 'whnfIO') or NF (e.g.
--- 'nf' or 'nfIO').
---
--- Suppose we want to benchmark the following pure function:
---
--- @
--- firstN :: Int -> [Int]
--- firstN k = take k [(0::Int)..]
--- @
---
--- We construct a benchmark evaluating it to NF as follows:
---
--- @
--- 'nf' firstN 1000
--- @
---
--- We can also evaluate a pure function to WHNF, however we must remember that
--- it only evaluates the result up to, well, WHNF. To naive eyes it might
--- /appear/ that the following code ought to benchmark the production of the
--- first 1000 list elements:
---
--- @
--- 'whnf' firstN 1000
--- @
---
--- Since this forces the expression to only WHNF, what this would /actually/
--- benchmark is merely how long it takes to produce the first list element!
-
 -------------------------------------------------------------------------------
 -- Constructing benchmarkable
 -------------------------------------------------------------------------------
@@ -165,30 +133,45 @@ toBenchmarkable f = Benchmarkable noop (const noop) (const f) False
 
 -- $pure
 --
--- Benchmarking pure functions is a bit tricky.  Because GHC optimises
--- aggressively when compiling with @-O@, it is potentially easy to write
--- innocent-looking benchmark code that will only be evaluated once, for which
--- all but the first iteration of the timing loop will be timing the cost of
--- doing nothing.
+-- A pure computation is guaranteed to produce the same result every time.
+-- Therefore, GHC may evaluate it just once and subsequently replace it with
+-- the evaluated result. If we benchmark a pure value in a loop we may really
+-- be measuring only one iteration and the rest of the iterations will be doing
+-- nothing.
 --
--- To work around this, the benchmark applies the function to its argument and
--- evaluates the application. Unlike an IO action we need both the function and
--- its argument. Therefore, the types of APIs to benchmark a pure function look
--- like this:
+-- If we represent the computation being benchmarked as a function, we can
+-- workaround this problem, we just need to keep one of the parameters in the
+-- computation unknown and supply it as an argument to the function. When we
+-- benchmark the computation we supply the function and the argument to the
+-- benchmarking function, the argument is applied to the function at benchmark
+-- run time. This way GHC would not evaluate the computation once and store the
+-- result, it has to evaluate the function every time as the argument is not
+-- statically known.
+--
+-- Suppose we want to benchmark the following pure function:
 --
 -- @
--- 'nf' :: 'NFData' b => (a -> b) -> a -> 'Benchmarkable'
--- 'whnf' :: (a -> b) -> a -> 'Benchmarkable'
+-- firstN :: Int -> [Int]
+-- firstN k = take k [(0::Int)..]
 -- @
 --
--- As both of these types suggest, when you want to benchmark a
--- function, you must supply two values:
+-- We construct a benchmark evaluating it to NF as follows:
 --
--- * The first element is the function, saturated with all but its
---   last argument.
+-- @
+-- 'nf' firstN 1000
+-- @
 --
--- * The second element is the last argument to the function.
+-- We can also evaluate a pure function to WHNF, however we must remember that
+-- it only evaluates the result up to, well, WHNF. To naive eyes it might
+-- /appear/ that the following code ought to benchmark the production of the
+-- first 1000 list elements:
 --
+-- @
+-- 'whnf' firstN 1000
+-- @
+--
+-- Since this forces the expression to only WHNF, what this would /actually/
+-- benchmark is merely how long it takes to produce the first list element!
 
 pureFunc :: (b -> c) -> (a -> b) -> a -> Benchmarkable
 pureFunc reduce f0 x0 = toBenchmarkable (go f0 x0)
@@ -209,13 +192,6 @@ nf :: NFData b => (a -> b) -> a -> Benchmarkable
 nf = pureFunc rnf
 {-# INLINE nf #-}
 
--- $io
---
--- Benchmarking an 'IO' action is straightforward compared to benchmarking pure
--- code. An 'IO' action resembling type @IO a@ can be turned into a
--- 'Benchmarkable' using 'nfIO' to reduce it to normal form or using 'whnfIO'
--- to reduce it to WHNF.
-
 impure :: (a -> b) -> IO a -> Int64 -> IO ()
 impure strategy a = go
   where go n
@@ -223,44 +199,43 @@ impure strategy a = go
           | otherwise = a >>= (evaluate . strategy) >> go (n-1)
 {-# INLINE impure #-}
 
--- | Perform an action, then evaluate its result to normal form.
--- This is particularly useful for forcing a lazy 'IO' action to be
--- completely performed.
---
--- If the construction of the 'IO a' value is an important factor
--- in the benchmark, it is best to use 'nfAppIO' instead.
+-- | Perform an IO action, then evaluate its result to normal form (NF).  When
+-- run in a loop during benchmarking, this may evaluate any pure component used
+-- in the construction of the IO action only once. If this is not what you want
+-- use `nfAppIO` instead.
 nfIO :: NFData a => IO a -> Benchmarkable
 nfIO = toBenchmarkable . impure rnf
 {-# INLINE nfIO #-}
 
--- | Perform an action, then evaluate its result to weak head normal
--- form (WHNF).  This is useful for forcing an 'IO' action whose result
--- is an expression to be evaluated down to a more useful value.
+-- | Perform an action, then evaluate its result to weak head normal form
+-- (WHNF).  This is useful for forcing an 'IO' action whose result is an
+-- expression to be evaluated down to a more useful value.
 --
--- If the construction of the 'IO a' value is an important factor
--- in the benchmark, it is best to use 'whnfAppIO' instead.
+-- When run in a loop during benchmarking, this may evaluate any pure component
+-- used in the construction of the IO action only once. If this is not what you
+-- want use `whnfAppIO` instead.
 whnfIO :: IO a -> Benchmarkable
 whnfIO = toBenchmarkable . impure id
 {-# INLINE whnfIO #-}
 
--- | Apply an argument to a function which performs an action, then
--- evaluate its result to normal form (NF).
--- This function constructs the 'IO b' value on each iteration,
--- similar to 'nf'.
--- This is particularly useful for 'IO' actions where the bulk of the
--- work is not bound by IO, but by pure computations that may
--- optimize away if the argument is known statically, as in 'nfIO'.
+-- | Construct and perform an IO computation, then evaluate its result to
+-- normal form (NF).  This is an IO version of `nf`. It makes sure that any
+-- pure component of the computation used to construct the IO computation is
+-- evaluated every time (see the discussion before `nf`). It is safer to use
+-- this function instead of `nfIO` unless you deliberately do not want to
+-- evaluate the pure part of the computation every time. This is the function
+-- that you would want to use almost always.  It can even be used to benchmark
+-- pure computations by wrapping them in IO.
 nfAppIO :: NFData b => (a -> IO b) -> a -> Benchmarkable
 nfAppIO = impureFunc rnf
 {-# INLINE nfAppIO #-}
 
--- | Perform an action, then evaluate its result to weak head normal
--- form (WHNF).
--- This function constructs the 'IO b' value on each iteration,
--- similar to 'whnf'.
--- This is particularly useful for 'IO' actions where the bulk of the
--- work is not bound by IO, but by pure computations that may
--- optimize away if the argument is known statically, as in 'nfIO'.
+-- | Construct and perform an IO computation, then evaluate its result to weak
+-- head normal form (WHNF).  This is an IO version of `whnf`. It makes sure
+-- that any pure component of the computation used to construct the IO
+-- computation is evaluated every time (see the discussion before `nf`). It is
+-- safer to use this function instead of `whnfIO` unless you deliberately do
+-- not want to evaluate the pure part of the computation every time.
 whnfAppIO :: (a -> IO b) -> a -> Benchmarkable
 whnfAppIO = impureFunc id
 {-# INLINE whnfAppIO #-}
