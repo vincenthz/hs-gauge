@@ -1,3 +1,15 @@
+# Unreleased
+
+* `Enhancement`: Add `nfAppIO` and `whnfAppIO` functions, which take a function
+  and its argument separately like `nf`/`whnf`, but whose function returns `IO`
+  like `nfIO`/`whnfIO`. This is useful for benchmarking functions in which the
+  bulk of the work is not bound by IO, but by pure computations that might
+  otherwise be optimized away if the argument is known statically.
+
+* `Bug Fix`: Pass `-m exact` option to the child processes used to run
+  benchmarks in an isolated manner. This avoids running a wrong benchmark due
+  to the default prefix match.
+
 # 0.2.3
 
 * Add a new benchmark matching option "-m exact" to match the benchmark name
