@@ -58,7 +58,6 @@ Dependencies removed:
 * cereal 0.5.4.0
 * code-page 0.1.3
 * containers 0.5.7.1
-* criterion 1.2.2.0
 * directory 1.3.0.0
 * dlist 0.8.0.3
 * erf 2.0.0.0

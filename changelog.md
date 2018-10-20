@@ -1,4 +1,4 @@
-# Unreleased
+# 0.2.4
 
 * `Enhancement`: Add `nfAppIO` and `whnfAppIO` functions, which take a function
   and its argument separately like `nf`/`whnf`, but whose function returns `IO`
