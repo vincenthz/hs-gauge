@@ -1,3 +1,7 @@
+# Unreleased
+
+* Add GHCJS support (statistical analysis is not supported)
+
 # 0.2.4
 
 * `Enhancement`: Add `nfAppIO` and `whnfAppIO` functions, which take a function
