@@ -4,6 +4,7 @@
 --
 -- Various system time gathering methods
 --
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE ForeignFunctionInterface   #-}
 {-# LANGUAGE KindSignatures             #-}
@@ -31,6 +32,10 @@ import Foreign.Ptr
 import Foreign.Storable
 import Foreign.Marshal.Alloc (alloca, allocaBytes)
 import Prelude -- Silence redundant import warnings
+
+#ifdef __GHCJS__
+import Foreign.C
+#endif
 
 data MeasurementType = Differential | Absolute
 
@@ -71,6 +76,58 @@ withMetrics f = allocaBytes (sizeTimeRecord * 2) $ \ptr -> do
     getRecordPtr ptr2
     (,,) <$> pure a <*> peek ptr <*> peek ptr2
 
+#ifdef __GHCJS__
+data CTimespec = MkCTimespec CTime CLong
+
+instance Storable CTimespec where
+  sizeOf _ = 8
+  alignment _ = 4
+  peek p = do
+    s  <- peekByteOff p 0
+    ns <- peekByteOff p 4
+    return (MkCTimespec s ns)
+  poke p (MkCTimespec s ns) = do
+    pokeByteOff p 0 s
+    pokeByteOff p 4 ns
+
+foreign import ccall unsafe "time.h clock_gettime"
+    clock_gettime :: CInt -> Ptr CTimespec -> IO CInt
+
+-- | Get the current POSIX time from the system clock.
+getRecordPtr :: Ptr (TimeRecord 'Absolute) -> IO ()
+getRecordPtr ptr = do
+    MkCTimespec (CTime sec) (CLong nsec) <-
+        alloca (\ptspec -> do
+            throwErrnoIfMinus1_ "clock_gettime" $
+                clock_gettime 0 ptspec
+            peek ptspec
+        )
+    poke ptr (TimeRecord 
+        (ClockTime ((fromIntegral sec) * 1000000000 + fromIntegral nsec))
+        (CpuTime 0)
+        (Cycles 0))
+
+initialize :: IO ()
+initialize = return ()
+
+getCycles :: IO (Cycles 'Absolute)
+getCycles = undefined
+
+getTime :: IO Double
+getTime = do
+    MkCTimespec (CTime sec) (CLong nsec) <-
+        alloca (\ptspec -> do
+            throwErrnoIfMinus1_ "clock_gettime" $
+                clock_gettime 0 ptspec
+            peek ptspec
+        )
+    return $ fromIntegral sec + (fromIntegral nsec / 1000000000)
+
+getCPUTime :: IO Double
+getCPUTime = undefined
+
+#else
+
 -- | Set up time measurement.
 foreign import ccall unsafe "gauge_inittime" initialize :: IO ()
 
@@ -89,3 +146,4 @@ foreign import ccall unsafe "gauge_getcputime" getCPUTime :: IO Double
 
 -- | Record clock, cpu and cycles in one structure
 foreign import ccall unsafe "gauge_record" getRecordPtr :: Ptr (TimeRecord 'Absolute) -> IO ()
+#endif

@@ -43,10 +43,14 @@ supported = unsafePerformIO (readIORef supportedVar)
 
 supportedVar :: IORef Bool
 supportedVar = unsafePerformIO $ do
+#if __GHCJS__
+    let b = False
+#else
 #if MIN_VERSION_base(4,10,0)
     b <- GHC.getRTSStatsEnabled
 #else
     b <- (const True <$> GHC.getGCStats) `Exn.catch` \(_ :: Exn.SomeException) -> pure False
+#endif
 #endif
     newIORef b
 {-# NOINLINE supportedVar #-}
