@@ -80,15 +80,15 @@ withMetrics f = allocaBytes (sizeTimeRecord * 2) $ \ptr -> do
 data CTimespec = MkCTimespec CTime CLong
 
 instance Storable CTimespec where
-  sizeOf _ = 8
-  alignment _ = 4
-  peek p = do
-    s  <- peekByteOff p 0
-    ns <- peekByteOff p 4
-    return (MkCTimespec s ns)
-  poke p (MkCTimespec s ns) = do
-    pokeByteOff p 0 s
-    pokeByteOff p 4 ns
+    sizeOf _ = 8
+    alignment _ = 4
+    peek p = do
+      s  <- peekByteOff p 0
+      ns <- peekByteOff p 4
+      return (MkCTimespec s ns)
+    poke p (MkCTimespec s ns) = do
+      pokeByteOff p 0 s
+      pokeByteOff p 4 ns
 
 foreign import ccall unsafe "time.h clock_gettime"
     clock_gettime :: CInt -> Ptr CTimespec -> IO CInt
@@ -111,7 +111,7 @@ initialize :: IO ()
 initialize = return ()
 
 getCycles :: IO (Cycles 'Absolute)
-getCycles = undefined
+getCycles = error "GHCJS does not support measuring cycles"
 
 getTime :: IO Double
 getTime = do
@@ -124,7 +124,7 @@ getTime = do
     return $ fromIntegral sec + (fromIntegral nsec / 1000000000)
 
 getCPUTime :: IO Double
-getCPUTime = undefined
+getCPUTime = error "GHCJS does not support measuring CPUTime"
 
 #else
 
