@@ -511,7 +511,7 @@ benchNames (BenchGroup d bs) = map (addPrefix d) . concatMap benchNames $ bs
 iterateBenchmarkable :: Benchmarkable
                  -> Int64
                  -> (a -> a -> a)
-                 -> (IO () -> IO a)
+                 -> (Int64 -> IO () -> IO a)
                  -> IO a
 iterateBenchmarkable Benchmarkable{..} i comb f
     | perRun = work >>= go (i - 1)
@@ -531,12 +531,12 @@ iterateBenchmarkable Benchmarkable{..} i comb f
         clean `seq` run `seq` evaluate $ rnf env0
 
         performGC
-        f run `finally` clean <* performGC
+        f count run `finally` clean <* performGC
     {-# INLINE work #-}
 {-# INLINE iterateBenchmarkable #-}
 
 iterateBenchmarkable_ :: Benchmarkable -> Int64 -> IO ()
-iterateBenchmarkable_ bm i = iterateBenchmarkable bm i (\() () -> ()) id
+iterateBenchmarkable_ bm i = iterateBenchmarkable bm i (\() () -> ()) (const id)
 {-# INLINE iterateBenchmarkable_ #-}
 
 series :: Double -> Maybe (Int64, Double)
@@ -573,7 +573,7 @@ runBenchmarkable' bm minDuration minSamples timeLimit = do
             let !v = V.reverse (V.fromList acc)
             return (v, endTime - start, iTotal)
           else do
-               m <- measure (iterateBenchmarkable bm iters) iters
+               m <- measure (iterateBenchmarkable bm iters)
                if measTime m >= milliSecondsToDouble minDuration
                then loop niters (iTotal + iters) (m:acc)
                else loop niters (iTotal + iters) (acc)
