@@ -362,10 +362,9 @@ measureTime f = do
 -- | Invokes the supplied benchmark runner function with a combiner and a
 -- measurer that returns the measurement of a single iteration of an IO action.
 measure :: ((Measured -> Measured -> Measured)
-            -> (IO () -> IO Measured) -> IO Measured)
-        -> Int64         -- ^ Number of iterations.
+        -> (Int64 -> IO () -> IO Measured) -> IO Measured)
         -> IO Measured
-measure run iters = run addResults $ \act -> do
+measure run = run addResults $ \ !iters act -> do
 #ifdef GAUGE_MEASURE_TIME_NEW
     ((Time.TimeRecord time cpuTime cycles, startRUsage, endRUsage), gcStats) <- GC.withMetrics $ RUsage.with RUsage.Self $ measureTime act
 #else
