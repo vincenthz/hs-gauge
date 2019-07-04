@@ -140,7 +140,7 @@ toBenchmarkable f = Benchmarkable noop (const noop) (const f) False
 -- nothing.
 --
 -- If we represent the computation being benchmarked as a function, we can
--- workaround this problem, we just need to keep one of the parameters in the
+-- work around this problem, we just need to keep one of the parameters in the
 -- computation unknown and supply it as an argument to the function. When we
 -- benchmark the computation we supply the function and the argument to the
 -- benchmarking function, the argument is applied to the function at benchmark
