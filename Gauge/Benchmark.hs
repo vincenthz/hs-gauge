@@ -182,12 +182,20 @@ pureFunc reduce f0 x0 = toBenchmarkable (go f0 x0)
 
 -- | Apply an argument to a function, and evaluate the result to weak
 -- head normal form (WHNF).
+-- Argument evaluation cost is excluded from the results, see `nf`.
 whnf :: (a -> b) -> a -> Benchmarkable
 whnf = pureFunc id
 {-# INLINE whnf #-}
 
 -- | Apply an argument to a function, and evaluate the result to
 -- normal form (NF).
+-- By default, this function call will be measured several times.
+-- Argument evaluation happens only once in the first iteration.
+-- In later iterations, the previously evaluated argument value is used.
+-- By default, we discard the measurement of the first iteration
+-- so the argument evaluation cost gets excluded from the results.
+-- This default can be overriden via `includeFirstIter` in the configuration,
+-- or by @--include-first-iter@ on the command line.
 nf :: NFData b => (a -> b) -> a -> Benchmarkable
 nf = pureFunc rnf
 {-# INLINE nf #-}
