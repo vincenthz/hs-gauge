@@ -46,7 +46,7 @@ sanity useVerbose useQuick = do
                     ]
             ]
 
-    validate ("not killed for running longer than " <> fromList (show tooLong) <> " seconds") $
+    validate ("not killed for running longer than " ++ fromList (show tooLong) ++ " seconds") $
         wat === Just ()
 
 main :: IO ()
