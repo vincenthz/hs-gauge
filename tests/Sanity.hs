@@ -9,6 +9,7 @@ import qualified Gauge as C
 import           Gauge.Main.Options
 import           Gauge.Benchmark (bench, bgroup, env, whnf)
 
+import           Basement.Compat.Base ((<>))
 import           Foundation.Check
 import           Foundation.Check.Main
 
@@ -46,7 +47,7 @@ sanity useVerbose useQuick = do
                     ]
             ]
 
-    validate ("not killed for running longer than " ++ fromList (show tooLong) ++ " seconds") $
+    validate ("not killed for running longer than " <> fromList (show tooLong) <> " seconds") $
         wat === Just ()
 
 main :: IO ()
