@@ -2,7 +2,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import           System.Timeout (timeout)
-import           Data.Monoid
 import           Data.Word
 import           GHC.Exts (IsList(..))
 

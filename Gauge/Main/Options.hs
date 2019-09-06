@@ -24,8 +24,6 @@ module Gauge.Main.Options
     , Mode (..)
     ) where
 
--- Temporary: to support pre-AMP GHC 7.8.4:
-import Data.Monoid
 import Gauge.Measurement
        (validateAccessors, defaultMinSamplesNormal,
         defaultMinSamplesQuick, defaultTimeLimitNormal,
