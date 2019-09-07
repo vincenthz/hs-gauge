@@ -1,21 +1,23 @@
 # compiler supported and their equivalent LTS
-compiler: ghc-7.8 lts-2.22
 compiler: ghc-7.10 lts-6.35
 compiler: ghc-8.0 lts-9.21
 compiler: ghc-8.2 lts-10.4
-compiler: ghc-8.2-noanalysis lts-10.4
-compiler: ghc-8.4 nightly-2018-06-23
+compiler: ghc-8.4 lts-12.26
+compiler: ghc-8.6 lts-14.4
+compiler: ghc-8.6-noanalysis lts-14.4
+compiler: ghc-8.8 ghc-8.8.1
 
 # options
 # option: alias x=y z=v
 
 # builds 
-build: ghc-7.8 nohaddock extradep=basement-0.0.6 extradep=foundation-0.0.19
 build: ghc-7.10 extradep=basement-0.0.6 extradep=foundation-0.0.19
 build: ghc-8.0
-build: ghc-8.2-noanalysis flag=gauge:-analysis
-build: ghc-8.2 os=linux,osx,windows
-build: ghc-8.4 os=linux,windows
+build: ghc-8.6-noanalysis flag=gauge:-analysis
+build: ghc-8.2 os=linux
+build: ghc-8.4 os=linux
+build: ghc-8.6 os=linux,osx,windows
+build: ghc-8.8 os=linux,osx,windows extradep=basement-0.0.11@sha256:af43e2e334e515b52ca309919b135c51b5e9411e6d4c68d0e8950d61eb5f25d1,5711 extradep=vector-0.12.0.3@sha256:1422b0bcf4e7675116ca8d9f473bf239850c58c4518a56010e3bfebeac345ace,7171 extradep=primitive-0.7.0.0@sha256:ee352d97cc390d8513530029a2213a95c179a66c406906b18d03702c1d9ab8e5,3416 extradep=foundation-0.0.25@sha256:e24936100ca6c1778d671994eb3f179cf18ca7c772cc831a2c8b380dcad445df,12036
 
 # packages
 package: '.'

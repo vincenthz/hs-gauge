@@ -2,7 +2,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import           System.Timeout (timeout)
-import           Data.Monoid
 import           Data.Word
 import           GHC.Exts (IsList(..))
 
@@ -10,6 +9,7 @@ import qualified Gauge as C
 import           Gauge.Main.Options
 import           Gauge.Benchmark (bench, bgroup, env, whnf)
 
+import           Basement.Compat.Base ((<>))
 import           Foundation.Check
 import           Foundation.Check.Main
 

@@ -24,8 +24,6 @@ module Gauge.Main.Options
     , Mode (..)
     ) where
 
--- Temporary: to support pre-AMP GHC 7.8.4:
-import Data.Monoid
 import Gauge.Measurement
        (validateAccessors, defaultMinSamplesNormal,
         defaultMinSamplesQuick, defaultTimeLimitNormal,
@@ -263,7 +261,7 @@ opts =
                     "exact"    -> Exact
                     "pattern"  -> Pattern
                     "ipattern" -> IPattern
-                    _          -> optionError ("unknown match type: " <> s)
+                    _          -> optionError ("unknown match type: " ++ s)
          in v { match = m }
     setMode m v = v { mode = m }
     setDisplayMode m v = v { displayMode = m }
@@ -307,12 +305,12 @@ describe :: String
 describe = usageInfo header opts
 
 header :: String
-header = "Microbenchmark suite - " <> versionInfo
+header = "Microbenchmark suite - " ++ versionInfo
 
 -- | A string describing the version of this benchmark (really, the
 -- version of gauge that was used to build it).
 versionInfo :: String
-versionInfo = "built with gauge " <> showVersion version
+versionInfo = "built with gauge " ++ showVersion version
 
 regressParams :: String -> ([String], String)
 regressParams m

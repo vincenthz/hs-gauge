@@ -101,6 +101,9 @@ library
   other-modules:
     Paths_gauge
 
+  if impl(ghc < 7.10)
+    buildable: False
+
   build-depends:
     base >= 4.7 && < 5,
     basement >= 0.0.4,
@@ -125,6 +128,7 @@ test-suite sanity
     base,
     bytestring,
     gauge,
+    basement,
     foundation
 
 test-suite cleanup
