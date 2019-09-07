@@ -6,5 +6,6 @@ cabal.sandbox.config
 *~
 .\#*
 *.swp
+stack.yaml.lock
 sanity.*
 copydeps/
