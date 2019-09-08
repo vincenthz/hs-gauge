@@ -1,6 +1,8 @@
-# Unreleased
+# 0.2.5
 
 * Add GHCJS support (statistical analysis is not supported)
+* Fix issue with perRunEnv
+* Drop support for GHC 7.8
 
 # 0.2.4
 

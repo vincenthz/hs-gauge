@@ -1,5 +1,5 @@
 name:           gauge
-version:        0.2.4
+version:        0.2.5
 synopsis:       small framework for performance measurement and analysis
 license:        BSD3
 license-file:   LICENSE
@@ -16,11 +16,12 @@ extra-source-files:
   changelog.md
   cbits/*.h
 tested-with:
-  GHC==7.8.4,
   GHC==7.10.3,
   GHC==8.0.2,
   GHC==8.2.2,
-  GHC==8.4.3
+  GHC==8.4.3,
+  GHC==8.6.5,
+  GHC==8.8.1
 
 description:
   This library provides a powerful but simple way to measure software
