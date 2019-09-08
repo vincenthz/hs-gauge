@@ -125,7 +125,7 @@ test-suite sanity
   ghc-options:          -O2 -Wall -rtsopts
 
   build-depends:
-    base,
+    base > 0 && < 1000,
     bytestring,
     gauge,
     basement,
@@ -141,7 +141,7 @@ test-suite cleanup
     -Wall -threaded     -O0 -rtsopts
 
   build-depends:
-    base,
+    base > 0 && < 1000,
     bytestring,
     gauge,
     deepseq,
@@ -154,7 +154,7 @@ benchmark self
   default-language:     Haskell2010
   main-is:              Main.hs
   build-depends:
-    base,
+    base > 0 && < 1000,
     gauge
 
 source-repository head
