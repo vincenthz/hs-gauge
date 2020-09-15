@@ -63,6 +63,7 @@ module Gauge.Benchmark
     -- * Running Benchmarks
     , runBenchmark
     , BenchmarkAnalysis(..)
+    , runBenchmarkable'
     ) where
 
 import Control.Applicative
