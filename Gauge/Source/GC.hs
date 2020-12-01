@@ -5,7 +5,6 @@
 -- Metrics gathering related to the GHC RTS / GC
 --
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Gauge.Source.GC
     ( Metrics(..)
@@ -70,7 +69,7 @@ data Metrics = Metrics
     , mutCpuSeconds  :: {-# UNPACK #-} !NanoSeconds -- ^ mutator cpu time measurement
     , gcWallSeconds  :: {-# UNPACK #-} !NanoSeconds -- ^ gc wall time measurement
     , gcCpuSeconds   :: {-# UNPACK #-} !NanoSeconds -- ^ gc cpu time measurement
-    } deriving (Show,Eq)
+    } deriving (Show, Eq)
 
 diffMetrics :: AbsMetrics -> AbsMetrics -> Metrics
 diffMetrics (AbsMetrics end) (AbsMetrics start) =
@@ -109,7 +108,7 @@ diffMetrics (AbsMetrics end) (AbsMetrics start) =
     (-*) :: Int64 -> Int64 -> Word64
     (-*) a b
         | a >= b    = fromIntegral (a - b)
-        | otherwise = (-1)
+        | otherwise = -1
 
     (-*?) :: Int64 -> Int64 -> Optional Word64
     (-*?) a b

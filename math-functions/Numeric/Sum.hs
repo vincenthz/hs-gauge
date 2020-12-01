@@ -22,7 +22,8 @@
 -- summation/, which reduce the accumulation of numeric error so that
 -- it either grows much more slowly than the number of inputs
 -- (e.g. logarithmically), or remains constant.
-module Numeric.Sum (
+module Numeric.Sum
+    (
     -- * Summation type class
       Summation(..)
     , sumVector

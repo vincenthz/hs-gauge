@@ -10,10 +10,11 @@
 -- we implement the necessary minimum here.
 
 module Statistics.Matrix
-    ( -- * Data types
+    (
+    -- * Data types
       Matrix(..)
     , Vector
-      -- * Conversion from/to lists/vectors
+    -- * Conversion from/to lists/vectors
     , fromVector
     , dimension
     -- , center

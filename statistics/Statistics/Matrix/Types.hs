@@ -9,8 +9,7 @@
 -- we implement the necessary minimum here.
 
 module Statistics.Matrix.Types
-    (
-      Vector
+    ( Vector
     , MVector
     , Matrix(..)
     , MMatrix(..)
