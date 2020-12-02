@@ -22,11 +22,11 @@ import Data.List (intercalate)
 --
 -- The content inside is properly escaped
 newtype Field = Field { unField :: String }
-    deriving (Show,Eq)
+    deriving (Show, Eq)
 
 -- | A Row of fields
 newtype Row = Row [Field]
-    deriving (Show,Eq)
+    deriving (Show, Eq)
 
 -- | Create a field from Double
 float :: Double -> Field
@@ -70,7 +70,7 @@ outputRow (Row fields) = intercalate "," $ map unField fields
 -- * normal quotes escapes
 -- * content need doubling because of double quote in content
 data Escaping = NoEscape | Escape | EscapeDoubling
-    deriving (Show,Eq,Ord)
+    deriving (Show, Eq, Ord)
 
 write :: Maybe FilePath
       -> Row

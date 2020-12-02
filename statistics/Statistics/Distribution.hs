@@ -13,7 +13,7 @@
 
 module Statistics.Distribution
     (
-      -- * Type classes
+    -- * Type classes
       Distribution(..)
     , ContDistr(..)
     ) where

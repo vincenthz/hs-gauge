@@ -6,8 +6,7 @@
 -- Useful matrix functions.
 
 module Statistics.Matrix.Algorithms
-    (
-      qr
+    ( qr
     ) where
 
 import Control.Applicative

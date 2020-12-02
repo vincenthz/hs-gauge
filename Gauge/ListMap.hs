@@ -19,7 +19,7 @@ import           Data.List hiding (lookup)
 import           Data.Function (on)
 
 newtype Map k v = Map [(k,v)]
-    deriving (Show,Eq,Typeable,Generic, NFData)
+    deriving (Show, Eq, Typeable, Generic, NFData)
 
 fromList :: Ord k => [(k,v)] -> Map k v
 fromList = Map . map head . groupBy ((==) `on` fst) . sortBy (compare `on` fst)

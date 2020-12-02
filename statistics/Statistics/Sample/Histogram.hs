@@ -14,7 +14,7 @@
 module Statistics.Sample.Histogram
     (
     -- * Building blocks
-    histogram_
+      histogram_
     ) where
 
 import Numeric.MathFunctions.Constants (m_epsilon)

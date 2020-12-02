@@ -10,15 +10,15 @@
 -- 
 module Statistics.Internal (
     -- * Default definitions for Show
-    defaultShow1
-  , defaultShow2
+      defaultShow1
+    , defaultShow2
     -- * Default definitions for Read
-  , defaultReadPrecM1
-  , defaultReadPrecM2
+    , defaultReadPrecM1
+    , defaultReadPrecM2
     -- * Reexports
-  , Show(..)
-  , Read(..)
-  ) where
+    , Show(..)
+    , Read(..)
+    ) where
 
 import Control.Applicative
 import Control.Monad

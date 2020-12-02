@@ -6,8 +6,7 @@
 -- Basic mutable matrix operations.
 
 module Statistics.Matrix.Mutable
-    (
-      MMatrix(..)
+    ( MMatrix(..)
     , MVector
     , replicate
     , thaw

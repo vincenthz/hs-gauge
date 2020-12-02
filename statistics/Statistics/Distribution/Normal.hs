@@ -14,8 +14,7 @@
 -- distribution that describes data that cluster around a mean.
 
 module Statistics.Distribution.Normal
-    (
-      NormalDistribution
+    ( NormalDistribution
     -- * Constructors
     -- , normalDistr
     --, normalDistrE

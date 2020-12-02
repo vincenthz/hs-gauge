@@ -11,8 +11,7 @@
 --
 -- The environment in which most gauge code executes.
 module Gauge.Monad
-    (
-      Gauge
+    ( Gauge
     , Crit (..)
     , askCrit
     , askConfig

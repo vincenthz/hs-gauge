@@ -11,8 +11,7 @@
 --
 -- Internal functions for computing over samples.
 module Statistics.Sample.Internal
-    (
-      robustSumVar
+    ( robustSumVar
     , sum
     ) where
 

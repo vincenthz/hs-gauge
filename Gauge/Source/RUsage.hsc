@@ -82,7 +82,7 @@ data RUsage = RUsage
     } deriving (Show, Eq)
 
 newtype TimeVal = TimeVal MicroSeconds
-    deriving (Show,Eq)
+    deriving (Show, Eq)
 
 #ifdef SUPPORT_RUSAGE
 

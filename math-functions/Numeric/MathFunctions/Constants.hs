@@ -11,7 +11,7 @@
 
 module Numeric.MathFunctions.Constants
     (
-      -- * IEE754 constants
+    -- * IEE754 constants
       m_epsilon
     , m_huge
     , m_tiny
@@ -21,7 +21,7 @@ module Numeric.MathFunctions.Constants
     , m_NaN
     , m_max_log
     , m_min_log
-      -- * Mathematical constants
+    -- * Mathematical constants
     , m_1_sqrt_2
     , m_2_sqrt_pi
     , m_ln_sqrt_2_pi
