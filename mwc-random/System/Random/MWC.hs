@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE BangPatterns, DeriveDataTypeable, FlexibleContexts,
-    MagicHash, Rank2Types, ScopedTypeVariables, TypeFamilies,
-    ForeignFunctionInterface #-}
+{-# LANGUAGE FlexibleContexts,
+    Rank2Types, ScopedTypeVariables, TypeFamilies #-}
 -- |
 -- Module    : System.Random.MWC
 -- Copyright : (c) 2009-2012 Bryan O'Sullivan
@@ -154,20 +153,24 @@ instance Variate Word64 where
     {-# INLINE uniformR #-}
 
 instance Variate Int where
-#if WORD_SIZE_IN_BITS < 64
+#if WORD_SIZE_IN_BITS == 32
     uniform = uniform1 fromIntegral
-#else
+#elif WORD_SIZE_IN_BITS == 64
     uniform = uniform2 wordsTo64Bit
+#else
+#error "Word size is not 32 nor 64"
 #endif
     uniformR a b = uniformRange a b
     {-# INLINE uniform  #-}
     {-# INLINE uniformR #-}
 
 instance Variate Word where
-#if WORD_SIZE_IN_BITS < 64
+#if WORD_SIZE_IN_BITS == 32
     uniform = uniform1 fromIntegral
-#else
+#elif WORD_SIZE_IN_BITS == 64
     uniform = uniform2 wordsTo64Bit
+#else
+#error "Word size is not 32 nor 64"
 #endif
     uniformR a b = uniformRange a b
     {-# INLINE uniform  #-}

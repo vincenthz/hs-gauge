@@ -15,27 +15,28 @@
 --
 -- Data types common used in statistics
 module Statistics.Types
-    ( -- * Confidence level
+    (
+    -- * Confidence level
       CL
-      -- ** Accessors
+    -- ** Accessors
     , confidenceLevel
     , significanceLevel
-      -- ** Constructors
+    -- ** Constructors
     , mkCL
-      -- ** Constants and conversion to nσ
+    -- ** Constants and conversion to nσ
     , cl95
-      -- * Estimates and upper/lower limits
+    -- * Estimates and upper/lower limits
     , Estimate(..)
     -- , NormalErr(..)
     , ConfInt(..)
-      -- ** Constructors
+    -- ** Constructors
     -- , estimateNormErr
     , estimateFromInterval
     , estimateFromErr
-      -- ** Accessors
+    -- ** Accessors
     , confidenceInterval
     , Scale(..)
-      -- * Other
+    -- * Other
     , Sample
     ) where
 
@@ -149,7 +150,7 @@ cl95 = CL 0.05
 
 -- | Newtype wrapper for p-value.
 newtype PValue a = PValue a
-               deriving (Eq,Ord, Typeable, Data, Generic)
+               deriving (Eq, Ord, Typeable, Data, Generic)
 
 instance Show a => Show (PValue a) where
   showsPrec n (PValue p) = defaultShow1 "mkPValue" p n
@@ -230,7 +231,7 @@ data ConfInt a = ConfInt
   , confIntCL  :: !(CL Double)
     -- ^ Confidence level corresponding to given confidence interval.
   }
-  deriving (Read,Show,Eq,Typeable,Data,Generic)
+  deriving (Read, Show, Eq, Typeable, Data, Generic)
 
 instance NFData   a => NFData   (ConfInt a) where
     rnf (ConfInt x y _) = rnf x `seq` rnf y

@@ -12,8 +12,7 @@
 -- Haskell functions for finding the roots of mathematical functions.
 
 module Statistics.Math.RootFinding
-    (
-      Root(..)
+    ( Root(..)
     , fromRoot
     , ridders
     -- * References

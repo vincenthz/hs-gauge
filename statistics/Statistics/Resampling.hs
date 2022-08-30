@@ -17,11 +17,12 @@
 -- Resampling statistics.
 
 module Statistics.Resampling
-    ( -- * Data types
+    (
+    -- * Data types
       Bootstrap(..)
     , Estimator(..)
     , resample
-      -- * Jackknife
+    -- * Jackknife
     , jackknife
     ) where
 

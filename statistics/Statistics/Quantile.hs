@@ -19,7 +19,6 @@
 
 module Statistics.Quantile
     (
-    
     -- * Quantile estimation functions
       weightedAvg
     , Sorted(..)

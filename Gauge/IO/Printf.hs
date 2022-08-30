@@ -11,8 +11,7 @@
 
 {-# LANGUAGE CPP, FlexibleInstances, Rank2Types, TypeSynonymInstances #-}
 module Gauge.IO.Printf
-    (
-      CritHPrintfType
+    ( CritHPrintfType
     , note
     , printError
     , prolix

@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, RecordWildCards #-}
+{-# LANGUAGE DeriveDataTypeable, DeriveGeneric #-}
 
 -- |
 -- Module      : Gauge.Main.Options
